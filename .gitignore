@@ -38,11 +38,12 @@ out/
 build/
 dist/
 
-# OS & Editor / IDE Files  
-# Mac / Windows system files
+# Miscellaneous
 .DS_Store
 Thumbs.db
 .github/
+*.md
+!README.md
 
 # Docker & Infrastructure
 .docker/
