@@ -1,0 +1,52 @@
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Python / Backend (FastAPI, Celery, Temporal)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env_python/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Celery & Temporal state files
+celerybeat-schedule
+celerybeat.pid
+
+# Node.js / Frontend (Next.js)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js Build Output
+.next/
+out/
+build/
+dist/
+
+# OS & Editor / IDE Files  
+# Mac / Windows system files
+.DS_Store
+Thumbs.db
+.github/
+
+# Docker & Infrastructure
+.docker/
+docker-compose.override.yml
+pgdata/
+redisdata/
+kafkadata/
