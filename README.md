@@ -184,21 +184,3 @@ For comprehensive service layer patterns and workflow orchestration, see [docs/S
 3. **Separation of Concerns:** Routers → Services → Repositories
 4. **Event-Driven:** Jobs and applications trigger domain events
 5. **Reproducible:** Migrations ensure schema consistency across environments
-
----
-
-## 🤝 Contributing
-
-Follow the patterns established in Week 1:
-
-- Use type hints and async throughout
-- Keep repositories data-focused
-- Put business logic in services
-- Add migrations for schema changes
-- Minimal inline comments (let code speak for itself)
-
----
-
-## 📝 License
-
-Internal project for TalentSphere Inc.
