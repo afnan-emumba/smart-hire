@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!backend/.env.example
 
 # Python / Backend (FastAPI, Celery, Temporal)
 __pycache__/
@@ -44,6 +45,8 @@ Thumbs.db
 .github/
 *.md
 !README.md
+!docs/
+!docs/*.md
 
 # Docker & Infrastructure
 .docker/
