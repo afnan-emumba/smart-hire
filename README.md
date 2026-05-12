@@ -2,30 +2,63 @@
 
 A next-generation recruitment automation platform built for fast-scaling enterprises, staffing agencies, and global HR teams. SmartHire handles job publishing, candidate applications, workflow orchestration, and intelligent matching at scale.
 
-## 📋 Project Status
+## 📋 About SmartHire
 
-**Phase A (Week 1-3):** Core Recruitment Platform ✅ _In Progress_
+SmartHire is a **recruitment automation and workflow orchestration platform** designed for enterprises and staffing agencies. It streamlines job posting, candidate applications, and hiring workflows at scale.
 
-- ✅ Week 1: Foundation & Core Management
-- 🔄 Week 2: Application Workflow & Publishing Pipeline
-- ⏳ Week 3: Event-Driven System & Observability
+**Key Capabilities:**
 
-**Phase B (Week 4-5):** AI-Powered Intelligence (Future)
+- **Job & Candidate Management:** Full CRUD for job postings and candidate profiles
+- **Application Workflow:** Track candidate applications from submission to hiring decisions
+- **Async Processing:** Reliable background task execution for notifications, scoring, and analytics
+- **Scalable Architecture:** Event-driven design to handle high-volume hiring campaigns
+- **Foundation for AI:** Built to integrate intelligent candidate matching and recommendations (Phase B)
 
 ---
 
-## 🏗️ Architecture Overview
+## 🛠️ Technology Stack & Rationale
 
-SmartHire is built on an **async-first, event-driven architecture** with clear separation of concerns:
+### **Backend**
 
-- **API Layer:** FastAPI (async)
-- **Data Layer:** SQLAlchemy 2.0 + PostgreSQL
-- **Workflows:** Temporal (stateful processes)
-- **Events:** Kafka + Schema Registry
-- **Background Tasks:** Celery + RabbitMQ
-- **Observability:** Prometheus, Grafana, Jaeger, OpenTelemetry
+| Tool               | Purpose             | Why                                                                                    |
+| ------------------ | ------------------- | -------------------------------------------------------------------------------------- |
+| **Python 3.11+**   | Core language       | Strong async ecosystem, readable, industry-standard for data apps                      |
+| **FastAPI**        | REST API framework  | Async-first, automatic OpenAPI docs, dependency injection, high performance            |
+| **PostgreSQL 15**  | Primary database    | ACID compliance, JSON support (JSONB), proven at scale, excellent async driver support |
+| **SQLAlchemy 2.0** | ORM                 | Async support, relationship management, migration-friendly, type hints                 |
+| **Alembic**        | Database migrations | Version-controlled schema changes, reversible, integration with SQLAlchemy             |
+| **Pydantic v2**    | Data validation     | Type checking, serialization, OpenAPI schema generation, email validation              |
 
-For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+### **Background Processing**
+
+| Tool                  | Purpose                | Why                                                                       |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| **Temporal**          | Workflow orchestration | Stateful long-running processes (job publishing), retry logic, visibility |
+| **Kafka**             | Event streaming        | Decoupled event publishing, reliable message ordering, horizontal scaling |
+| **Celery + RabbitMQ** | Async task queue       | Simple isolated background tasks (notifications), auto-retry, monitoring  |
+
+### **Observability**
+
+| Tool              | Purpose                  | Why                                                                            |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| **Prometheus**    | Metrics collection       | Industry standard, time-series data, excellent Grafana integration             |
+| **Grafana**       | Metrics visualization    | Real-time dashboards, alerting, multi-source support                           |
+| **Jaeger**        | Distributed tracing      | Understand request flows, identify latency bottlenecks, microservice debugging |
+| **OpenTelemetry** | Instrumentation standard | Vendor-neutral, language-agnostic, integrates with Prometheus/Jaeger           |
+
+### **Infrastructure & Deployment**
+
+| Tool                        | Purpose                      | Why                                                                  |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| **Docker & Docker Compose** | Containerization & local dev | Reproducible environments, easy onboarding, production-ready locally |
+
+### **Frontend** _(Phase A minimal, Phase B full)_
+
+| Tool            | Purpose           | Why                                                                    |
+| --------------- | ----------------- | ---------------------------------------------------------------------- |
+| **Next.js 14**  | React framework   | App Router, built-in API routes, server components, TypeScript support |
+| **TailwindCSS** | Styling           | Utility-first, rapid UI development, minimal CSS surface area          |
+| **Shadcn UI**   | Component library | Headless, copy-paste components, fully customizable                    |
 
 ---
 
@@ -78,93 +111,236 @@ smart-hire/
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Python 3.11+ (for local development)
-- PostgreSQL (handled by Docker)
+- **Docker & Docker Compose** (for containerized development)
+- **Python 3.11+** (for local backend development without Docker)
+- **Node.js 18+** (for frontend development)
+- **Git** (for version control)
 
-### Setup
+### Environment Setup
 
-1. **Clone and configure:**
+SmartHire uses environment variables for configuration. Two levels of `.env` files:
 
-   ```bash
-   cp .env.example .env
-   cp backend/.env.example backend/.env
-   # Edit .env files with your local values
-   ```
+**1. Root `.env` (Docker Compose):**
 
-2. **Start the stack:**
+```bash
+cp .env.example .env
+# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV
+```
 
-   ```bash
-   docker compose up -d --build
-   ```
+**2. Backend `.env` (App Runtime):**
 
-3. **Verify health:**
-   ```bash
-   curl http://localhost:8000/health
-   # Expected: {"status":"ok","database":"up"}
-   ```
+```bash
+cp backend/.env.example backend/.env
+# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, PYTHONDONTWRITEBYTECODE, PYTHONUNBUFFERED
+```
 
-For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md).
+⚠️ **Important:** `.env` files are **never committed**. Use `.env.example` as templates.
+
+### Docker Setup (Recommended)
+
+```bash
+# Start the full stack (PostgreSQL + FastAPI)
+docker compose up -d --build
+
+# View logs
+docker compose logs -f backend
+
+# Verify health
+curl http://localhost:8000/health
+# Expected: {"status":"ok","database":"up"}
+
+# Stop the stack
+docker compose down
+```
+
+**Services:**
+
+- **Backend:** http://localhost:8000 (FastAPI)
+- **Database:** localhost:5432 (PostgreSQL)
+- **API Docs:** http://localhost:8000/docs (Swagger UI)
+
+### Local Development (Without Docker)
+
+```bash
+# Set up Python environment
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# Configure database
+cp .env.example .env
+# Edit .env with your local database credentials
+
+# Run migrations
+alembic upgrade head
+
+# Start the server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+For detailed setup including database migrations, see [docs/SETUP.md](docs/SETUP.md).
 
 ---
 
-## 📡 API Overview
+## 📡 API & Endpoints
+
+SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, and applications.
+
+**Available Endpoints:**
 
 - `GET /health` — System health check
 - `POST /recruiters` — Create recruiter
-- `POST /candidates` — Create candidate
-- `POST /jobs` — Post job opening
+- `GET /recruiters/{id}` — Retrieve recruiter details
+- `POST /candidates` — Register candidate
+- `GET /candidates/{id}` — Retrieve candidate profile
+- `POST /jobs` — Post a job opening
+- `GET /jobs/{id}` — Retrieve job details
+- `GET /jobs` — List jobs (with filters)
 - `POST /applications` — Submit application
-- `GET /docs` — Swagger UI
+- `GET /applications/{id}` — Retrieve application
+- `GET /docs` — Interactive Swagger UI
 
-The interactive API reference is available at `/docs` when the backend is running.
+**Authentication:**
+
+Mock auth via request headers:
+
+- `X-User-ID` — Unique user identifier
+- `X-User-Role` — User role (RECRUITER or CANDIDATE)
+
+Example:
+
+```bash
+curl -X POST http://localhost:8000/jobs \
+  -H "X-User-ID: recruiter-123" \
+  -H "X-User-Role: RECRUITER" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Backend Engineer", "description": "...", "recruiter_id": "..."}'
+```
 
 ---
 
 ## 💾 Database Schema
 
-SmartHire uses PostgreSQL with async SQLAlchemy. Core entities:
+SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes four core entities:
 
-- **recruiters** — Hiring team members
-- **candidates** — Job seekers
-- **jobs** — Job postings with workflow stages
-- **applications** — Candidate applications with tracking
+| Table            | Purpose               | Key Fields                                                                                         |
+| ---------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| **recruiters**   | Hiring team members   | id (UUID), email, name, timestamps                                                                 |
+| **candidates**   | Job seekers           | id (UUID), email, name, resume_data (JSONB), timestamps                                            |
+| **jobs**         | Job postings          | id (UUID), recruiter_id (FK), title, description, status, required_skills (JSONB), timestamps      |
+| **applications** | Candidate submissions | id (UUID), job_id (FK), candidate_id (FK), recruiter_id (FK), status, metadata (JSONB), timestamps |
 
-For schema details and ER diagram, see [docs/DATABASE.md](docs/DATABASE.md).
+**Key Design Features:**
+
+- **UUID Primary Keys:** All entities use UUID for global uniqueness
+- **JSONB Columns:** Flexible data storage for resume_data, job requirements, and application scores
+- **Foreign Keys:** Strict referential integrity between entities
+- **Timestamps:** Automatic `created_at` and `updated_at` tracking
+- **Unique Constraints:** Duplicate application prevention (job_id, candidate_id)
+
+For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATABASE.md).
 
 ---
 
-## 🔧 Development
+## 🔧 Development Guide
 
-### Run locally with Docker:
+### Project Structure
+
+```
+smart-hire/
+├── README.md                          # Project overview and setup
+├── docs/
+│   ├── ARCHITECTURE.md                # System design, flow diagrams, data flows
+│   ├── DATABASE.md                    # Schema design, ER diagrams, migrations
+│   ├── SETUP.md                       # Detailed installation and configuration
+│   └── SERVICES.md                    # Service layer patterns, business logic
+├── docker-compose.yml                 # Local dev infrastructure
+├── .env.example & backend/.env.example # Environment templates
+│
+├── backend/
+│   ├── requirements.txt               # Python dependencies
+│   ├── Dockerfile & .dockerignore
+│   ├── alembic.ini & migrations/      # Database versioning
+│   └── app/
+│       ├── main.py                    # FastAPI application entry
+│       ├── core/                      # config.py, auth.py (settings & auth)
+│       ├── db/                        # models.py, session.py (ORM & connection)
+│       ├── schemas/                   # Pydantic validation models
+│       ├── repositories/              # Data access layer (CRUD)
+│       ├── services/                  # Business logic layer
+│       └── api/                       # HTTP routers & endpoints
+│
+├── frontend/                          # Next.js 14 UI (Phase A: minimal)
+│   ├── package.json & tsconfig.json
+│   ├── app/                           # App Router structure
+│   ├── lib/                           # Utilities (API client, etc.)
+│   └── components/                    # Reusable React components
+│
+└── WEEK_1_PLAN.md & WEEK_2_PLAN.md   # Weekly implementation checklists
+```
+
+### Common Commands
+
+**Docker:**
 
 ```bash
+# Start the stack
 docker compose up -d --build
+
+# View logs
 docker compose logs -f backend
+
+# Access database CLI
+docker exec -it smarthire-postgres psql -U smarthire -d smarthire
+
+# Stop everything
+docker compose down
 ```
 
-### Run backend only (with local DB):
+**Database Migrations:**
 
 ```bash
 cd backend
-source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+
+# Create a new migration
+alembic revision --autogenerate -m "Describe your change"
+
+# Apply pending migrations
+alembic upgrade head
+
+# View migration history
+alembic history --verbose
 ```
 
-### Database migrations:
+**Backend Development:**
 
 ```bash
 cd backend
-alembic upgrade head      # Apply migrations
-alembic revision --autogenerate -m "Description"  # Create new migration
+source .venv/bin/activate
+
+# Run tests or linting (if configured)
+pytest
+flake8 app
+
+# Run with hot reload
+uvicorn app.main:app --reload --port 8000
 ```
 
----
+### Code Organization
 
-## 🏛️ Architecture & Services
+- **Routers** (`api/routers/`) — HTTP request/response handling, validation
+- **Services** (`services/`) — Business logic, orchestration, validation
+- **Repositories** (`repositories/`) — Database queries, no business logic
+- **Schemas** (`schemas/`) — Pydantic models for validation and serialization
 
-For comprehensive service layer patterns and workflow orchestration, see [docs/SERVICES.md](docs/SERVICES.md).
+This layered approach ensures:
+
+- **Testability:** Each layer can be tested independently
+- **Reusability:** Services can be called from multiple routers
+- **Maintainability:** Clear responsibility separation
+
+For detailed patterns, see [docs/SERVICES.md](docs/SERVICES.md).
 
 ---
 
