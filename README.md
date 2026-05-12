@@ -191,14 +191,15 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 
 - `GET /health` — System health check
 - `POST /recruiters` — Create recruiter
-- `GET /recruiters/{id}` — Retrieve recruiter details
 - `POST /candidates` — Register candidate
 - `GET /candidates/{id}` — Retrieve candidate profile
+- `GET /candidates` — List candidates with pagination
 - `POST /jobs` — Post a job opening
 - `GET /jobs/{id}` — Retrieve job details
 - `GET /jobs` — List jobs (with filters)
 - `POST /applications` — Submit application
 - `GET /applications/{id}` — Retrieve application
+- `GET /applications` — List applications with filters
 - `GET /docs` — Interactive Swagger UI
 
 **Authentication:**

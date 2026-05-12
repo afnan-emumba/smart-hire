@@ -54,3 +54,9 @@ class ApplicationRepository:
             .order_by(Application.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def list_all(self) -> list[Application]:
+        result = await self.session.execute(
+            select(Application).order_by(Application.created_at.desc())
+        )
+        return list(result.scalars().all())
