@@ -246,57 +246,15 @@ For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATA
 
 ## 🔧 Development Guide
 
-### Project Structure
-
-```
-smart-hire/
-├── README.md                          # Project overview and setup
-├── docs/
-│   ├── ARCHITECTURE.md                # System design, flow diagrams, data flows
-│   ├── DATABASE.md                    # Schema design, ER diagrams, migrations
-│   ├── SETUP.md                       # Detailed installation and configuration
-│   └── SERVICES.md                    # Service layer patterns, business logic
-├── docker-compose.yml                 # Local dev infrastructure
-├── .env.example & backend/.env.example # Environment templates
-│
-├── backend/
-│   ├── requirements.txt               # Python dependencies
-│   ├── Dockerfile & .dockerignore
-│   ├── alembic.ini & migrations/      # Database versioning
-│   └── app/
-│       ├── main.py                    # FastAPI application entry
-│       ├── core/                      # config.py, auth.py (settings & auth)
-│       ├── db/                        # models.py, session.py (ORM & connection)
-│       ├── schemas/                   # Pydantic validation models
-│       ├── repositories/              # Data access layer (CRUD)
-│       ├── services/                  # Business logic layer
-│       └── api/                       # HTTP routers & endpoints
-│
-├── frontend/                          # Next.js 14 UI (Phase A: minimal)
-│   ├── package.json & tsconfig.json
-│   ├── app/                           # App Router structure
-│   ├── lib/                           # Utilities (API client, etc.)
-│   └── components/                    # Reusable React components
-│
-└── WEEK_1_PLAN.md & WEEK_2_PLAN.md   # Weekly implementation checklists
-```
-
 ### Common Commands
 
 **Docker:**
 
+See [Docker Setup](#docker-setup-recommended) section for startup instructions. Additional utilities:
+
 ```bash
-# Start the stack
-docker compose up -d --build
-
-# View logs
-docker compose logs -f backend
-
 # Access database CLI
 docker exec -it smarthire-postgres psql -U smarthire -d smarthire
-
-# Stop everything
-docker compose down
 ```
 
 **Database Migrations:**
@@ -349,7 +307,7 @@ For detailed patterns, see [docs/SERVICES.md](docs/SERVICES.md).
 
 - **[docs/SETUP.md](docs/SETUP.md)** — Installation, configuration, and local development flow
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — System design and Mermaid architecture diagrams
-- **[docs/DATABASE.md](docs/DATABASE.md)** — Schema design, Mermaid ER diagram, and migrations
+- **[docs/DATABASE.md](docs/DATABASE.md)** — Schema design, ER diagram, and migrations
 - **[docs/SERVICES.md](docs/SERVICES.md)** — Service patterns, orchestration boundaries, and request flows
 
 ---
