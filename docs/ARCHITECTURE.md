@@ -9,7 +9,6 @@ SmartHire is built as an async-first, event-driven platform with clear layer bou
 ```mermaid
 flowchart TD
     user[Recruiters and Candidates]
-    frontend[Next.js Frontend]
     api[FastAPI API Layer]
     services[Service Layer]
     repos[Repository Layer]
@@ -20,9 +19,7 @@ flowchart TD
     redis[(Redis Cache)]
     observe[Observability Stack: Prometheus, Grafana, Jaeger, OpenTelemetry]
 
-    user --> frontend
     user --> api
-    frontend --> api
     api --> services
     services --> repos
     repos --> postgres
@@ -43,7 +40,7 @@ flowchart TD
 flowchart TB
     subgraph Presentation
         swagger[Swagger UI]
-        web[Next.js App]
+        postman[Postman]
     end
 
     subgraph API
@@ -73,7 +70,7 @@ flowchart TB
     end
 
     swagger --> routers
-    web --> routers
+    postman --> routers
     routers --> auth
     routers --> recruiterSvc
     routers --> candidateSvc
@@ -118,8 +115,13 @@ flowchart TB
 ### Persistence Layer
 
 - Primary store: PostgreSQL
-- Flexible fields: JSONB for resume data, parsed job content, and application metadata
+- Flexible fields: JSONB for application resume data, parsed job content, and application metadata
 - Schema control: Alembic migrations committed to git
+
+### Manual Validation Surface
+
+- Swagger UI and Postman are the primary clients for the current backend-only scope.
+- Resume files are uploaded per application and stored locally in development.
 
 ### Async Processing
 

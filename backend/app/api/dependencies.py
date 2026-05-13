@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
+from app.core.config import get_settings
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.job_repo import JobRepository
@@ -40,4 +41,5 @@ async def get_application_service(
         application_repo=ApplicationRepository(session),
         job_repo=JobRepository(session),
         candidate_repo=CandidateRepository(session),
+        settings=get_settings(),
     )

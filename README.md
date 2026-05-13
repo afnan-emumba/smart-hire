@@ -52,14 +52,6 @@ SmartHire is a **recruitment automation and workflow orchestration platform** de
 | --------------------------- | ---------------------------- | -------------------------------------------------------------------- |
 | **Docker & Docker Compose** | Containerization & local dev | Reproducible environments, easy onboarding, production-ready locally |
 
-### **Frontend** _(Phase A minimal, Phase B full)_
-
-| Tool            | Purpose           | Why                                                                    |
-| --------------- | ----------------- | ---------------------------------------------------------------------- |
-| **Next.js 14**  | React framework   | App Router, built-in API routes, server components, TypeScript support |
-| **TailwindCSS** | Styling           | Utility-first, rapid UI development, minimal CSS surface area          |
-| **Shadcn UI**   | Component library | Headless, copy-paste components, fully customizable                    |
-
 ---
 
 ## 🗂️ Project Structure
@@ -95,14 +87,8 @@ smart-hire/
 │       └── api/
 │           ├── router.py              # Main router
 │           └── routers/               # Endpoint groups
-│
-└── frontend/
-    ├── package.json
-    ├── app/
-    │   ├── layout.tsx
-    │   ├── page.tsx
-    │   └── components/
-    └── lib/
+├── backend/postman/                   # Postman collection for API validation
+└── backend/uploads/                   # Local dev resume storage (git-ignored)
 ```
 
 ---
@@ -113,7 +99,6 @@ smart-hire/
 
 - **Docker & Docker Compose** (for containerized development)
 - **Python 3.11+** (for local backend development without Docker)
-- **Node.js 18+** (for frontend development)
 - **Git** (for version control)
 
 ### Environment Setup
@@ -124,14 +109,14 @@ SmartHire uses environment variables for configuration. Two levels of `.env` fil
 
 ```bash
 cp .env.example .env
-# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV
+# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV, RESUME_UPLOAD_DIR
 ```
 
 **2. Backend `.env` (App Runtime):**
 
 ```bash
 cp backend/.env.example backend/.env
-# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, PYTHONDONTWRITEBYTECODE, PYTHONUNBUFFERED
+# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, RESUME_UPLOAD_DIR, PYTHONDONTWRITEBYTECODE, PYTHONUNBUFFERED
 ```
 
 ⚠️ **Important:** `.env` files are **never committed**. Use `.env.example` as templates.
@@ -198,9 +183,17 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /jobs/{id}` — Retrieve job details
 - `GET /jobs` — List jobs (with filters)
 - `POST /applications` — Submit application
+- `POST /applications/{id}/resume` — Upload a resume file for a specific application
 - `GET /applications/{id}` — Retrieve application
 - `GET /applications` — List applications with filters
 - `GET /docs` — Interactive Swagger UI
+- `GET /redoc` — Alternate API documentation
+
+**Manual API Testing:**
+
+- Use Swagger UI at `/docs` for quick request/response inspection.
+- Use Postman for the full Day 5 validation flow. A starter collection lives in `backend/postman/`.
+- For local development, resume uploads are stored on disk under `backend/uploads/` and should remain untracked.
 
 **Authentication:**
 
@@ -219,26 +212,36 @@ curl -X POST http://localhost:8000/jobs \
   -d '{"title": "Backend Engineer", "description": "...", "recruiter_id": "..."}'
 ```
 
+Resume upload example:
+
+```bash
+curl -X POST http://localhost:8000/applications/<application-id>/resume \
+  -H "X-User-ID: candidate-123" \
+  -H "X-User-Role: CANDIDATE" \
+  -F "resume=@resume.pdf"
+```
+
 ---
 
 ## 💾 Database Schema
 
 SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes four core entities:
 
-| Table            | Purpose               | Key Fields                                                                                         |
-| ---------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| **recruiters**   | Hiring team members   | id (UUID), email, name, timestamps                                                                 |
-| **candidates**   | Job seekers           | id (UUID), email, name, resume_data (JSONB), timestamps                                            |
-| **jobs**         | Job postings          | id (UUID), recruiter_id (FK), title, description, status, required_skills (JSONB), timestamps      |
-| **applications** | Candidate submissions | id (UUID), job_id (FK), candidate_id (FK), recruiter_id (FK), status, metadata (JSONB), timestamps |
+| Table            | Purpose               | Key Fields                                                                                                                                    |
+| ---------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **recruiters**   | Hiring team members   | id (UUID), email, name, timestamps                                                                                                            |
+| **candidates**   | Job seekers           | id (UUID), email, name, timestamps                                                                                                            |
+| **jobs**         | Job postings          | id (UUID), recruiter_id (FK), title, description, status, required_skills (JSONB), timestamps                                                 |
+| **applications** | Candidate submissions | id (UUID), job_id (FK), candidate_id (FK), recruiter_id (FK), status, metadata (JSONB), resume file metadata, resume_data (JSONB), timestamps |
 
 **Key Design Features:**
 
 - **UUID Primary Keys:** All entities use UUID for global uniqueness
-- **JSONB Columns:** Flexible data storage for resume_data, job requirements, and application scores
+- **JSONB Columns:** Flexible data storage for application resume parsing output, job requirements, and application scores
 - **Foreign Keys:** Strict referential integrity between entities
 - **Timestamps:** Automatic `created_at` and `updated_at` tracking
 - **Unique Constraints:** Duplicate application prevention (job_id, candidate_id)
+- **Application-Scoped Resumes:** Each application can store a different uploaded resume for the target role
 
 For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATABASE.md).
 

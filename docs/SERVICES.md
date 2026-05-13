@@ -31,8 +31,8 @@ flowchart LR
 
 ### CandidateService
 
-- Create and update candidate records.
-- Coordinate resume-related enrichment work when needed.
+- Create and fetch candidate records.
+- Keep candidate profiles independent from application-specific resume variants.
 
 ### JobService
 
@@ -46,6 +46,7 @@ flowchart LR
 - Validate job and candidate existence.
 - Prevent duplicate applications.
 - Create application records.
+- Attach application-specific resume files and metadata.
 - Start downstream scoring or notification workflows.
 
 ## Job Creation Flow
@@ -94,6 +95,28 @@ sequenceDiagram
     Service->>Temporal: start workflow
     Service-->>Router: response model
     Router-->>Client: 201 Created
+```
+
+## Resume Upload Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Router
+    participant Service as ApplicationService
+    participant AppRepo
+    participant Disk as Local Storage
+    participant DB as PostgreSQL
+
+    Client->>Router: POST /applications/{id}/resume
+    Router->>Service: upload_resume(application_id, file)
+    Service->>AppRepo: get_by_id(application_id)
+    AppRepo->>DB: SELECT application
+    Service->>Disk: write file to uploads/resumes
+    Service->>AppRepo: attach resume metadata
+    AppRepo->>DB: UPDATE application
+    Service-->>Router: application response
+    Router-->>Client: 200 OK
 ```
 
 ## Service Design Rules

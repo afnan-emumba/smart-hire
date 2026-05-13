@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.api.dependencies import get_application_service
 from app.core.auth import CurrentUser, get_current_user, require_role
@@ -39,3 +39,20 @@ async def list_applications(
     service: ApplicationService = Depends(get_application_service),
 ) -> list[ApplicationResponse]:
     return await service.list_applications(candidate_id=candidate_id, job_id=job_id)
+
+
+@router.post("/{application_id}/resume", response_model=ApplicationResponse)
+async def upload_application_resume(
+    application_id: uuid.UUID,
+    resume: UploadFile = File(...),
+    current_user: CurrentUser = Depends(require_role("CANDIDATE")),
+    service: ApplicationService = Depends(get_application_service),
+) -> ApplicationResponse:
+    file_bytes = await resume.read()
+    return await service.upload_resume(
+        application_id,
+        file_name=resume.filename or "resume",
+        content_type=resume.content_type or "application/octet-stream",
+        file_bytes=file_bytes,
+        current_user=current_user,
+    )

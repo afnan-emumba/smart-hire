@@ -44,7 +44,6 @@ class Candidate(TimestampMixin, Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    resume_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     applications: Mapped[list[Application]] = relationship(back_populates="candidate")
 
@@ -110,6 +109,11 @@ class Application(TimestampMixin, Base):
         default=dict,
         server_default=text("'{}'::jsonb"),
     )
+    resume_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resume_content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resume_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    resume_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resume_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     job: Mapped[Job] = relationship(back_populates="applications")
     candidate: Mapped[Candidate] = relationship(back_populates="applications")

@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "SmartHire Backend Validation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "API validation flow for SmartHire."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "recruiterUserId", "value": "recruiter-manual-1" },
+    { "key": "candidateUserId", "value": "candidate-manual-1" },
+    { "key": "recruiterId", "value": "" },
+    { "key": "candidateId", "value": "" },
+    { "key": "jobId", "value": "" },
+    { "key": "applicationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Create Recruiter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('recruiterId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+          { "key": "X-User-Role", "value": "RECRUITER" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"recruiter@example.com\",\n  \"name\": \"Manual Recruiter\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/recruiters",
+          "host": ["{{baseUrl}}"],
+          "path": ["recruiters"]
+        }
+      }
+    },
+    {
+      "name": "Create Candidate",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('candidateId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/candidates",
+          "host": ["{{baseUrl}}"],
+          "path": ["candidates"]
+        }
+      }
+    },
+    {
+      "name": "Create Job",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('jobId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+          { "key": "X-User-Role", "value": "RECRUITER" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recruiter_id\": \"{{recruiterId}}\",\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Own async backend services and hiring workflows.\",\n  \"required_skills\": [\"python\", \"fastapi\", \"postgresql\"],\n  \"status\": \"draft\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/jobs",
+          "host": ["{{baseUrl}}"],
+          "path": ["jobs"]
+        }
+      }
+    },
+    {
+      "name": "Create Application",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('applicationId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"job_id\": \"{{jobId}}\",\n  \"candidate_id\": \"{{candidateId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/applications",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications"]
+        }
+      }
+    },
+    {
+      "name": "Upload Resume To Application",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "resume", "type": "file", "src": [] }]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/applications/{{applicationId}}/resume",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications", "{{applicationId}}", "resume"]
+        }
+      }
+    },
+    {
+      "name": "Get Application",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/applications/{{applicationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications", "{{applicationId}}"]
+        }
+      }
+    },
+    {
+      "name": "Duplicate Application Check",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"job_id\": \"{{jobId}}\",\n  \"candidate_id\": \"{{candidateId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/applications",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications"]
+        }
+      }
+    }
+  ]
+}

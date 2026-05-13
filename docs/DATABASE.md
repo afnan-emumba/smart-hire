@@ -25,7 +25,6 @@ erDiagram
         uuid id PK
         string email UK
         string name
-        jsonb resume_data
         timestamp created_at
         timestamp updated_at
     }
@@ -49,6 +48,11 @@ erDiagram
         uuid recruiter_id FK
         string status
         jsonb metadata
+        string resume_file_name
+        string resume_content_type
+        string resume_storage_path
+        timestamp resume_uploaded_at
+        jsonb resume_data
         timestamp created_at
         timestamp updated_at
     }
@@ -77,9 +81,9 @@ flowchart LR
 
 ### candidates
 
-- Purpose: job seekers and their parsed profile data.
+- Purpose: job seekers and their identity/profile data.
 - Key constraints: unique email, UUID primary key.
-- Flexible field: `resume_data` JSONB for parsed resume content.
+- Resume ownership: resumes are attached to applications, not directly to candidate profiles.
 
 ### jobs
 
@@ -93,7 +97,8 @@ flowchart LR
 - Purpose: a candidate’s application to a job.
 - Key constraints: foreign keys to jobs, candidates, and optional reviewer recruiter.
 - Duplicate protection: unique constraint on `(job_id, candidate_id)`.
-- Flexible field: `metadata` JSONB for scores, notes, and workflow outputs.
+- Resume fields: file name, content type, storage path, upload timestamp, and `resume_data` for future parsed output.
+- Flexible fields: `metadata` JSONB for scores, notes, workflow outputs, and `resume_data` JSONB for parsed resume content.
 
 ## Constraint Summary
 
@@ -118,7 +123,7 @@ flowchart LR
 
 Use JSONB for:
 
-- parsed resume content
+- parsed application resume content
 - structured job description breakdowns
 - application scoring metadata and notes
 

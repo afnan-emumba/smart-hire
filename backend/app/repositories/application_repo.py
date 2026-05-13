@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,3 +61,21 @@ class ApplicationRepository:
             select(Application).order_by(Application.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def attach_resume(
+        self,
+        application: Application,
+        *,
+        file_name: str,
+        content_type: str,
+        storage_path: str,
+        uploaded_at: datetime,
+    ) -> Application:
+        application.resume_file_name = file_name
+        application.resume_content_type = content_type
+        application.resume_storage_path = storage_path
+        application.resume_uploaded_at = uploaded_at
+
+        await self.session.commit()
+        await self.session.refresh(application)
+        return application

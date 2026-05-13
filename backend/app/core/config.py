@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")
     database_url: str = Field(alias="DATABASE_URL")
+    resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
 
     model_config = SettingsConfigDict(
         env_file=".env",
