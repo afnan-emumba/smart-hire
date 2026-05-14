@@ -9,7 +9,6 @@ SmartHire uses PostgreSQL with SQLAlchemy 2.0 async models and Alembic migration
 ```mermaid
 erDiagram
     RECRUITERS ||--o{ JOBS : posts
-    RECRUITERS ||--o{ APPLICATIONS : reviews
     CANDIDATES ||--o{ APPLICATIONS : submits
     JOBS ||--o{ APPLICATIONS : receives
 
@@ -25,6 +24,7 @@ erDiagram
         uuid id PK
         string email UK
         string name
+        jsonb master_profile_data
         timestamp created_at
         timestamp updated_at
     }
@@ -45,7 +45,6 @@ erDiagram
         uuid id PK
         uuid job_id FK
         uuid candidate_id FK
-        uuid recruiter_id FK
         string status
         jsonb metadata
         string resume_file_name
@@ -84,6 +83,7 @@ flowchart LR
 - Purpose: job seekers and their identity/profile data.
 - Key constraints: unique email, UUID primary key.
 - CRUD behavior: candidates can update and delete only their own profiles through the API.
+- Flexible fields: `master_profile_data` JSONB stores the candidate's aggregated cross-application profile, such as summary, top skills, education, and application history snapshots.
 - Resume ownership: resumes are attached to applications, not directly to candidate profiles.
 
 ### jobs
@@ -96,8 +96,9 @@ flowchart LR
 ### applications
 
 - Purpose: a candidate’s application to a job.
-- Key constraints: foreign keys to jobs, candidates, and optional reviewer recruiter.
+- Key constraints: foreign keys to jobs and candidates.
 - Duplicate protection: unique constraint on `(job_id, candidate_id)`.
+- Ownership path: recruiter visibility is derived through `applications.job_id -> jobs.recruiter_id`; no duplicate recruiter foreign key is stored on the application row.
 - Resume fields:
   - `resume_file_name`: Original filename from upload
   - `resume_content_type`: MIME type (application/pdf, application/msword, etc.)
@@ -118,12 +119,11 @@ flowchart LR
 
 ## Cascade Behavior
 
-| Foreign Key               | Delete Rule | Why                                                 |
-| ------------------------- | ----------- | --------------------------------------------------- |
-| jobs.recruiter_id         | RESTRICT    | Do not delete recruiters with owned jobs            |
-| applications.job_id       | CASCADE     | Remove applications when a job is removed           |
-| applications.candidate_id | CASCADE     | Remove applications when a candidate is removed     |
-| applications.recruiter_id | SET NULL    | Preserve application history if reviewer is removed |
+| Foreign Key               | Delete Rule | Why                                             |
+| ------------------------- | ----------- | ----------------------------------------------- |
+| jobs.recruiter_id         | RESTRICT    | Do not delete recruiters with owned jobs        |
+| applications.job_id       | CASCADE     | Remove applications when a job is removed       |
+| applications.candidate_id | CASCADE     | Remove applications when a candidate is removed |
 
 Deleting a candidate triggers database-level cascading removal of that candidate's applications.
 
@@ -131,6 +131,7 @@ Deleting a candidate triggers database-level cascading removal of that candidate
 
 Use JSONB for:
 
+- aggregated candidate master profiles
 - parsed application resume content
 - structured job description breakdowns
 - application scoring metadata and notes

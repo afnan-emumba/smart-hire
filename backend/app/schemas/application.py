@@ -20,7 +20,6 @@ class ApplicationResponse(BaseModel):
     id: uuid.UUID
     job_id: uuid.UUID
     candidate_id: uuid.UUID
-    recruiter_id: uuid.UUID | None
     status: ApplicationStatus
     metadata: dict[str, Any] = Field(
         default_factory=dict,

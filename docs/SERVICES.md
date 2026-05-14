@@ -34,6 +34,7 @@ flowchart LR
 - Create and fetch candidate records.
 - Update and delete the authenticated candidate's own profile.
 - Prevent duplicate candidate emails during create and update flows.
+- Persist `master_profile_data` as the candidate-level aggregate profile, separate from application-specific resume variants.
 - Keep candidate profiles independent from application-specific resume variants.
 
 ### JobService
@@ -51,6 +52,7 @@ flowchart LR
 - Validate job exists and is in `published` status
 - Prevent duplicate applications (unique constraint on job_id, candidate_id)
 - Create application records with server-set candidate_id
+- Resolve recruiter access through the job owner relationship instead of storing a duplicate recruiter FK on applications
 - Handle resume uploads with file-size and content-type validation
 - Authorize access: candidates see only their own apps, recruiters see apps for their jobs
 - Start downstream scoring or notification workflows

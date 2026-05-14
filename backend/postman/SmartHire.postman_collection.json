@@ -136,7 +136,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\"\n}"
+              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\",\n  \"master_profile_data\": {\n    \"personal_info\": {\n      \"phone\": \"+1-555-0198\"\n    },\n    \"master_profile\": {\n      \"summary\": \"Aggregated profile based on prior applications.\",\n      \"top_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"]\n    },\n    \"application_history\": []\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/candidates",
@@ -190,7 +190,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Manual Candidate Updated\"\n}"
+              "raw": "{\n  \"name\": \"Manual Candidate Updated\",\n  \"master_profile_data\": {\n    \"personal_info\": {\n      \"phone\": \"+1-555-0100\"\n    },\n    \"master_profile\": {\n      \"summary\": \"Updated aggregate profile for recruiter search and matching.\",\n      \"top_skills\": [\"Python\", \"FastAPI\", \"System Design\"]\n    },\n    \"application_history\": []\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}",

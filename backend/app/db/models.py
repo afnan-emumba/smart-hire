@@ -35,7 +35,6 @@ class Recruiter(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="recruiter")
-    reviewed_applications: Mapped[list[Application]] = relationship(back_populates="reviewer")
 
 
 class Candidate(TimestampMixin, Base):
@@ -44,6 +43,12 @@ class Candidate(TimestampMixin, Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    master_profile_data: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
 
     applications: Mapped[list[Application]] = relationship(back_populates="candidate")
 
@@ -90,12 +95,6 @@ class Application(TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    recruiter_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("recruiters.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -117,4 +116,3 @@ class Application(TimestampMixin, Base):
 
     job: Mapped[Job] = relationship(back_populates="applications")
     candidate: Mapped[Candidate] = relationship(back_populates="applications")
-    reviewer: Mapped[Recruiter | None] = relationship(back_populates="reviewed_applications")
