@@ -189,6 +189,104 @@
       }
     },
     {
+      "name": "Get Recruiter",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+          { "key": "X-User-Role", "value": "RECRUITER" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/recruiters/{{recruiterId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["recruiters", "{{recruiterId}}"]
+        }
+      }
+    },
+    {
+      "name": "List Candidates",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/candidates?limit=20&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["candidates"],
+          "query": [
+            { "key": "limit", "value": "20" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Candidate",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["candidates", "{{candidateId}}"]
+        }
+      }
+    },
+    {
+      "name": "List Jobs",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+          { "key": "X-User-Role", "value": "RECRUITER" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/jobs?limit=20&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["jobs"],
+          "query": [
+            { "key": "limit", "value": "20" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Job",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+          { "key": "X-User-Role", "value": "RECRUITER" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/jobs/{{jobId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["jobs", "{{jobId}}"]
+        }
+      }
+    },
+    {
+      "name": "List Applications",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+          { "key": "X-User-Role", "value": "CANDIDATE" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/applications",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications"]
+        }
+      }
+    },
+    {
       "name": "Duplicate Application Check",
       "request": {
         "method": "POST",
