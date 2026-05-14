@@ -344,6 +344,7 @@ For detailed patterns, see [docs/SERVICES.md](docs/SERVICES.md).
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — System design and Mermaid architecture diagrams
 - **[docs/DATABASE.md](docs/DATABASE.md)** — Schema design, ER diagram, and migrations
 - **[docs/SERVICES.md](docs/SERVICES.md)** — Service patterns, orchestration boundaries, and request flows
+- **[docs/PRD.md](docs/PRD.md)** — Product requirements, use cases, functional and non-functional requirements, milestones, and traceability
 
 ---
 
