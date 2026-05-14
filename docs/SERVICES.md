@@ -34,7 +34,7 @@ flowchart LR
 - Create and fetch candidate records.
 - Update and delete the authenticated candidate's own profile.
 - Prevent duplicate candidate emails during create and update flows.
-- Persist `master_profile_data` as the candidate-level aggregate profile, separate from application-specific resume variants.
+- Persist `master_profile_data` as the candidate-level aggregate profile with a strict schema: `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
 - Keep candidate profiles independent from application-specific resume variants.
 
 ### JobService

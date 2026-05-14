@@ -83,7 +83,7 @@ flowchart LR
 - Purpose: job seekers and their identity/profile data.
 - Key constraints: unique email, UUID primary key.
 - CRUD behavior: candidates can update and delete only their own profiles through the API.
-- Flexible fields: `master_profile_data` JSONB stores the candidate's aggregated cross-application profile, such as summary, top skills, education, and application history snapshots.
+- Flexible fields: `master_profile_data` JSONB stores the candidate's structured aggregate profile with canonical keys for `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
 - Resume ownership: resumes are attached to applications, not directly to candidate profiles.
 
 ### jobs

@@ -136,7 +136,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\",\n  \"master_profile_data\": {\n    \"personal_info\": {\n      \"phone\": \"+1-555-0198\"\n    },\n    \"master_profile\": {\n      \"summary\": \"Aggregated profile based on prior applications.\",\n      \"top_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"]\n    },\n    \"application_history\": []\n  }\n}"
+              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\",\n  \"master_profile_data\": {\n    \"summary\": \"Backend engineer with experience building async APIs and internal workflow tools.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0198\",\n      \"location\": \"Islamabad, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Software Engineer\",\n        \"start_year\": 2022,\n        \"end_year\": 2024,\n        \"description\": \"Built hiring APIs and async workflow integrations.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\",\n      \"portfolio\": \"https://portfolio.example.com\"\n    }\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/candidates",
@@ -190,7 +190,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Manual Candidate Updated\",\n  \"master_profile_data\": {\n    \"personal_info\": {\n      \"phone\": \"+1-555-0100\"\n    },\n    \"master_profile\": {\n      \"summary\": \"Updated aggregate profile for recruiter search and matching.\",\n      \"top_skills\": [\"Python\", \"FastAPI\", \"System Design\"]\n    },\n    \"application_history\": []\n  }\n}"
+              "raw": "{\n  \"name\": \"Manual Candidate Updated\",\n  \"master_profile_data\": {\n    \"summary\": \"Updated aggregate profile for recruiter search and matching.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"System Design\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0100\",\n      \"location\": \"Karachi, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Senior Software Engineer\",\n        \"start_year\": 2022,\n        \"description\": \"Led API design for recruiter and candidate workflows.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\"\n    }\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}",

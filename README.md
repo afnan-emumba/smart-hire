@@ -84,6 +84,12 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - Internal storage path is **not** exposed in API responses (security best practice)
 - Files are stored locally in `uploads/resumes/` (git-ignored) during development
 
+### Structured Candidate Profiles
+
+- Candidate-level `master_profile_data` is stored as structured JSONB
+- Canonical profile sections are `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`
+- Application-specific resume parsing stays on the `applications.resume_data` field
+
 ---
 
 ## 🗂️ Project Structure

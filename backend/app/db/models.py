@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Any
@@ -11,6 +12,29 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
+
+
+DEFAULT_MASTER_PROFILE_DATA: dict[str, Any] = {
+    "summary": None,
+    "skills": [],
+    "contact": {
+        "phone": None,
+        "location": None,
+    },
+    "education": [],
+    "work_experience": [],
+    "links": {
+        "linkedin": None,
+        "github": None,
+        "portfolio": None,
+        "website": None,
+    },
+}
+DEFAULT_MASTER_PROFILE_DATA_JSON = json.dumps(DEFAULT_MASTER_PROFILE_DATA)
+
+
+def default_master_profile_data() -> dict[str, Any]:
+    return json.loads(DEFAULT_MASTER_PROFILE_DATA_JSON)
 
 
 class TimestampMixin:
@@ -46,8 +70,8 @@ class Candidate(TimestampMixin, Base):
     master_profile_data: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
-        default=dict,
-        server_default=text("'{}'::jsonb"),
+        default=default_master_profile_data,
+        server_default=text(f"'{DEFAULT_MASTER_PROFILE_DATA_JSON}'::jsonb"),
     )
 
     applications: Mapped[list[Application]] = relationship(back_populates="candidate")
