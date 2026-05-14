@@ -54,6 +54,38 @@ SmartHire is a **recruitment automation and workflow orchestration platform** de
 
 ---
 
+## 🗂️ Key Design Decisions
+
+### Error Handling
+
+The backend uses **domain exceptions** (not HTTP exceptions) in services, with centralized FastAPI exception handlers converting them to HTTP responses:
+
+- `BadRequestError` (400), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `PayloadTooLargeError` (413)
+- Services raise domain exceptions; routers/handlers define HTTP semantics
+- This enables services to be called from workflows, background tasks, or other contexts without HTTP coupling
+
+### Auth-Bound Creation
+
+- **Job creation:** `recruiter_id` is derived from `X-User-ID` header, not from request body
+- **Application submission:** `candidate_id` is derived from `X-User-ID` header, not from request body
+- Job `status` is server-controlled (`draft` on creation, only recruiters can transition to `published` via PATCH)
+- Prevents authorization bypass where a user could create resources on behalf of someone else
+
+### Pagination & Filtering
+
+- All list endpoints use `limit` and `offset` query parameters
+- Filtering (e.g., job `status`) happens at the database level, not in Python
+- Supports efficient queries on large datasets (thousands of jobs/applications)
+
+### Resume Upload Safety
+
+- Maximum file size enforced by config (`MAX_RESUME_SIZE_BYTES`, default 10 MB)
+- Supported types: PDF, DOC, DOCX
+- Internal storage path is **not** exposed in API responses (security best practice)
+- Files are stored locally in `uploads/resumes/` (git-ignored) during development
+
+---
+
 ## 🗂️ Project Structure
 
 ```

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.dependencies import get_job_service
 from app.core.auth import CurrentUser, get_current_user, require_role
-from app.schemas.job import JobCreate, JobResponse, JobStatus
+from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate
 from app.services.job_service import JobService
 
 
@@ -40,5 +40,29 @@ async def list_jobs(
     current_user: CurrentUser = Depends(get_current_user),
     service: JobService = Depends(get_job_service),
 ) -> list[JobResponse]:
-    jobs = await service.list_jobs(recruiter_id=recruiter_id, status_filter=status_filter)
-    return jobs[offset : offset + limit]
+    return await service.list_jobs(
+        recruiter_id=recruiter_id,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.patch("/{job_id}", response_model=JobResponse)
+async def update_job(
+    job_id: uuid.UUID,
+    job_update: JobUpdate,
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: JobService = Depends(get_job_service),
+) -> JobResponse:
+    return await service.update_job(job_id, job_update, current_user)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_job(
+    job_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: JobService = Depends(get_job_service),
+) -> Response:
+    await service.delete_job(job_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

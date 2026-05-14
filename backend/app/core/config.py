@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, alias="APP_PORT")
     database_url: str = Field(alias="DATABASE_URL")
     resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
+    max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
 
     model_config = SettingsConfigDict(
         env_file=".env",

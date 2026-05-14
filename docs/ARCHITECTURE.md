@@ -100,23 +100,31 @@ flowchart TB
 - Location: `backend/app/api/`
 - Responsibility: request parsing, schema validation, dependency injection, response formatting
 - Style: fully async FastAPI handlers
+- Error handling: catches domain exceptions from services and converts to HTTP responses via centralized exception handlers
+- **Auth scoping:** Guards endpoints with `require_role()` dependency; only authenticated users of the correct role can proceed
 
 ### Services Layer
 
 - Location: `backend/app/services/`
 - Responsibility: business rules, orchestration, workflow triggers, event emission
 - Principle: services own behavior, repositories own queries
+- **Exception pattern:** Services raise domain exceptions (`NotFoundError`, `ForbiddenError`, `BadRequestError`, `ConflictError`, `PayloadTooLargeError`), **not** `HTTPException`. This decouples services from HTTP and allows them to be called from workflows, background tasks, or other contexts.
+- **Auth binding:** Services extract ownership IDs from `current_user` context (X-User-ID header), not from request bodies. Prevents authorization bypasses.
 
 ### Repository Layer
 
 - Location: `backend/app/repositories/`
 - Responsibility: CRUD and query composition with SQLAlchemy 2.0 async APIs
+- **Database-level pagination:** List methods accept `limit` and `offset` parameters and apply them in SQL queries, not Python
+- **Database-level filtering:** Status filters, recruiter filters, etc. are applied in SQL WHERE clauses
 
 ### Persistence Layer
 
 - Primary store: PostgreSQL
-- Flexible fields: JSONB for application resume data, parsed job content, and application metadata
-- Schema control: Alembic migrations committed to git
+- **Flexible fields:** JSONB for application resume data, parsed job content, and application metadata
+- **Schema control:** Alembic migrations committed to git
+- **Transaction management:** Session commit/rollback is handled by the `get_db_session()` dependency. Repositories use `flush()` to get IDs without committing; the session commits only after the route handler completes successfully.
+- **Resume storage:** Internal `resume_storage_path` is stored in the database for internal use only; API responses **do not** include this path (security best practice)
 
 ### Manual Validation Surface
 
@@ -142,21 +150,40 @@ sequenceDiagram
     participant Kafka as Kafka
     participant Worker as Celery Worker
 
-    Recruiter->>API: POST /jobs
+    Recruiter->>API: POST /jobs (X-User-ID, X-User-Role=RECRUITER)
     API->>Service: create_job(payload, current_user)
-    Service->>Repo: create(job)
-    Repo->>DB: INSERT jobs(status=draft)
+    Service->>Service: Extract recruiter_id from X-User-ID
+    Service->>Repo: create(job_data, recruiter_id=extracted_id)
+    Repo->>DB: INSERT jobs(recruiter_id, status='draft', ...)
     DB-->>Repo: job row
     Repo-->>Service: job
     Service->>Temporal: start publishing workflow
     Service->>Kafka: emit JobCreated
-    Service-->>API: job response
+    Service-->>API: job response (status='draft')
     API-->>Recruiter: 201 Created
-    Temporal->>DB: update status and breakdown
-    Temporal->>Kafka: emit JobPublished
+
+    Recruiter->>API: PATCH /jobs/{id} (status='published')
+    API->>Service: update_job(job_id, {status=published}, current_user)
+    Service->>Service: Verify current_user.role=RECRUITER and owns the job
+    Service->>Repo: update(job_id, {status='published'})
+    Repo->>DB: UPDATE jobs SET status='published' WHERE id=?
+    Service->>Temporal: trigger content breakdown workflow
+    Service->>Kafka: emit JobPublished
+    Service-->>API: job response (status='published')
+    API-->>Recruiter: 200 OK
+
+    Temporal->>DB: update status and description_breakdown
+    Temporal->>Kafka: emit JobReadyForCandidates
     Kafka->>Worker: consume event
-    Worker->>DB: persist analytics or notifications state
+    Worker->>DB: persist analytics or index job
 ```
+
+**Key points:**
+
+- `recruiter_id` is bound to `X-User-ID` on creation; clients cannot override it
+- `status` defaults to `draft` and cannot be set in the create request
+- Publishing is a separate `PATCH` operation with authorization scoping
+- Workflow and event emissions happen after persistence
 
 ## Candidate Application Flow
 
@@ -172,22 +199,30 @@ sequenceDiagram
     participant Kafka as Kafka
     participant Temporal as Temporal Workflow
 
-    Candidate->>API: POST /applications
+    Candidate->>API: POST /applications (X-User-ID, X-User-Role=CANDIDATE)
     API->>Service: apply_to_job(payload, current_user)
+    Service->>Service: Extract candidate_id from X-User-ID
     Service->>JobRepo: get_by_id(job_id)
     JobRepo->>DB: SELECT job
-    DB-->>JobRepo: job row
+    Service->>Service: Verify job.status='published'
     Service->>CandidateRepo: get_by_id(candidate_id)
     CandidateRepo->>DB: SELECT candidate
-    DB-->>CandidateRepo: candidate row
-    Service->>AppRepo: create(application)
-    AppRepo->>DB: INSERT application
+    Service->>AppRepo: get_by_job_and_candidate (check duplicate)
+    Service->>AppRepo: create(job_id, candidate_id=extracted_id)
+    AppRepo->>DB: INSERT application (unique constraint checked)
     DB-->>AppRepo: application row
     Service->>Kafka: emit ApplicationReceived
     Service->>Temporal: start application workflow
     Service-->>API: application response
     API-->>Candidate: 201 Created
 ```
+
+**Key points:**
+
+- `candidate_id` is bound to `X-User-ID`; clients cannot override it
+- Job must be in `published` status; applications to draft/closed jobs are rejected
+- Unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
+- Duplicate applications return `409 Conflict`
 
 ## Deployment View
 

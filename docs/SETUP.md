@@ -49,6 +49,23 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## Configuration
+
+**Backend environment variables** (in `backend/.env`):
+
+| Variable                  | Default            | Purpose                       |
+| ------------------------- | ------------------ | ----------------------------- |
+| `DATABASE_URL`            | (required)         | PostgreSQL connection string  |
+| `APP_ENV`                 | `development`      | Environment mode              |
+| `APP_HOST`                | `0.0.0.0`          | Bind address                  |
+| `APP_PORT`                | `8000`             | HTTP port                     |
+| `RESUME_UPLOAD_DIR`       | `uploads/resumes`  | Local resume storage path     |
+| `MAX_RESUME_SIZE_BYTES`   | `10485760` (10 MB) | Max resume file size in bytes |
+| `PYTHONDONTWRITEBYTECODE` | `1`                | Suppress .pyc files           |
+| `PYTHONUNBUFFERED`        | `1`                | Unbuffered output             |
+
+Override any variable in `backend/.env` to change behavior.
+
 ## Docker Compose Run
 
 ```bash
@@ -91,19 +108,119 @@ Required mock auth headers for most requests:
 
 Recommended Day 5 validation order:
 
-1. Create a recruiter.
-2. Create a candidate.
-3. Create a job as a recruiter.
-4. Create an application as a candidate.
-5. Upload a resume to that application with multipart form-data.
-6. Re-run `GET /applications/{id}` and confirm the resume metadata is present.
-7. Re-submit the same application payload and confirm duplicate rejection.
+1. **Create a recruiter** (role: RECRUITER)
 
-Resume upload notes:
+   ```
+   POST /recruiters
+   {"email": "recruiter@test.com", "name": "Alice"}
+   ```
 
-- Local development stores files under `backend/uploads/resumes` by default.
-- Override the location with `RESUME_UPLOAD_DIR` if needed.
-- Supported upload types are PDF, DOC, and DOCX.
+   Save the returned `id` as `recruiterId`.
+
+2. **Create a candidate** (role: CANDIDATE)
+
+   ```
+   POST /candidates
+   {"email": "candidate@test.com", "name": "Bob"}
+   ```
+
+   Save the returned `id` as `candidateId`.
+
+3. **Create a job** (as recruiter with X-User-ID=recruiterId)
+
+   ```
+   POST /jobs
+   {"title": "Backend Engineer", "description": "...", "required_skills": ["python"]}
+   ```
+
+   Note: `recruiter_id` is automatically bound to X-User-ID (cannot be overridden)  
+   Note: `status` defaults to `draft` (cannot be set in request body)  
+   Save the returned `id` as `jobId`.
+
+4. **Publish the job** (as recruiter, PATCH to transition status)
+
+   ```
+   PATCH /jobs/{jobId}
+   {"status": "published"}
+   ```
+
+   Only published jobs can receive applications.
+
+5. **Create an application** (as candidate with X-User-ID=candidateId)
+
+   ```
+   POST /applications
+   {"job_id": "{{jobId}}"}
+   ```
+
+   Note: `candidate_id` is automatically bound to X-User-ID (cannot be overridden)  
+   Note: Application fails if job is not published.
+   Save the returned `id` as `applicationId`.
+
+6. **Upload a resume** (as candidate)
+
+   ```
+   POST /applications/{applicationId}/resume
+   multipart/form-data with field 'resume' containing a PDF/DOC/DOCX file
+   ```
+
+   File is stored locally; metadata (filename, content_type, uploaded_at) appears in the application response.
+
+7. **Verify duplicate rejection** (as candidate)
+
+   ```
+   POST /applications
+   {"job_id": "{{jobId}}"}
+   ```
+
+   Should return `409 Conflict`: "Candidate already applied to this job"
+
+8. **Retrieve the application** (as candidate)
+   ```
+   GET /applications/{applicationId}
+   ```
+   Confirm resume metadata is present (but NOT `resume_storage_path`, which is internal).
+
+## Authorization & Auth Headers
+
+Most endpoints require two headers:
+
+- `X-User-ID`: UUID or unique identifier of the authenticated user
+- `X-User-Role`: One of `RECRUITER` or `CANDIDATE`
+
+**Access Scoping:**
+
+- **Recruiters** can:
+  - Create/read/update/delete their own jobs
+  - View applications for their jobs
+  - Cannot create applications, upload resumes, or modify candidates
+
+- **Candidates** can:
+  - Create/read/update their own profiles
+  - View and apply to published jobs
+  - Upload resumes to their own applications
+  - View only their own applications
+  - Cannot create jobs or view other candidates' profiles
+
+Example recruiter request:
+
+```bash
+curl -X POST http://localhost:8000/jobs \
+  -H "X-User-ID: 11111111-1111-1111-1111-111111111111" \
+  -H "X-User-Role: RECRUITER" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "...", "description": "..."}'
+```
+
+Example candidate request:
+
+```bash
+curl -X POST http://localhost:8000/applications \
+  -H "X-User-ID: 22222222-2222-2222-2222-222222222222" \
+  -H "X-User-Role: CANDIDATE" \
+  -H "Content-Type: application/json" \
+  -d '{"job_id": "...'}'
+```
 
 ## Troubleshooting
 

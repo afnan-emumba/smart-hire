@@ -16,7 +16,7 @@ class RecruiterRepository:
     async def create(self, recruiter_create: RecruiterCreate) -> Recruiter:
         recruiter = Recruiter(**recruiter_create.model_dump())
         self.session.add(recruiter)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(recruiter)
         return recruiter
 
@@ -32,6 +32,11 @@ class RecruiterRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_all(self) -> list[Recruiter]:
-        result = await self.session.execute(select(Recruiter).order_by(Recruiter.created_at.desc()))
+    async def list_all(self, *, limit: int, offset: int) -> list[Recruiter]:
+        result = await self.session.execute(
+            select(Recruiter)
+            .order_by(Recruiter.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         return list(result.scalars().all())

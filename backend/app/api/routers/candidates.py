@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies import get_candidate_service
 from app.core.auth import CurrentUser, get_current_user, require_role
@@ -28,6 +28,11 @@ async def get_candidate(
     current_user: CurrentUser = Depends(get_current_user),
     service: CandidateService = Depends(get_candidate_service),
 ) -> CandidateResponse:
+    if current_user.role == "CANDIDATE" and current_user.id != str(candidate_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Candidates can only view their own profile",
+        )
     return await service.get_candidate(candidate_id)
 
 
@@ -35,8 +40,7 @@ async def get_candidate(
 async def list_candidates(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
     service: CandidateService = Depends(get_candidate_service),
 ) -> list[CandidateResponse]:
-    candidates = await service.list_candidates()
-    return candidates[offset : offset + limit]
+    return await service.list_candidates(limit=limit, offset=offset)

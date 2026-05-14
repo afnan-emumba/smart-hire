@@ -26,7 +26,12 @@ SessionLocal = async_sessionmaker(
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def ping_database(session: AsyncSession) -> bool:

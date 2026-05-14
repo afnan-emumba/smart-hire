@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import HTTPException, status
-
 from app.repositories.candidate_repo import CandidateRepository
+from app.services.exceptions import ConflictError, NotFoundError
 from app.schemas.candidate import CandidateCreate, CandidateResponse
 
 
@@ -15,10 +14,7 @@ class CandidateService:
     async def create_candidate(self, candidate_create: CandidateCreate) -> CandidateResponse:
         existing_candidate = await self.candidate_repo.get_by_email(candidate_create.email)
         if existing_candidate is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Candidate with this email already exists",
-            )
+            raise ConflictError("Candidate with this email already exists")
 
         candidate = await self.candidate_repo.create(candidate_create)
         return CandidateResponse.model_validate(candidate)
@@ -26,13 +22,10 @@ class CandidateService:
     async def get_candidate(self, candidate_id: uuid.UUID) -> CandidateResponse:
         candidate = await self.candidate_repo.get_by_id(candidate_id)
         if candidate is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Candidate not found",
-            )
+            raise NotFoundError("Candidate not found")
 
         return CandidateResponse.model_validate(candidate)
 
-    async def list_candidates(self) -> list[CandidateResponse]:
-        candidates = await self.candidate_repo.list_all()
+    async def list_candidates(self, *, limit: int, offset: int) -> list[CandidateResponse]:
+        candidates = await self.candidate_repo.list_all(limit=limit, offset=offset)
         return [CandidateResponse.model_validate(candidate) for candidate in candidates]

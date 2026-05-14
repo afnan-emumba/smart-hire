@@ -12,7 +12,6 @@ ApplicationStatus = Literal["submitted", "reviewed", "rejected", "accepted"]
 
 class ApplicationCreate(BaseModel):
     job_id: uuid.UUID
-    candidate_id: uuid.UUID
 
 
 class ApplicationResponse(BaseModel):
@@ -29,7 +28,6 @@ class ApplicationResponse(BaseModel):
     )
     resume_file_name: str | None = None
     resume_content_type: str | None = None
-    resume_storage_path: str | None = None
     resume_uploaded_at: datetime | None = None
     resume_data: dict[str, Any] | None = None
     created_at: datetime

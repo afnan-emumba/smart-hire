@@ -97,7 +97,12 @@ flowchart LR
 - Purpose: a candidate’s application to a job.
 - Key constraints: foreign keys to jobs, candidates, and optional reviewer recruiter.
 - Duplicate protection: unique constraint on `(job_id, candidate_id)`.
-- Resume fields: file name, content type, storage path, upload timestamp, and `resume_data` for future parsed output.
+- Resume fields:
+  - `resume_file_name`: Original filename from upload
+  - `resume_content_type`: MIME type (application/pdf, application/msword, etc.)
+  - `resume_storage_path`: **Internal only** — local filesystem path, **not** exposed in API responses
+  - `resume_uploaded_at`: Timestamp of upload
+  - `resume_data`: Placeholder for future parsed resume content (currently null)
 - Flexible fields: `metadata` JSONB for scores, notes, workflow outputs, and `resume_data` JSONB for parsed resume content.
 
 ## Constraint Summary

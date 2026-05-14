@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Application
+from app.db.models import Application, Job
 from app.schemas.application import ApplicationCreate
 
 
@@ -14,10 +14,15 @@ class ApplicationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, application_create: ApplicationCreate) -> Application:
-        application = Application(**application_create.model_dump())
+    async def create(
+        self,
+        application_create: ApplicationCreate,
+        *,
+        candidate_id: uuid.UUID,
+    ) -> Application:
+        application = Application(**application_create.model_dump(), candidate_id=candidate_id)
         self.session.add(application)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(application)
         return application
 
@@ -40,25 +45,55 @@ class ApplicationRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_by_candidate(self, candidate_id: uuid.UUID) -> list[Application]:
+    async def list_by_candidate(
+        self,
+        candidate_id: uuid.UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> list[Application]:
         result = await self.session.execute(
             select(Application)
             .where(Application.candidate_id == candidate_id)
             .order_by(Application.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 
-    async def list_by_job(self, job_id: uuid.UUID) -> list[Application]:
+    async def list_by_job(self, job_id: uuid.UUID, *, limit: int, offset: int) -> list[Application]:
         result = await self.session.execute(
             select(Application)
             .where(Application.job_id == job_id)
             .order_by(Application.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 
-    async def list_all(self) -> list[Application]:
+    async def list_all(self, *, limit: int, offset: int) -> list[Application]:
         result = await self.session.execute(
-            select(Application).order_by(Application.created_at.desc())
+            select(Application)
+            .order_by(Application.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all())
+
+    async def list_by_recruiter(
+        self,
+        recruiter_id: uuid.UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> list[Application]:
+        result = await self.session.execute(
+            select(Application)
+            .join(Job, Job.id == Application.job_id)
+            .where(Job.recruiter_id == recruiter_id)
+            .order_by(Application.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 
@@ -76,6 +111,6 @@ class ApplicationRepository:
         application.resume_storage_path = storage_path
         application.resume_uploaded_at = uploaded_at
 
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(application)
         return application
