@@ -32,6 +32,8 @@ flowchart LR
 ### CandidateService
 
 - Create and fetch candidate records.
+- Update and delete the authenticated candidate's own profile.
+- Prevent duplicate candidate emails during create and update flows.
 - Keep candidate profiles independent from application-specific resume variants.
 
 ### JobService

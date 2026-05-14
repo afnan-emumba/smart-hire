@@ -193,10 +193,10 @@ Most endpoints require two headers:
 - **Recruiters** can:
   - Create/read/update/delete their own jobs
   - View applications for their jobs
-  - Cannot create applications, upload resumes, or modify candidates
+  - Cannot create applications, upload resumes, or modify candidate profiles
 
 - **Candidates** can:
-  - Create/read/update their own profiles
+  - Create/read/update/delete their own profiles
   - View and apply to published jobs
   - Upload resumes to their own applications
   - View only their own applications

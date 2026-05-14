@@ -178,6 +178,26 @@
               "path": ["candidates", "{{candidateId}}"]
             }
           }
+        },
+        {
+          "name": "Update Candidate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Manual Candidate Updated\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}"]
+            }
+          }
         }
       ]
     },
@@ -263,21 +283,6 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"published\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
-            }
-          }
-        },
-        {
-          "name": "Delete Job",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
-            ],
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
               "host": ["{{baseUrl}}"],
@@ -372,6 +377,41 @@
               "raw": "{{baseUrl}}/applications/{{applicationId}}/resume",
               "host": ["{{baseUrl}}"],
               "path": ["applications", "{{applicationId}}", "resume"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cleanup",
+      "item": [
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Candidate",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}"]
             }
           }
         }

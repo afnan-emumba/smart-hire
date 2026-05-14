@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -10,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class CandidateCreate(BaseModel):
     email: EmailStr
     name: str = Field(min_length=1, max_length=255)
+
+
+class CandidateUpdate(BaseModel):
+    email: EmailStr | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class CandidateResponse(BaseModel):

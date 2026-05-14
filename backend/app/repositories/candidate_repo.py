@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any, Mapping
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,3 +41,28 @@ class CandidateRepository:
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    async def update(self, candidate_id: uuid.UUID, updates: Mapping[str, Any]) -> Candidate | None:
+        update_values = dict(updates)
+        if not update_values:
+            return await self.get_by_id(candidate_id)
+
+        candidate = await self.get_by_id(candidate_id)
+        if candidate is None:
+            return None
+
+        for field_name, value in update_values.items():
+            setattr(candidate, field_name, value)
+
+        await self.session.flush()
+        await self.session.refresh(candidate)
+        return candidate
+
+    async def delete(self, candidate_id: uuid.UUID) -> bool:
+        candidate = await self.get_by_id(candidate_id)
+        if candidate is None:
+            return False
+
+        await self.session.delete(candidate)
+        await self.session.flush()
+        return True

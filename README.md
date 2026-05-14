@@ -211,6 +211,8 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `POST /candidates` — Register candidate
 - `GET /candidates/{id}` — Retrieve candidate profile
 - `GET /candidates` — List candidates with pagination
+- `PATCH /candidates/{id}` — Update candidate profile
+- `DELETE /candidates/{id}` — Delete candidate profile
 - `POST /jobs` — Post a job opening
 - `GET /jobs/{id}` — Retrieve job details
 - `GET /jobs` — List jobs (with filters)
@@ -241,7 +243,7 @@ curl -X POST http://localhost:8000/jobs \
   -H "X-User-ID: recruiter-123" \
   -H "X-User-Role: RECRUITER" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Backend Engineer", "description": "...", "recruiter_id": "..."}'
+  -d '{"title": "Backend Engineer", "description": "...", "required_skills": ["python", "fastapi"]}'
 ```
 
 Resume upload example:

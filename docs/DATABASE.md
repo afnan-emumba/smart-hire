@@ -83,6 +83,7 @@ flowchart LR
 
 - Purpose: job seekers and their identity/profile data.
 - Key constraints: unique email, UUID primary key.
+- CRUD behavior: candidates can update and delete only their own profiles through the API.
 - Resume ownership: resumes are attached to applications, not directly to candidate profiles.
 
 ### jobs
@@ -123,6 +124,8 @@ flowchart LR
 | applications.job_id       | CASCADE     | Remove applications when a job is removed           |
 | applications.candidate_id | CASCADE     | Remove applications when a candidate is removed     |
 | applications.recruiter_id | SET NULL    | Preserve application history if reviewer is removed |
+
+Deleting a candidate triggers database-level cascading removal of that candidate's applications.
 
 ## JSONB Usage
 
