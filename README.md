@@ -214,6 +214,8 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 
 - `GET /health` — System health check
 - `POST /recruiters` — Create recruiter
+- `GET /recruiters/{id}` — Retrieve recruiter
+- `GET /recruiters` — List recruiters with pagination
 - `POST /candidates` — Register candidate
 - `GET /candidates/{id}` — Retrieve candidate profile
 - `GET /candidates` — List candidates with pagination
@@ -222,17 +224,19 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `POST /jobs` — Post a job opening
 - `GET /jobs/{id}` — Retrieve job details
 - `GET /jobs` — List jobs (with filters)
+- `PATCH /jobs/{id}` — Update job details
+- `DELETE /jobs/{id}` — Delete job
 - `POST /applications` — Submit application
-- `POST /applications/{id}/resume` — Upload a resume file for a specific application
 - `GET /applications/{id}` — Retrieve application
 - `GET /applications` — List applications with filters
+- `POST /applications/{id}/resume` — Upload a resume file for a specific application
 - `GET /docs` — Interactive Swagger UI
 - `GET /redoc` — Alternate API documentation
 
 **Manual API Testing:**
 
 - Use Swagger UI at `/docs` for quick request/response inspection.
-- Use Postman for the full Day 5 validation flow. A starter collection lives in `backend/postman/`.
+- Use Postman for the full Week 1 validation flow. A starter collection lives in `backend/postman/`.
 - For local development, resume uploads are stored on disk under `backend/uploads/` and should remain untracked.
 
 **Authentication:**
@@ -267,12 +271,12 @@ curl -X POST http://localhost:8000/applications/<application-id>/resume \
 
 SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes four core entities:
 
-| Table            | Purpose               | Key Fields                                                                                                                                    |
-| ---------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **recruiters**   | Hiring team members   | id (UUID), email, name, timestamps                                                                                                            |
-| **candidates**   | Job seekers           | id (UUID), email, name, timestamps                                                                                                            |
-| **jobs**         | Job postings          | id (UUID), recruiter_id (FK), title, description, status, required_skills (JSONB), timestamps                                                 |
-| **applications** | Candidate submissions | id (UUID), job_id (FK), candidate_id (FK), recruiter_id (FK), status, metadata (JSONB), resume file metadata, resume_data (JSONB), timestamps |
+| Table            | Purpose               | Key Fields                                                                                                                                                                           |
+| ---------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **recruiters**   | Hiring team members   | id (UUID), email, name, timestamps                                                                                                                                                   |
+| **candidates**   | Job seekers           | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                                                                      |
+| **jobs**         | Job postings          | id (UUID), recruiter_id (FK), title, description, description_breakdown (JSONB), status, required_skills (JSONB), timestamps                                                         |
+| **applications** | Candidate submissions | id (UUID), job_id (FK), candidate_id (FK), status, metadata (JSONB), resume_file_name, resume_content_type, resume_storage_path, resume_uploaded_at, resume_data (JSONB), timestamps |
 
 **Key Design Features:**
 
