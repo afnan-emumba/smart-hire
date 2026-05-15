@@ -52,7 +52,7 @@ class CandidateService:
 
         updated_candidate = await self.candidate_repo.update(
             candidate_id,
-            candidate_update.model_dump(exclude_unset=True),
+            candidate_update.model_dump(mode="json", exclude_unset=True),
         )
         if updated_candidate is None:
             raise NotFoundError("Candidate not found")

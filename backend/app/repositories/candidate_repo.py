@@ -15,7 +15,7 @@ class CandidateRepository:
         self.session = session
 
     async def create(self, candidate_create: CandidateCreate) -> Candidate:
-        candidate = Candidate(**candidate_create.model_dump())
+        candidate = Candidate(**candidate_create.model_dump(mode="json"))
         self.session.add(candidate)
         await self.session.flush()
         await self.session.refresh(candidate)
