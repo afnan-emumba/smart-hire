@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Mapping
 
 from app.core.auth import CurrentUser
 from app.repositories.job_repo import JobRepository

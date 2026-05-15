@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import HTTPException, status
 from app.core.auth import CurrentUser
 from app.core.config import Settings
 from app.repositories.application_repo import ApplicationRepository

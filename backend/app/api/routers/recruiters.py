@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.dependencies import get_recruiter_service
-from app.core.auth import CurrentUser, get_current_user, require_role
+from app.core.auth import CurrentUser, require_role
 from app.schemas.recruiter import RecruiterCreate, RecruiterResponse
 from app.services.recruiter_service import RecruiterService
 
