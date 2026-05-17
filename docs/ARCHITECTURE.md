@@ -125,11 +125,13 @@ flowchart TB
 - **Schema control:** Alembic migrations committed to git
 - **Transaction management:** Session commit/rollback is handled by the `get_db_session()` dependency. Repositories use `flush()` to get IDs without committing; the session commits only after the route handler completes successfully.
 - **Resume storage:** Internal `resume_storage_path` is stored in the database for internal use only; API responses **do not** include this path (security best practice)
+- **JD storage:** Internal `jd_storage_path` is stored in the database for internal use only; API responses **do not** include this path
 
 ### Manual Validation Surface
 
 - Swagger UI and Postman are the primary clients for the current backend-only scope.
 - Resume files are uploaded per application and stored locally in development.
+- Job description PDFs are uploaded per job and stored locally until the Week 2 parser workflow is added.
 
 ### Async Processing
 
@@ -146,9 +148,7 @@ sequenceDiagram
     participant Service as JobService
     participant Repo as JobRepository
     participant DB as PostgreSQL
-    participant Temporal as Temporal Workflow
-    participant Kafka as Kafka
-    participant Worker as Celery Worker
+    participant Temporal as Future Temporal Workflow
 
     Recruiter->>API: POST /jobs (X-User-ID, X-User-Role=RECRUITER)
     API->>Service: create_job(payload, current_user)
@@ -157,35 +157,33 @@ sequenceDiagram
     Repo->>DB: INSERT jobs(recruiter_id, status='draft', ...)
     DB-->>Repo: job row
     Repo-->>Service: job
-    Service->>Temporal: start publishing workflow
-    Service->>Kafka: emit JobCreated
     Service-->>API: job response (status='draft')
     API-->>Recruiter: 201 Created
 
+    Recruiter->>API: POST /jobs/{id}/description-file (multipart/form-data)
+    API->>Service: upload_job_description(job_id, file_bytes, current_user)
+    Service->>Service: verify owner, draft status, and PDF content type
+    Service->>Repo: attach_job_description_file(...)
+    Repo->>DB: UPDATE jobs SET jd_parsing_status='uploaded', jd_source_type='pdf_upload'
+    Service-->>API: job response (jd_parsing_status='uploaded')
+    API-->>Recruiter: 202 Accepted
+
     Recruiter->>API: PATCH /jobs/{id} (status='published')
     API->>Service: update_job(job_id, {status=published}, current_user)
-    Service->>Service: Verify current_user.role=RECRUITER and owns the job
+    Service->>Service: Verify current_user.role=RECRUITER, owns the job, and description is ready
     Service->>Repo: update(job_id, {status='published'})
     Repo->>DB: UPDATE jobs SET status='published' WHERE id=?
-    Service->>Temporal: trigger content breakdown workflow
-    Service->>Kafka: emit JobPublished
     Service-->>API: job response (status='published')
     API-->>Recruiter: 200 OK
-
-    Temporal->>DB: update status and description_breakdown
-    Temporal->>Kafka: emit JobReadyForCandidates
-    Kafka->>Worker: consume event
-    Worker->>DB: persist analytics or index job
 ```
 
 **Key points:**
 
 - `recruiter_id` is bound to `X-User-ID` on creation; clients cannot override it
 - `status` defaults to `draft` and cannot be set in the create request
+- JD ingestion is a separate upload operation that tracks parsing state independently from publication state
 - Publishing is a separate `PATCH` operation with authorization scoping
-- Workflow and event emissions happen after persistence
-
-## Candidate Application Flow
+  - JD parsing and breakdown extraction will be implemented in Week 2
 
 ```mermaid
 sequenceDiagram
@@ -259,9 +257,10 @@ flowchart LR
 
 1. Async first across API, database access, and workflow integration.
 2. Separation of concerns between routers, services, repositories, and infrastructure clients.
-3. Strong relational integrity for core entities, with JSONB only where schema flexibility is useful.
-4. Event-driven side effects so slow or bursty work stays off the request path.
-5. Observability across request handling, workflow execution, and background workers.
+3. Separate JD content-ingestion state from recruiter-visible publication state so future workflows can evolve independently.
+4. Strong relational integrity for core entities, with JSONB only where schema flexibility is useful.
+5. Event-driven side effects so slow or bursty work stays off the request path.
+6. Observability across request handling, workflow execution, and background workers.
 
 ## Related Documentation
 

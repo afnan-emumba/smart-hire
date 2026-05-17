@@ -227,12 +227,33 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Own async backend services and hiring workflows.\",\n  \"required_skills\": [\"python\", \"fastapi\", \"postgresql\"]\n}"
+              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Interim manual markdown while PDF parsing is pending.\",\n  \"required_skills\": [\"python\", \"fastapi\", \"postgresql\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/jobs",
               "host": ["{{baseUrl}}"],
               "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "Upload Job Description File",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "description_file", "type": "file", "src": [] }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/description-file",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "description-file"]
             }
           }
         },

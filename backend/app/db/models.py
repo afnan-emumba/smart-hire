@@ -88,7 +88,7 @@ class Job(TimestampMixin, Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     required_skills: Mapped[list[str]] = mapped_column(
         JSONB,
@@ -96,6 +96,18 @@ class Job(TimestampMixin, Base):
         default=list,
         server_default=text("'[]'::jsonb"),
     )
+    jd_source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    jd_parsing_status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="not_started",
+        server_default="not_started",
+    )
+    jd_parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    jd_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    jd_content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    jd_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    jd_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", server_default="draft")
 
     recruiter: Mapped[Recruiter] = relationship(back_populates="jobs")

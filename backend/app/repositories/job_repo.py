@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import uuid
 from typing import Any, Mapping
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Job
-from app.schemas.job import JobCreate
 
 
 class JobRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, job_create: JobCreate, *, recruiter_id: uuid.UUID) -> Job:
-        job = Job(**job_create.model_dump(), recruiter_id=recruiter_id)
+    async def create(self, job_data: Mapping[str, Any], *, recruiter_id: uuid.UUID) -> Job:
+        job = Job(**dict(job_data), recruiter_id=recruiter_id)
         self.session.add(job)
         await self.session.flush()
         await self.session.refresh(job)
@@ -70,6 +70,50 @@ class JobRepository:
 
         for field_name, value in update_values.items():
             setattr(job, field_name, value)
+
+        await self.session.flush()
+        await self.session.refresh(job)
+        return job
+
+    async def attach_job_description_file(
+        self,
+        job: Job,
+        *,
+        file_name: str,
+        content_type: str,
+        storage_path: str,
+        uploaded_at: datetime,
+    ) -> Job:
+        job.jd_source_type = "pdf_upload"
+        job.jd_parsing_status = "uploaded"
+        job.jd_parsing_error = None
+        job.jd_file_name = file_name
+        job.jd_content_type = content_type
+        job.jd_storage_path = storage_path
+        job.jd_uploaded_at = uploaded_at
+        job.description = None
+        job.description_breakdown = None
+        job.required_skills = []
+
+        await self.session.flush()
+        await self.session.refresh(job)
+        return job
+
+    async def set_job_description_parsing_result(
+        self,
+        job: Job,
+        *,
+        description: str | None,
+        description_breakdown: dict[str, Any] | None,
+        required_skills: list[str],
+        parsing_status: str,
+        parsing_error: str | None = None,
+    ) -> Job:
+        job.description = description
+        job.description_breakdown = description_breakdown
+        job.required_skills = required_skills
+        job.jd_parsing_status = parsing_status
+        job.jd_parsing_error = parsing_error
 
         await self.session.flush()
         await self.session.refresh(job)
