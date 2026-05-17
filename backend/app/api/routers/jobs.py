@@ -2,15 +2,35 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.dependencies import get_job_service
 from app.core.auth import CurrentUser, get_current_user, require_role
+from app.core.config import get_settings
 from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate
 from app.services.job_service import JobService
 
 
 router = APIRouter()
+
+
+async def read_limited_upload(upload: UploadFile, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total_size = 0
+
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Job description file exceeds the configured size limit",
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
 
 
 @router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
@@ -56,6 +76,28 @@ async def update_job(
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
     return await service.update_job(job_id, job_update, current_user)
+
+
+@router.post(
+    "/{job_id}/description-file",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def upload_job_description_file(
+    job_id: uuid.UUID,
+    description_file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: JobService = Depends(get_job_service),
+) -> JobResponse:
+    settings = get_settings()
+    file_bytes = await read_limited_upload(description_file, settings.max_jd_size_bytes)
+    return await service.upload_job_description(
+        job_id,
+        file_name=description_file.filename or "job-description.pdf",
+        content_type=description_file.content_type or "application/octet-stream",
+        file_bytes=file_bytes,
+        current_user=current_user,
+    )
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

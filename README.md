@@ -84,6 +84,13 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - Internal storage path is **not** exposed in API responses (security best practice)
 - Files are stored locally in `uploads/resumes/` (git-ignored) during development
 
+### Job Description Ingestion
+
+- Recruiters can upload JD PDFs through `POST /jobs/{id}/description-file`
+- Job description parsing state is tracked separately from recruiter-facing publication status
+- `jobs.description` now represents canonical markdown content, whether provided manually for Week 1 fallback or produced later by the parser
+- JD files are stored locally in `uploads/job_descriptions/` during development; internal storage paths stay out of API responses
+
 ### Structured Candidate Profiles
 
 - Candidate-level `master_profile_data` is stored as structured JSONB
@@ -108,9 +115,11 @@ smart-hire/
 ├── backend/
 │   ├── requirements.txt               # Python dependencies
 │   ├── .env.example                   # Backend env template
-│   ├── Dockerfile
+│   ├── .env.docker.example            # Backend container-runtime env template
 │   ├── alembic.ini                    # Migration config
 │   ├── migrations/                    # Alembic migration files
+│   ├── infra/
+│   │   └── docker/                    # Dev/prod Dockerfiles and production compose
 │   └── app/
 │       ├── main.py                    # FastAPI entry point
 │       ├── core/
@@ -126,7 +135,7 @@ smart-hire/
 │           ├── router.py              # Main router
 │           └── routers/               # Endpoint groups
 ├── backend/postman/                   # Postman collection for API validation
-└── backend/uploads/                   # Local dev resume storage (git-ignored)
+└── backend/uploads/                   # Local dev resume + JD storage (git-ignored)
 ```
 
 ---
@@ -141,20 +150,27 @@ smart-hire/
 
 ### Environment Setup
 
-SmartHire uses environment variables for configuration. Two levels of `.env` files:
+SmartHire uses environment variables for configuration. Three templates are tracked:
 
 **1. Root `.env` (Docker Compose):**
 
 ```bash
 cp .env.example .env
-# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV, RESUME_UPLOAD_DIR
+# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV, and upload limits
 ```
 
 **2. Backend `.env` (App Runtime):**
 
 ```bash
 cp backend/.env.example backend/.env
-# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, RESUME_UPLOAD_DIR, PYTHONDONTWRITEBYTECODE, PYTHONUNBUFFERED
+# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, resume/JD storage settings
+```
+
+**3. Backend `.env.docker` (Container Runtime, optional but recommended):**
+
+```bash
+cp backend/.env.docker.example backend/.env.docker
+# Mirrors the backend runtime settings with the Compose/Postgres hostname
 ```
 
 ⚠️ **Important:** `.env` files are **never committed**. Use `.env.example` as templates.
@@ -175,6 +191,8 @@ curl http://localhost:8000/health
 # Stop the stack
 docker compose down
 ```
+
+The local development compose entrypoint remains [docker-compose.yml](docker-compose.yml), while the canonical backend Docker assets now live under `backend/infra/docker/` with separate `Dockerfile.dev` and `Dockerfile.prod` variants.
 
 **Services:**
 
@@ -221,10 +239,11 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /candidates` — List candidates with pagination
 - `PATCH /candidates/{id}` — Update candidate profile
 - `DELETE /candidates/{id}` — Delete candidate profile
-- `POST /jobs` — Post a job opening
+- `POST /jobs` — Create a draft job shell
 - `GET /jobs/{id}` — Retrieve job details
 - `GET /jobs` — List jobs (with filters)
 - `PATCH /jobs/{id}` — Update job details
+- `POST /jobs/{id}/description-file` — Upload a PDF job description for future parsing
 - `DELETE /jobs/{id}` — Delete job
 - `POST /applications` — Submit application
 - `GET /applications/{id}` — Retrieve application
@@ -237,7 +256,7 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 
 - Use Swagger UI at `/docs` for quick request/response inspection.
 - Use Postman for the full Week 1 validation flow. A starter collection lives in `backend/postman/`.
-- For local development, resume uploads are stored on disk under `backend/uploads/` and should remain untracked.
+- For local development, resume and JD uploads are stored on disk under `backend/uploads/` and should remain untracked.
 
 **Authentication:**
 
@@ -250,10 +269,10 @@ Example:
 
 ```bash
 curl -X POST http://localhost:8000/jobs \
-  -H "X-User-ID: recruiter-123" \
+  -H "X-User-ID: 11111111-1111-1111-1111-111111111111" \
   -H "X-User-Role: RECRUITER" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Backend Engineer", "description": "...", "required_skills": ["python", "fastapi"]}'
+  -d '{"title": "Backend Engineer", "description": "Interim manual markdown while JD parsing is pending.", "required_skills": ["python", "fastapi"]}'
 ```
 
 Resume upload example:

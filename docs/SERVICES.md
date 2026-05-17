@@ -40,11 +40,12 @@ flowchart LR
 ### JobService
 
 - Create draft jobs (status always `draft`, recruiter_id from auth context)
+- Accept manual description content as a fallback while PDF parsing is pending
+- Upload recruiter-provided JD PDFs and persist parsing lifecycle metadata
 - Update jobs (PATCH) with authorization checks (only job owner can update)
 - Delete jobs (only job owner can delete)
-- Start publishing workflows.
-- Emit job lifecycle events.
-- Enforce recruiter ownership and status transition rules.
+- Enforce recruiter ownership and status transition rules
+- Support JD parsing lifecycle
 
 ### ApplicationService
 
@@ -66,7 +67,7 @@ sequenceDiagram
     participant Service as JobService
     participant Repo as JobRepository
     participant DB as PostgreSQL
-    participant Kafka
+    participant ClientFallback as Recruiter Fallback
 
     Client->>Router: POST /jobs
     Router->>Service: create_job(payload)
@@ -74,9 +75,37 @@ sequenceDiagram
     Repo->>DB: INSERT job
     DB-->>Repo: job row
     Repo-->>Service: job row
-    Service->>Kafka: emit JobCreated
     Service-->>Router: response model
     Router-->>Client: 201 Created
+
+    ClientFallback->>Router: PATCH /jobs/{id} {description=...}
+    Router->>Service: update_job(job_id, payload, current_user)
+    Service->>Service: mark source_type=manual_text, parsing_status=parsed
+    Service->>Repo: update(job_id, updates)
+    Repo->>DB: UPDATE jobs
+    Router-->>ClientFallback: 200 OK
+```
+
+## Job Description Upload Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Router as Router<br/>(File Size Limit)
+    participant Service as JobService
+    participant Repo as JobRepository
+    participant Disk as Local Storage
+    participant DB as PostgreSQL
+    Client->>Router: POST /jobs/{id}/description-file (multipart/form-data)
+    Router->>Router: Stream & check file size vs MAX_JD_SIZE_BYTES
+    Router->>Service: upload_job_description(job_id, file_bytes, current_user)
+    Service->>Service: Verify recruiter owns the draft job
+    Service->>Service: Validate content-type (PDF only)
+    Service->>Disk: write file to uploads/job_descriptions/{job_id}.pdf
+    Service->>Repo: attach_job_description_file(...)
+    Repo->>DB: UPDATE jobs (jd_file_name, jd_parsing_status='uploaded', ...)
+    Service-->>Router: job response (NO jd_storage_path)
+    Router-->>Client: 202 Accepted
 ```
 
 ## Application Submission Flow
@@ -155,11 +184,13 @@ sequenceDiagram
 
 3. **Enforce server-controlled status transitions.** Job `status` is never accepted from the request body on creation; it always defaults to `draft`. Status changes happen via explicit `PATCH /jobs/{id}` with scoped authorization checks.
 
-4. **Validate eligibility early.** Before creating an application, check that the job exists, is in `published` status, and that no duplicate application exists. Prevent applications to draft/closed jobs.
+4. **Keep JD parsing lifecycle separate from publication lifecycle.** `jd_parsing_status` tracks content-ingestion progress, while `status` tracks recruiter-facing publication state. Services should not overload one field to represent both concerns.
 
-5. **Keep SQL construction in repositories, pagination in the database.** Repositories should compose `.limit()` and `.offset()` into queries, not return all records for Python-level slicing.
+5. **Validate eligibility early.** Before creating an application, check that the job exists, is in `published` status, and that no duplicate application exists. Prevent applications to draft/closed jobs.
 
-6. **Use services for orchestration and business decisions.** Return schema-friendly domain objects or response models. Prefer database constraints for hard integrity rules (unique constraints, foreign keys) and service validation for policy rules (authorization, status checks).
+6. **Keep SQL construction in repositories, pagination in the database.** Repositories should compose `.limit()` and `.offset()` into queries, not return all records for Python-level slicing.
+
+7. **Use services for orchestration and business decisions.** Return schema-friendly domain objects or response models. Prefer database constraints for hard integrity rules (unique constraints, foreign keys) and service validation for policy rules (authorization, status checks).
 
 ## Error Handling
 
@@ -171,7 +202,7 @@ Services raise domain exceptions from `app.services.exceptions`:
 | `ForbiddenError`       | 403       | Authorization denied (wrong role, not resource owner) |
 | `NotFoundError`        | 404       | Resource doesn't exist                                |
 | `ConflictError`        | 409       | Duplicate application, duplicate email                |
-| `PayloadTooLargeError` | 413       | Resume file exceeds max size                          |
+| `PayloadTooLargeError` | 413       | Resume or JD file exceeds max size                    |
 
 **Conversion pattern:**
 

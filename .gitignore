@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !backend/.env.example
+!backend/.env.docker.example
 
 # Python / Backend (FastAPI, Celery, Temporal)
 __pycache__/

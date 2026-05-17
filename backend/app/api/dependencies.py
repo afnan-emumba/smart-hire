@@ -31,6 +31,7 @@ async def get_job_service(session: AsyncSession = Depends(get_db_session)) -> Jo
     return JobService(
         job_repo=JobRepository(session),
         recruiter_repo=RecruiterRepository(session),
+        settings=get_settings(),
     )
 
 

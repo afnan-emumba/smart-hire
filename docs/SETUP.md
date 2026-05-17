@@ -6,6 +6,7 @@ Tracked templates live here:
 
 - `.env.example`
 - `backend/.env.example`
+- `backend/.env.docker.example`
 
 Real `.env` files remain untracked and should stay local.
 
@@ -16,7 +17,7 @@ flowchart TD
     clone[Clone repository]
     copyRoot[Copy .env.example to .env]
     copyBackend[Copy backend/.env.example to backend/.env]
-    start[Run docker compose up -d --build]
+   start[Run docker compose up -d --build]
     migrate[Run alembic upgrade head]
     verify[Check /health, /docs, and Postman flow]
 
@@ -28,6 +29,7 @@ flowchart TD
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
+cp backend/.env.docker.example backend/.env.docker
 docker compose up -d --build
 cd backend
 alembic upgrade head
@@ -53,16 +55,18 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 **Backend environment variables** (in `backend/.env`):
 
-| Variable                  | Default            | Purpose                       |
-| ------------------------- | ------------------ | ----------------------------- |
-| `DATABASE_URL`            | (required)         | PostgreSQL connection string  |
-| `APP_ENV`                 | `development`      | Environment mode              |
-| `APP_HOST`                | `0.0.0.0`          | Bind address                  |
-| `APP_PORT`                | `8000`             | HTTP port                     |
-| `RESUME_UPLOAD_DIR`       | `uploads/resumes`  | Local resume storage path     |
-| `MAX_RESUME_SIZE_BYTES`   | `10485760` (10 MB) | Max resume file size in bytes |
-| `PYTHONDONTWRITEBYTECODE` | `1`                | Suppress .pyc files           |
-| `PYTHONUNBUFFERED`        | `1`                | Unbuffered output             |
+| Variable                  | Default                    | Purpose                       |
+| ------------------------- | -------------------------- | ----------------------------- |
+| `DATABASE_URL`            | (required)                 | PostgreSQL connection string  |
+| `APP_ENV`                 | `development`              | Environment mode              |
+| `APP_HOST`                | `0.0.0.0`                  | Bind address                  |
+| `APP_PORT`                | `8000`                     | HTTP port                     |
+| `RESUME_UPLOAD_DIR`       | `uploads/resumes`          | Local resume storage path     |
+| `MAX_RESUME_SIZE_BYTES`   | `10485760` (10 MB)         | Max resume file size in bytes |
+| `JD_UPLOAD_DIR`           | `uploads/job_descriptions` | Local JD storage path         |
+| `MAX_JD_SIZE_BYTES`       | `10485760` (10 MB)         | Max JD file size in bytes     |
+| `PYTHONDONTWRITEBYTECODE` | `1`                        | Suppress .pyc files           |
+| `PYTHONUNBUFFERED`        | `1`                        | Unbuffered output             |
 
 Override any variable in `backend/.env` to change behavior.
 
@@ -72,6 +76,8 @@ Override any variable in `backend/.env` to change behavior.
 docker compose up -d --build
 docker compose logs -f backend
 ```
+
+The root [docker-compose.yml](docker-compose.yml) remains the local development entrypoint. Canonical backend Docker assets now live under `backend/infra/docker/`, including separate `Dockerfile.dev` and `Dockerfile.prod` variants plus `backend/infra/docker/compose.prod.yml` for a production-style compose run.
 
 ## Migration Workflow
 
@@ -130,23 +136,33 @@ Recommended Day 5 validation order:
 
    ```
    POST /jobs
-   {"title": "Backend Engineer", "description": "...", "required_skills": ["python"]}
+   {"title": "Backend Engineer", "description": "Interim manual markdown while PDF parsing is pending.", "required_skills": ["python"]}
    ```
 
    Note: `recruiter_id` is automatically bound to X-User-ID (cannot be overridden)  
    Note: `status` defaults to `draft` (cannot be set in request body)  
+   Note: manual `description` is a temporary fallback path; JD PDF parsing will be implemented in Week 2  
    Save the returned `id` as `jobId`.
 
-4. **Publish the job** (as recruiter, PATCH to transition status)
+4. **Upload a JD PDF** (as recruiter)
+
+   ```
+   POST /jobs/{jobId}/description-file
+   multipart/form-data with field 'description_file' containing a PDF file
+   ```
+
+   The API stores the file and updates `jd_parsing_status` to `uploaded`. JD parsing and breakdown will be implemented in Week 2.
+
+5. **Publish the job** (as recruiter, PATCH to transition status)
 
    ```
    PATCH /jobs/{jobId}
    {"status": "published"}
    ```
 
-   Only published jobs can receive applications.
+   Only published jobs can receive applications. Publication currently requires either manual description content or a future parsed JD.
 
-5. **Create an application** (as candidate with X-User-ID=candidateId)
+6. **Create an application** (as candidate with X-User-ID=candidateId)
 
    ```
    POST /applications
@@ -157,7 +173,7 @@ Recommended Day 5 validation order:
    Note: Application fails if job is not published.
    Save the returned `id` as `applicationId`.
 
-6. **Upload a resume** (as candidate)
+7. **Upload a resume** (as candidate)
 
    ```
    POST /applications/{applicationId}/resume
@@ -166,7 +182,7 @@ Recommended Day 5 validation order:
 
    File is stored locally; metadata (filename, content_type, uploaded_at) appears in the application response.
 
-7. **Verify duplicate rejection** (as candidate)
+8. **Verify duplicate rejection** (as candidate)
 
    ```
    POST /applications
@@ -175,7 +191,7 @@ Recommended Day 5 validation order:
 
    Should return `409 Conflict`: "Candidate already applied to this job"
 
-8. **Retrieve the application** (as candidate)
+9. **Retrieve the application** (as candidate)
    ```
    GET /applications/{applicationId}
    ```
@@ -241,6 +257,12 @@ curl -X POST http://localhost:8000/applications \
 - Confirm `python-multipart` is installed from `backend/requirements.txt`.
 - Confirm the upload directory exists or that the backend process can create it.
 - Confirm the request uses `multipart/form-data` with the field name `resume`.
+
+### JD upload fails
+
+- Confirm the request uses `multipart/form-data` with the field name `description_file`.
+- Confirm the file is a PDF and does not exceed `MAX_JD_SIZE_BYTES`.
+- Confirm the target job is still in `draft` status and is owned by the authenticated recruiter.
 
 ## Related Documentation
 

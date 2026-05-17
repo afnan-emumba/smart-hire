@@ -36,6 +36,12 @@ erDiagram
         text description
         jsonb description_breakdown
         jsonb required_skills
+        string jd_source_type
+        string jd_parsing_status
+        string jd_file_name
+        string jd_content_type
+        string jd_storage_path
+        timestamp jd_uploaded_at
         string status
         timestamp created_at
         timestamp updated_at
@@ -91,7 +97,23 @@ flowchart LR
 - Purpose: job postings and publishing state.
 - Key constraints: recruiter foreign key, indexed recruiter lookup.
 - Flexible fields: `description_breakdown` JSONB and `required_skills` JSONB.
+- Canonical content: `description` now stores the canonical markdown job description and may be null until manual content is supplied or PDF parsing finishes.
+- JD source metadata:
+  - `jd_source_type`: `manual_text` or `pdf_upload`
+  - `jd_parsing_status`: `not_started`, `uploaded`, `queued`, `processing`, `parsed`, `failed`
+  - `jd_file_name` and `jd_content_type`: recruiter-uploaded PDF metadata
+  - `jd_storage_path`: **internal only** storage path, not exposed in API responses
+  - `jd_uploaded_at`: upload timestamp for the current source file
 - Status lifecycle: `draft`, `publishing`, `published`, `closed`.
+
+### description_breakdown contract
+
+`jobs.description_breakdown` remains a JSONB field so the parser can evolve without destructive migrations. The expected contract for the upcoming parser pipeline is:
+
+- `source`: metadata about the upstream JD file or manual content
+- `sections`: normalized markdown sections such as overview, responsibilities, required skills, preferred skills, education, experience, compensation, and location when present
+- `extracted_skills`: normalized skill tokens that can seed `required_skills`
+- `parser_metadata`: parser version, timestamps, and diagnostics
 
 ### applications
 
