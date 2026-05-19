@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.core.auth import CurrentUser
 from app.core.config import Settings
+from app.core.enums import JobStatus
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.job_repo import JobRepository
@@ -46,8 +47,8 @@ class ApplicationService:
         if job is None:
             raise NotFoundError("Job not found")
 
-        if job.status != "published":
-            raise BadRequestError("Can only apply to published jobs")
+        if job.status != JobStatus.READY.value:
+            raise BadRequestError("Can only apply to ready jobs")
 
         try:
             candidate_id = uuid.UUID(current_user.id)

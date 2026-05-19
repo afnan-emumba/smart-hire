@@ -85,7 +85,7 @@ class JobRepository:
         uploaded_at: datetime,
     ) -> Job:
         job.jd_source_type = "pdf_upload"
-        job.jd_parsing_status = "uploaded"
+        job.jd_parsing_status = "pending"
         job.jd_parsing_error = None
         job.jd_file_name = file_name
         job.jd_content_type = content_type

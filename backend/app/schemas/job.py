@@ -7,12 +7,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-JobStatus = Literal["draft", "publishing", "published", "closed"]
+JobStatus = Literal["draft", "processing", "ready", "archived"]
 JobDescriptionSourceType = Literal["manual_text", "pdf_upload"]
 JobDescriptionParsingStatus = Literal[
-    "not_started",
-    "uploaded",
-    "queued",
+    "pending",
     "processing",
     "parsed",
     "failed",

@@ -12,6 +12,7 @@ from app.services.exceptions import (
     BadRequestError,
     ConflictError,
     ForbiddenError,
+    InvalidStateTransition,
     NotFoundError,
     PayloadTooLargeError,
 )
@@ -64,6 +65,14 @@ async def handle_conflict(_: object, exc: ConflictError) -> JSONResponse:
 @app.exception_handler(PayloadTooLargeError)
 async def handle_payload_too_large(_: object, exc: PayloadTooLargeError) -> JSONResponse:
     return _json_error(413, str(exc))
+
+
+@app.exception_handler(InvalidStateTransition)
+async def handle_invalid_state_transition(
+    _: object,
+    exc: InvalidStateTransition,
+) -> JSONResponse:
+    return _json_error(400, str(exc))
 
 
 @app.exception_handler(Exception)

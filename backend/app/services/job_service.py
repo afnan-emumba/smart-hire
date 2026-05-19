@@ -8,10 +8,18 @@ from pathlib import Path
 
 from app.core.auth import CurrentUser
 from app.core.config import Settings
+from app.core.enums import JobStatus
+from app.core.state_machine import StateMachine
 from app.repositories.job_repo import JobRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
-from app.services.exceptions import BadRequestError, ForbiddenError, NotFoundError, PayloadTooLargeError
+from app.services.exceptions import (
+    BadRequestError,
+    ForbiddenError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    PayloadTooLargeError,
+)
 
 
 class JobService:
@@ -43,7 +51,7 @@ class JobService:
             "description": job_create.description,
             "required_skills": job_create.required_skills,
             "jd_source_type": "manual_text" if job_create.description else None,
-            "jd_parsing_status": "parsed" if job_create.description else "not_started",
+            "jd_parsing_status": "pending",
         }
         job = await self.job_repo.create(
             job_data,
@@ -98,21 +106,19 @@ class JobService:
         updates = job_update.model_dump(exclude_unset=True)
         if "description" in updates and updates["description"] is not None:
             updates["jd_source_type"] = "manual_text"
-            updates["jd_parsing_status"] = "parsed"
+            updates["jd_parsing_status"] = "pending"
             updates["jd_parsing_error"] = None
 
-        if "status" in updates and updates["status"] == "published":
-            effective_description = updates.get("description", existing_job.description)
-            effective_parsing_status = updates.get(
-                "jd_parsing_status",
-                existing_job.jd_parsing_status,
-            )
-            if not self._is_job_description_ready(
-                description=effective_description,
-                parsing_status=effective_parsing_status,
-            ):
-                raise BadRequestError(
-                    "Job description must be parsed or provided manually before publishing"
+        if "status" in updates:
+            try:
+                current_status = JobStatus(existing_job.status)
+                target_status = JobStatus(updates["status"])
+            except ValueError as exc:
+                raise BadRequestError("Invalid job status") from exc
+
+            if not StateMachine.can_transition(current_status, target_status):
+                raise InvalidStateTransitionError(
+                    f"Invalid job state transition from '{existing_job.status}' to '{updates['status']}'"
                 )
 
         updated_job = await self.job_repo.update(job_id, updates)
@@ -145,7 +151,7 @@ class JobService:
         if job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to modify this job")
 
-        if job.status != "draft":
+        if job.status != JobStatus.DRAFT.value:
             raise BadRequestError("Job description files can only be uploaded while the job is in draft")
 
         if content_type != "application/pdf":
@@ -202,9 +208,3 @@ class JobService:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
-
-    @staticmethod
-    def _is_job_description_ready(*, description: str | None, parsing_status: str) -> bool:
-        if parsing_status == "parsed":
-            return True
-        return bool(description)

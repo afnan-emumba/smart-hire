@@ -5,9 +5,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from app.core.enums import JobStatus
 
 
 class Base(DeclarativeBase):
@@ -79,6 +81,12 @@ class Candidate(TimestampMixin, Base):
 
 class Job(TimestampMixin, Base):
     __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'processing', 'ready', 'archived')",
+            name="ck_jobs_status_valid",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recruiter_id: Mapped[uuid.UUID] = mapped_column(
@@ -100,15 +108,20 @@ class Job(TimestampMixin, Base):
     jd_parsing_status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="not_started",
-        server_default="not_started",
+        default="pending",
+        server_default="pending",
     )
     jd_parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     jd_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     jd_content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     jd_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     jd_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", server_default="draft")
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=JobStatus.DRAFT.value,
+        server_default=JobStatus.DRAFT.value,
+    )
 
     recruiter: Mapped[Recruiter] = relationship(back_populates="jobs")
     applications: Mapped[list[Application]] = relationship(back_populates="job")
