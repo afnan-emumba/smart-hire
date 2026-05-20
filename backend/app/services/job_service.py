@@ -5,6 +5,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from app.core.auth import CurrentUser
 from app.core.config import Settings
@@ -13,6 +14,7 @@ from app.core.state_machine import StateMachine
 from app.repositories.job_repo import JobRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
+from app.services.job_breakdown_service import JobBreakdownService
 from app.services.exceptions import (
     BadRequestError,
     ForbiddenError,
@@ -46,12 +48,19 @@ class JobService:
         if recruiter is None:
             raise NotFoundError("Recruiter not found")
 
+        breakdown_fields = await self._build_breakdown_fields(
+            description=job_create.description,
+            required_skills=job_create.required_skills,
+        )
         job_data = {
             "title": job_create.title,
             "description": job_create.description,
-            "required_skills": job_create.required_skills,
+            "required_skills": breakdown_fields["required_skills"],
             "jd_source_type": "manual_text" if job_create.description else None,
-            "jd_parsing_status": "pending",
+            "jd_parsing_status": breakdown_fields["jd_parsing_status"],
+            "jd_parsing_error": breakdown_fields["jd_parsing_error"],
+            "description_breakdown": breakdown_fields["description_breakdown"],
+            "status": breakdown_fields["status"],
         }
         job = await self.job_repo.create(
             job_data,
@@ -105,9 +114,17 @@ class JobService:
 
         updates = job_update.model_dump(exclude_unset=True)
         if "description" in updates and updates["description"] is not None:
+            breakdown_fields = await self._build_breakdown_fields(
+                description=updates["description"],
+                required_skills=updates.get("required_skills") or existing_job.required_skills,
+            )
             updates["jd_source_type"] = "manual_text"
-            updates["jd_parsing_status"] = "pending"
-            updates["jd_parsing_error"] = None
+            updates["jd_parsing_status"] = breakdown_fields["jd_parsing_status"]
+            updates["jd_parsing_error"] = breakdown_fields["jd_parsing_error"]
+            updates["description_breakdown"] = breakdown_fields["description_breakdown"]
+            updates["required_skills"] = breakdown_fields["required_skills"]
+            if existing_job.status != JobStatus.PROCESSING.value:
+                updates["status"] = breakdown_fields["status"]
 
         if "status" in updates:
             try:
@@ -208,3 +225,58 @@ class JobService:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+
+    async def _build_breakdown_fields(
+        self,
+        *,
+        description: str | None,
+        required_skills: list[str],
+    ) -> dict[str, Any]:
+        normalized_required_skills = self._merge_required_skills(required_skills, [])
+        if not description:
+            return {
+                "description_breakdown": None,
+                "required_skills": normalized_required_skills,
+                "jd_parsing_status": "pending",
+                "jd_parsing_error": None,
+                "status": JobStatus.DRAFT.value,
+            }
+
+        try:
+            breakdown = await JobBreakdownService.breakdown_job_description(description)
+        except Exception as exc:
+            return {
+                "description_breakdown": None,
+                "required_skills": normalized_required_skills,
+                "jd_parsing_status": "failed",
+                "jd_parsing_error": str(exc),
+                "status": JobStatus.PROCESSING.value,
+            }
+
+        extracted_skills = [skill.name for skill in breakdown.skills]
+        return {
+            "description_breakdown": breakdown.model_dump(),
+            "required_skills": self._merge_required_skills(required_skills, extracted_skills),
+            "jd_parsing_status": "parsed",
+            "jd_parsing_error": None,
+            "status": JobStatus.PROCESSING.value,
+        }
+
+    @staticmethod
+    def _merge_required_skills(base_skills: list[str], extracted_skills: list[str]) -> list[str]:
+        merged_skills: list[str] = []
+        seen: set[str] = set()
+
+        for skill in [*base_skills, *extracted_skills]:
+            normalized_skill = skill.strip()
+            if not normalized_skill:
+                continue
+
+            key = normalized_skill.casefold()
+            if key in seen:
+                continue
+
+            seen.add(key)
+            merged_skills.append(normalized_skill)
+
+        return merged_skills

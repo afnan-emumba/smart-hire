@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.job_breakdown import JobBreakdown
 
 
 JobStatus = Literal["draft", "processing", "ready", "archived"]
@@ -30,7 +32,7 @@ class JobResponse(BaseModel):
     recruiter_id: uuid.UUID
     title: str
     description: str | None
-    description_breakdown: dict[str, Any] | None = None
+    description_breakdown: JobBreakdown | None = None
     required_skills: list[str]
     jd_source_type: JobDescriptionSourceType | None = None
     jd_parsing_status: JobDescriptionParsingStatus
