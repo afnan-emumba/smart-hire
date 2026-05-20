@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,10 +17,20 @@ from app.services.exceptions import (
     NotFoundError,
     PayloadTooLargeError,
 )
+from app.temporal.client import TemporalClient
 
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events."""
+    # Startup
+    yield
+    # Shutdown
+    await TemporalClient.close()
 
 
 app = FastAPI(
@@ -27,6 +38,7 @@ app = FastAPI(
     version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -79,5 +91,6 @@ async def handle_invalid_state_transition(
 async def handle_unexpected_error(_: object, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled application error", exc_info=exc)
     return _json_error(500, "Internal server error")
+
 
 app.include_router(api_router)

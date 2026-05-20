@@ -45,6 +45,12 @@ class JobResponse(BaseModel):
     updated_at: datetime
 
 
+class PublishJobResponse(BaseModel):
+    job_id: uuid.UUID
+    workflow_id: str
+    status: JobStatus
+
+
 class JobUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, min_length=1)
