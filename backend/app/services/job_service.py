@@ -28,6 +28,18 @@ from app.services.exceptions import (
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
 
+STRUCTURED_JOB_METADATA_FIELDS = {
+    "employment_type",
+    "seniority_level",
+    "department",
+    "job_category",
+    "location",
+    "compensation",
+    "years_of_experience_required",
+    "application_deadline",
+}
+
+
 class JobService:
     def __init__(
         self,
@@ -53,12 +65,25 @@ class JobService:
             raise NotFoundError("Recruiter not found")
 
         breakdown_fields = await self._build_breakdown_fields(
+            title=job_create.title,
             description=job_create.description,
             required_skills=job_create.required_skills,
+            overrides=job_create.model_dump(
+                exclude={"title", "description", "required_skills"},
+                exclude_none=True,
+            ),
         )
         job_data = {
             "title": job_create.title,
             "description": job_create.description,
+            "employment_type": breakdown_fields["employment_type"],
+            "seniority_level": breakdown_fields["seniority_level"],
+            "department": breakdown_fields["department"],
+            "job_category": breakdown_fields["job_category"],
+            "location": breakdown_fields["location"],
+            "compensation": breakdown_fields["compensation"],
+            "years_of_experience_required": breakdown_fields["years_of_experience_required"],
+            "application_deadline": breakdown_fields["application_deadline"],
             "required_skills": breakdown_fields["required_skills"],
             "jd_source_type": "manual_text" if job_create.description else None,
             "jd_parsing_status": breakdown_fields["jd_parsing_status"],
@@ -117,15 +142,38 @@ class JobService:
             raise ForbiddenError("Not authorized to update this job")
 
         updates = job_update.model_dump(exclude_unset=True)
-        if "description" in updates and updates["description"] is not None:
-            breakdown_fields = await self._build_breakdown_fields(
-                description=updates["description"],
-                required_skills=updates.get("required_skills") or existing_job.required_skills,
+        needs_rebuild = "description" in updates or ("title" in updates and existing_job.description is not None)
+        if needs_rebuild:
+            effective_title = updates.get("title", existing_job.title)
+            effective_description = updates.get("description", existing_job.description)
+            effective_required_skills = (
+                updates["required_skills"]
+                if "required_skills" in updates and updates["required_skills"] is not None
+                else existing_job.required_skills
             )
-            updates["jd_source_type"] = "manual_text"
+            breakdown_fields = await self._build_breakdown_fields(
+                title=effective_title,
+                description=effective_description,
+                required_skills=effective_required_skills,
+                overrides={
+                    field_name: value
+                    for field_name, value in updates.items()
+                    if field_name in STRUCTURED_JOB_METADATA_FIELDS and value is not None
+                },
+            )
+            if "description" in updates and updates["description"] is not None:
+                updates["jd_source_type"] = "manual_text"
             updates["jd_parsing_status"] = breakdown_fields["jd_parsing_status"]
             updates["jd_parsing_error"] = breakdown_fields["jd_parsing_error"]
             updates["description_breakdown"] = breakdown_fields["description_breakdown"]
+            updates["employment_type"] = breakdown_fields["employment_type"]
+            updates["seniority_level"] = breakdown_fields["seniority_level"]
+            updates["department"] = breakdown_fields["department"]
+            updates["job_category"] = breakdown_fields["job_category"]
+            updates["location"] = breakdown_fields["location"]
+            updates["compensation"] = breakdown_fields["compensation"]
+            updates["years_of_experience_required"] = breakdown_fields["years_of_experience_required"]
+            updates["application_deadline"] = breakdown_fields["application_deadline"]
             updates["required_skills"] = breakdown_fields["required_skills"]
             if existing_job.status != JobStatus.PROCESSING.value:
                 updates["status"] = breakdown_fields["status"]
@@ -274,7 +322,11 @@ class JobService:
             if not job.description:
                 raise BadRequestError("Job has no description content to publish")
 
-            breakdown = await JobBreakdownService.breakdown_job_description(job.description)
+            extracted_profile = await JobBreakdownService.extract_job_profile(
+                title=job.title,
+                description=job.description,
+            )
+            breakdown = extracted_profile["breakdown"]
             job = await self.job_repo.set_job_description_parsing_result(
                 job,
                 description=job.description,
@@ -285,6 +337,7 @@ class JobService:
                 ),
                 parsing_status="parsed",
                 parsing_error=None,
+                structured_updates=self._build_structured_updates(extracted_profile),
             )
 
         if job.description_breakdown is None:
@@ -333,11 +386,13 @@ class JobService:
     @staticmethod
     def _is_breakdown_complete(description_breakdown: dict[str, Any]) -> bool:
         skills = description_breakdown.get("skills") or []
+        technologies = description_breakdown.get("technologies") or []
         responsibilities = description_breakdown.get("responsibilities") or []
         requirements = description_breakdown.get("requirements") or {}
         must_haves = requirements.get("must_haves") or []
         nice_to_haves = requirements.get("nice_to_haves") or []
-        return bool(skills or responsibilities or must_haves or nice_to_haves)
+        overview = description_breakdown.get("overview")
+        return bool(skills or technologies or responsibilities or must_haves or nice_to_haves or overview)
 
     @staticmethod
     def _ensure_publishable(job: Any) -> None:
@@ -359,7 +414,11 @@ class JobService:
         try:
             file_bytes = await asyncio.to_thread(Path(job.jd_storage_path).read_bytes)
             description = JobDescriptionPdfConverter.convert_pdf_to_markdown(file_bytes)
-            breakdown = await JobBreakdownService.breakdown_job_description(description)
+            extracted_profile = await JobBreakdownService.extract_job_profile(
+                title=job.title,
+                description=description,
+            )
+            breakdown = extracted_profile["breakdown"]
         except Exception as exc:
             await self.job_repo.set_job_description_parsing_result(
                 job,
@@ -368,6 +427,7 @@ class JobService:
                 required_skills=job.required_skills,
                 parsing_status="failed",
                 parsing_error=str(exc),
+                structured_updates=self._empty_structured_updates(),
             )
             raise BadRequestError(f"Failed to finalize job description breakdown: {exc}") from exc
 
@@ -381,17 +441,23 @@ class JobService:
             ),
             parsing_status="parsed",
             parsing_error=None,
+            structured_updates=self._build_structured_updates(extracted_profile),
         )
 
     async def _build_breakdown_fields(
         self,
         *,
+        title: str,
         description: str | None,
         required_skills: list[str],
+        overrides: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        override_values = dict(overrides or {})
         normalized_required_skills = self._merge_required_skills(required_skills, [])
         if not description:
             return {
+                **self._empty_structured_updates(),
+                **override_values,
                 "description_breakdown": None,
                 "required_skills": normalized_required_skills,
                 "jd_parsing_status": "pending",
@@ -400,9 +466,15 @@ class JobService:
             }
 
         try:
-            breakdown = await JobBreakdownService.breakdown_job_description(description)
+            extracted_profile = await JobBreakdownService.extract_job_profile(
+                title=title,
+                description=description,
+            )
+            breakdown = extracted_profile["breakdown"]
         except Exception as exc:
             return {
+                **self._empty_structured_updates(),
+                **override_values,
                 "description_breakdown": None,
                 "required_skills": normalized_required_skills,
                 "jd_parsing_status": "failed",
@@ -412,6 +484,8 @@ class JobService:
 
         extracted_skills = [skill.name for skill in breakdown.skills]
         return {
+            **self._build_structured_updates(extracted_profile),
+            **override_values,
             "description_breakdown": breakdown.model_dump(),
             "required_skills": self._merge_required_skills(required_skills, extracted_skills),
             "jd_parsing_status": "parsed",
@@ -437,3 +511,37 @@ class JobService:
             merged_skills.append(normalized_skill)
 
         return merged_skills
+
+    @staticmethod
+    def _empty_structured_updates() -> dict[str, Any]:
+        return {
+            "employment_type": None,
+            "seniority_level": None,
+            "department": None,
+            "job_category": None,
+            "location": None,
+            "compensation": None,
+            "years_of_experience_required": None,
+            "application_deadline": None,
+        }
+
+    @classmethod
+    def _build_structured_updates(cls, extracted_profile: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "employment_type": extracted_profile.get("employment_type"),
+            "seniority_level": extracted_profile.get("seniority_level"),
+            "department": extracted_profile.get("department"),
+            "job_category": extracted_profile.get("job_category"),
+            "location": cls._dump_model(extracted_profile.get("location")),
+            "compensation": cls._dump_model(extracted_profile.get("compensation")),
+            "years_of_experience_required": extracted_profile.get("years_of_experience_required"),
+            "application_deadline": extracted_profile.get("application_deadline"),
+        }
+
+    @staticmethod
+    def _dump_model(value: Any) -> Any:
+        if value is None:
+            return None
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        return value

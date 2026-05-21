@@ -6,10 +6,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.job_breakdown import JobBreakdown
+from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
 
 
 JobStatus = Literal["draft", "processing", "ready", "archived"]
+EmploymentType = Literal["full_time", "part_time", "contract", "temporary", "internship", "freelance"]
+SeniorityLevel = Literal["intern", "junior", "mid", "senior", "lead", "staff", "principal", "manager", "director"]
 JobDescriptionSourceType = Literal["manual_text", "pdf_upload"]
 JobDescriptionParsingStatus = Literal[
     "pending",
@@ -22,6 +24,14 @@ JobDescriptionParsingStatus = Literal[
 class JobCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, min_length=1)
+    employment_type: EmploymentType | None = None
+    seniority_level: SeniorityLevel | None = None
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    job_category: str | None = Field(default=None, min_length=1, max_length=100)
+    location: JobLocation | None = None
+    compensation: Compensation | None = None
+    years_of_experience_required: int | None = Field(default=None, ge=0)
+    application_deadline: datetime | None = None
     required_skills: list[str] = Field(default_factory=list)
 
 
@@ -32,6 +42,14 @@ class JobResponse(BaseModel):
     recruiter_id: uuid.UUID
     title: str
     description: str | None
+    employment_type: EmploymentType | None = None
+    seniority_level: SeniorityLevel | None = None
+    department: str | None = None
+    job_category: str | None = None
+    location: JobLocation | None = None
+    compensation: Compensation | None = None
+    years_of_experience_required: int | None = None
+    application_deadline: datetime | None = None
     description_breakdown: JobBreakdown | None = None
     required_skills: list[str]
     jd_source_type: JobDescriptionSourceType | None = None
@@ -54,5 +72,12 @@ class PublishJobResponse(BaseModel):
 class JobUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, min_length=1)
+    employment_type: EmploymentType | None = None
+    seniority_level: SeniorityLevel | None = None
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    job_category: str | None = Field(default=None, min_length=1, max_length=100)
+    location: JobLocation | None = None
+    compensation: Compensation | None = None
+    years_of_experience_required: int | None = Field(default=None, ge=0)
+    application_deadline: datetime | None = None
     required_skills: list[str] | None = None
-    status: JobStatus | None = None

@@ -7,9 +7,15 @@ from app.schemas.job_breakdown import Skill
 
 class SkillExtractor:
     SKILL_KEYWORDS: dict[str, tuple[str, ...]] = {
-        "Python": ("python", "django", "flask", "fastapi"),
-        "Java": ("java", "spring", "spring boot"),
-        "SQL": ("sql", "mysql", "sqlite"),
+        "Python": ("python",),
+        "FastAPI": ("fastapi",),
+        "Django": ("django",),
+        "Flask": ("flask",),
+        "Java": ("java",),
+        "Spring": ("spring", "spring boot"),
+        "SQL": ("sql",),
+        "MySQL": ("mysql",),
+        "SQLite": ("sqlite",),
         "PostgreSQL": ("postgresql", "postgres"),
         "AWS": ("aws", "amazon web services"),
         "Docker": ("docker",),
@@ -24,6 +30,9 @@ class SkillExtractor:
         "Celery": ("celery",),
         "Temporal": ("temporal",),
         "Git": ("git",),
+        "Jira": ("jira",),
+        "Confluence": ("confluence",),
+        "Google Analytics": ("google analytics",),
     }
 
     _EXPERT_KEYWORDS = re.compile(r"\b(expert|advanced|senior|lead|deep expertise|highly proficient)\b")
@@ -46,6 +55,7 @@ class SkillExtractor:
             extracted_skills.append(
                 Skill(
                     name=skill_name,
+                    category="technology",
                     proficiency=cls._infer_proficiency(context),
                     years_required=cls._infer_years_required(context),
                 )

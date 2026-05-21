@@ -17,6 +17,7 @@
     { "key": "recruiterId", "value": "" },
     { "key": "candidateId", "value": "" },
     { "key": "jobId", "value": "" },
+    { "key": "workflowId", "value": "" },
     { "key": "applicationId", "value": "" }
   ],
   "item": [
@@ -227,7 +228,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Interim manual markdown while PDF parsing is pending.\",\n  \"required_skills\": [\"python\", \"fastapi\", \"postgresql\"]\n}"
+              "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"description\": \"Location: Hybrid (Lahore, Pakistan)\\nJob Type: Full-Time\\nDepartment: Engineering\\nJob Description\\nWe are looking for a Senior Backend Engineer to design reliable APIs and workflow-driven services.\\n\\n## Responsibilities\\n- Build async backend services with FastAPI and PostgreSQL.\\n- Own integrations with Temporal, Redis, and Kafka.\\n\\n## Requirements\\n- 5+ years of experience in backend engineering.\\n- Strong Python and FastAPI experience.\\n- Experience with PostgreSQL, Redis, and Docker.\\n\\n## Benefits\\n- Health insurance\\n- Flexible hybrid schedule\",\n  \"employment_type\": \"full_time\",\n  \"seniority_level\": \"senior\",\n  \"department\": \"Engineering\",\n  \"job_category\": \"Backend Engineering\",\n  \"location\": {\n    \"city\": \"Lahore\",\n    \"country\": \"Pakistan\",\n    \"remote_policy\": \"hybrid\"\n  },\n  \"compensation\": {\n    \"currency\": \"USD\",\n    \"min_amount\": 70000,\n    \"max_amount\": 95000,\n    \"interval\": \"annual\",\n    \"additional_benefits\": [\"health_insurance\"]\n  },\n  \"years_of_experience_required\": 5,\n  \"required_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/jobs",
@@ -254,6 +255,33 @@
               "raw": "{{baseUrl}}/jobs/{{jobId}}/description-file",
               "host": ["{{baseUrl}}"],
               "path": ["jobs", "{{jobId}}", "description-file"]
+            }
+          }
+        },
+        {
+          "name": "Publish Job (Trigger Temporal Workflow)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('workflowId', body.workflow_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "publish"]
             }
           }
         },
@@ -292,7 +320,7 @@
           }
         },
         {
-          "name": "Update Job",
+          "name": "Update Job (Metadata Only)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -302,7 +330,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"published\"\n}"
+              "raw": "{\n  \"title\": \"Lead Backend Engineer\",\n  \"description\": \"Location: Remote (Pakistan)\\nJob Type: Full-Time\\nDepartment: Engineering\\nCompensation: USD 90000-120000 annual\\nApplication Deadline: 2026-06-30\\nJob Description\\nYou will lead backend platform work across APIs, workflows, and integrations.\\n\\n## Responsibilities\\n- Lead architecture for recruiter and candidate APIs.\\n- Improve reliability for Temporal and event-driven jobs.\\n\\n## Requirements\\n- 7+ years of experience in backend or platform engineering.\\n- Expert Python, PostgreSQL, and distributed systems knowledge.\\n\\n## Skills\\n- Python\\n- FastAPI\\n- PostgreSQL\\n- Temporal\\n- Kafka\",\n  \"seniority_level\": \"lead\",\n  \"location\": {\n    \"country\": \"Pakistan\",\n    \"remote_policy\": \"remote\"\n  },\n  \"years_of_experience_required\": 7,\n  \"required_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\", \"Temporal\", \"Kafka\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}",

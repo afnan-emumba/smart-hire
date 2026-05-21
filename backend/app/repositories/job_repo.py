@@ -92,6 +92,14 @@ class JobRepository:
         job.jd_storage_path = storage_path
         job.jd_uploaded_at = uploaded_at
         job.description = None
+        job.employment_type = None
+        job.seniority_level = None
+        job.department = None
+        job.job_category = None
+        job.location = None
+        job.compensation = None
+        job.years_of_experience_required = None
+        job.application_deadline = None
         job.description_breakdown = None
         job.required_skills = []
 
@@ -108,12 +116,17 @@ class JobRepository:
         required_skills: list[str],
         parsing_status: str,
         parsing_error: str | None = None,
+        structured_updates: Mapping[str, Any] | None = None,
     ) -> Job:
         job.description = description
         job.description_breakdown = description_breakdown
         job.required_skills = required_skills
         job.jd_parsing_status = parsing_status
         job.jd_parsing_error = parsing_error
+
+        if structured_updates:
+            for field_name, value in structured_updates.items():
+                setattr(job, field_name, value)
 
         await self.session.flush()
         await self.session.refresh(job)

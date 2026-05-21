@@ -34,6 +34,14 @@ erDiagram
         uuid recruiter_id FK
         string title
         text description
+        string employment_type
+        string seniority_level
+        string department
+        string job_category
+        jsonb location
+        jsonb compensation
+        int years_of_experience_required
+        timestamp application_deadline
         jsonb description_breakdown
         jsonb required_skills
         string jd_source_type
@@ -96,24 +104,30 @@ flowchart LR
 
 - Purpose: job postings and publishing state.
 - Key constraints: recruiter foreign key, indexed recruiter lookup.
+- Structured metadata: `employment_type`, `seniority_level`, `department`, `job_category`, `location`, `compensation`, `years_of_experience_required`, and `application_deadline` support filtering, analytics, and future AI matching.
 - Flexible fields: `description_breakdown` JSONB and `required_skills` JSONB.
 - Canonical content: `description` now stores the canonical markdown job description and may be null until manual content is supplied or PDF parsing finishes.
 - JD source metadata:
   - `jd_source_type`: `manual_text` or `pdf_upload`
-  - `jd_parsing_status`: `not_started`, `uploaded`, `queued`, `processing`, `parsed`, `failed`
+    - `jd_parsing_status`: `pending`, `processing`, `parsed`, `failed`
   - `jd_file_name` and `jd_content_type`: recruiter-uploaded PDF metadata
   - `jd_storage_path`: **internal only** storage path, not exposed in API responses
   - `jd_uploaded_at`: upload timestamp for the current source file
-- Status lifecycle: `draft`, `publishing`, `published`, `closed`.
+- Status lifecycle: `draft`, `processing`, `ready`, `archived`.
 
 ### description_breakdown contract
 
-`jobs.description_breakdown` remains a JSONB field so the parser can evolve without destructive migrations. The expected contract for the upcoming parser pipeline is:
+`jobs.description_breakdown` remains a JSONB field so the parser can evolve without destructive migrations. The current normalized contract is:
 
-- `source`: metadata about the upstream JD file or manual content
-- `sections`: normalized markdown sections such as overview, responsibilities, required skills, preferred skills, education, experience, compensation, and location when present
-- `extracted_skills`: normalized skill tokens that can seed `required_skills`
-- `parser_metadata`: parser version, timestamps, and diagnostics
+- `overview`: short summary or opening role description when present
+- `skills`: normalized skill objects with `name`, `category`, `proficiency`, and optional `years_required`
+- `technologies`: normalized technology list used for precision filtering and future ranking
+- `education_requirements`: parsed degree level and fields of study when present
+- `requirements`: grouped `must_haves` and `nice_to_haves`
+- `responsibilities`: normalized bullet list
+- `location`: parsed location object with `city`, `state`, `country`, `remote_policy`, and `raw_text`
+- `compensation`: parsed salary object with `currency`, optional min/max values, interval, and normalized benefits passthrough
+- `benefits`: optional list of benefits/perks when present
 
 ### applications
 

@@ -97,6 +97,14 @@ class Job(TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    employment_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    seniority_level: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    job_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    location: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    compensation: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    years_of_experience_required: Mapped[int | None] = mapped_column(nullable=True)
+    application_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     description_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     required_skills: Mapped[list[str]] = mapped_column(
         JSONB,
