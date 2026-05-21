@@ -2,16 +2,26 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-
-ApplicationStatus = Literal["submitted", "reviewed", "rejected", "accepted"]
+from app.core.application_states import ApplicationStatus
 
 
 class ApplicationCreate(BaseModel):
     job_id: uuid.UUID
+
+
+class EligibilityResult(BaseModel):
+    is_eligible: bool
+    reason: str
+    missing_skills: list[str] = Field(default_factory=list)
+    match_score: float
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: ApplicationStatus
 
 
 class ApplicationResponse(BaseModel):

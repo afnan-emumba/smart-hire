@@ -9,6 +9,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, Uniq
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from app.core.application_states import ApplicationStatus
 from app.core.enums import JobStatus
 
 
@@ -137,7 +138,13 @@ class Job(TimestampMixin, Base):
 
 class Application(TimestampMixin, Base):
     __tablename__ = "applications"
-    __table_args__ = (UniqueConstraint("job_id", "candidate_id", name="uq_applications_job_candidate"),)
+    __table_args__ = (
+        UniqueConstraint("job_id", "candidate_id", name="uq_applications_job_candidate"),
+        CheckConstraint(
+            "status IN ('pending', 'screening', 'interview', 'offer', 'rejected', 'accepted')",
+            name="ck_applications_status_valid",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
@@ -155,8 +162,8 @@ class Application(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="submitted",
-        server_default="submitted",
+        default=ApplicationStatus.PENDING.value,
+        server_default=ApplicationStatus.PENDING.value,
     )
     application_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata",

@@ -385,13 +385,34 @@
               { "key": "X-User-Role", "value": "CANDIDATE" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/applications?limit=20&offset=0",
+              "raw": "{{baseUrl}}/applications?status=pending&limit=20&offset=0",
               "host": ["{{baseUrl}}"],
               "path": ["applications"],
               "query": [
+                { "key": "status", "value": "pending" },
                 { "key": "limit", "value": "20" },
                 { "key": "offset", "value": "0" }
               ]
+            }
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"screening\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "status"]
             }
           }
         },
@@ -411,7 +432,83 @@
           }
         },
         {
+          "name": "Get Application (Check Resume Parsing Status)",
+          "description": "Retrieve the application details to check if resume parsing has completed. The `resume_data` field will be populated once the Temporal workflow finishes parsing the uploaded PDF. The metadata field contains the parsing status (pending, processing, parsed, failed, or unsupported).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Application retrieved', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test('Resume parsing metadata visible', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.metadata).to.have.property('resume_parsing');",
+                  "    const status = body.metadata.resume_parsing.status;",
+                  "    pm.expect(['pending', 'processing', 'parsed', 'failed', 'unsupported']).to.include(status);",
+                  "});",
+                  "",
+                  "pm.test('Resume data structure (if parsing completed)', function () {",
+                  "    const body = pm.response.json();",
+                  "    if (body.resume_data) {",
+                  "        pm.expect(body.resume_data).to.have.property('summary');",
+                  "        pm.expect(body.resume_data).to.have.property('skills').that.is.an('array');",
+                  "        pm.expect(body.resume_data).to.have.property('contact').that.is.an('object');",
+                  "        pm.expect(body.resume_data).to.have.property('education').that.is.an('array');",
+                  "        pm.expect(body.resume_data).to.have.property('work_experience').that.is.an('array');",
+                  "        pm.expect(body.resume_data).to.have.property('markdown');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            }
+          }
+        },
+        {
           "name": "Upload Application Resume",
+          "description": "Upload a PDF resume for the application. The resume is parsed asynchronously by the Temporal worker (parse_application_resume activity). The parsed data will be available in the `resume_data` field after the workflow completes (typically within 1-3 seconds).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Resume uploaded successfully', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test('Response has application fields', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('id');",
+                  "    pm.expect(body).to.have.property('resume_file_name');",
+                  "    pm.expect(body).to.have.property('resume_content_type').to.equal('application/pdf');",
+                  "    pm.expect(body).to.have.property('resume_uploaded_at');",
+                  "});",
+                  "",
+                  "pm.test('Workflow metadata initialized', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.metadata).to.have.property('resume_parsing');",
+                  "    pm.expect(body.metadata.resume_parsing.status).to.equal('pending');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
