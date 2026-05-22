@@ -433,7 +433,7 @@
         },
         {
           "name": "Get Application (Check Resume Parsing Status)",
-          "description": "Retrieve the application details to check if resume parsing has completed. The `resume_data` field will be populated once the Temporal workflow finishes parsing the uploaded PDF. The metadata field contains the parsing status (pending, processing, parsed, failed, or unsupported).",
+          "description": "Retrieve the application details to check if resume parsing has completed. The application references a nested `resume` object, and that object carries the parsed `structured_data` once the Temporal workflow finishes parsing the uploaded PDF. The metadata field contains the parsing status (pending, processing, parsed, failed, or unsupported).",
           "event": [
             {
               "listen": "test",
@@ -452,13 +452,14 @@
                   "",
                   "pm.test('Resume data structure (if parsing completed)', function () {",
                   "    const body = pm.response.json();",
-                  "    if (body.resume_data) {",
-                  "        pm.expect(body.resume_data).to.have.property('summary');",
-                  "        pm.expect(body.resume_data).to.have.property('skills').that.is.an('array');",
-                  "        pm.expect(body.resume_data).to.have.property('contact').that.is.an('object');",
-                  "        pm.expect(body.resume_data).to.have.property('education').that.is.an('array');",
-                  "        pm.expect(body.resume_data).to.have.property('work_experience').that.is.an('array');",
-                  "        pm.expect(body.resume_data).to.have.property('markdown');",
+                  "    if (body.resume && body.resume.structured_data) {",
+                  "        pm.expect(body.resume).to.have.property('parsing_status');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('summary');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('skills').that.is.an('array');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('contact').that.is.an('object');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('education').that.is.an('array');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('work_experience').that.is.an('array');",
+                  "        pm.expect(body.resume.structured_data).to.have.property('markdown');",
                   "    }",
                   "});"
                 ],
@@ -481,7 +482,7 @@
         },
         {
           "name": "Upload Application Resume",
-          "description": "Upload a PDF resume for the application. The resume is parsed asynchronously by the Temporal worker (parse_application_resume activity). The parsed data will be available in the `resume_data` field after the workflow completes (typically within 1-3 seconds).",
+          "description": "Upload a PDF resume for the application. The resume is parsed asynchronously by the Temporal worker (parse_application_resume activity). The response includes a nested `resume` snapshot, and its parsed `structured_data` becomes available after the workflow completes (typically within 1-3 seconds).",
           "event": [
             {
               "listen": "test",
@@ -494,9 +495,11 @@
                   "pm.test('Response has application fields', function () {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body).to.have.property('id');",
-                  "    pm.expect(body).to.have.property('resume_file_name');",
-                  "    pm.expect(body).to.have.property('resume_content_type').to.equal('application/pdf');",
-                  "    pm.expect(body).to.have.property('resume_uploaded_at');",
+                  "    pm.expect(body).to.have.property('resume_id');",
+                  "    pm.expect(body).to.have.property('resume').that.is.an('object');",
+                  "    pm.expect(body.resume).to.have.property('file_name');",
+                  "    pm.expect(body.resume).to.have.property('content_type').to.equal('application/pdf');",
+                  "    pm.expect(body.resume).to.have.property('uploaded_at');",
                   "});",
                   "",
                   "pm.test('Workflow metadata initialized', function () {",

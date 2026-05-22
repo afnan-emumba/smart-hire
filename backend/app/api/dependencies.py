@@ -7,6 +7,7 @@ from app.db.session import get_db_session
 from app.core.config import get_settings
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
+from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.services.application_service import ApplicationService
@@ -42,13 +43,16 @@ async def get_application_service(
     application_repo = ApplicationRepository(session)
     job_repo = JobRepository(session)
     candidate_repo = CandidateRepository(session)
+    candidate_resume_repo = CandidateResumeRepository(session)
     return ApplicationService(
         application_repo=application_repo,
         job_repo=job_repo,
         candidate_repo=candidate_repo,
+        candidate_resume_repo=candidate_resume_repo,
         eligibility_service=EligibilityService(
             job_repo=job_repo,
             candidate_repo=candidate_repo,
+            candidate_resume_repo=candidate_resume_repo,
             application_repo=application_repo,
         ),
         settings=get_settings(),

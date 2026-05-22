@@ -94,6 +94,7 @@ class JobService:
         job = await self.job_repo.create(
             job_data,
             recruiter_id=recruiter_id,
+            changed_by_role=current_user.role,
         )
         return JobResponse.model_validate(job)
 
@@ -175,7 +176,7 @@ class JobService:
             updates["years_of_experience_required"] = breakdown_fields["years_of_experience_required"]
             updates["application_deadline"] = breakdown_fields["application_deadline"]
             updates["required_skills"] = breakdown_fields["required_skills"]
-            if existing_job.status != JobStatus.PROCESSING.value:
+            if existing_job.status == JobStatus.DRAFT.value:
                 updates["status"] = breakdown_fields["status"]
 
         if "status" in updates:
@@ -279,16 +280,28 @@ class JobService:
         self._ensure_publishable(job)
 
         updated_job = job
+        workflow_id = self._build_publish_workflow_id(job_id)
         if job.status == JobStatus.DRAFT.value:
-            processing_updates: dict[str, Any] = {"status": JobStatus.PROCESSING.value}
+            processing_updates: dict[str, Any] = {}
             if job.jd_source_type == "pdf_upload" and job.jd_parsing_status == "pending":
                 processing_updates["jd_parsing_status"] = "processing"
                 processing_updates["jd_parsing_error"] = None
-            updated_job = await self.job_repo.update(job_id, processing_updates)
-            if updated_job is None:
-                raise NotFoundError("Job not found")
+            updated_job = await self.job_repo.update_status(
+                job,
+                status=JobStatus.PROCESSING,
+                changed_by_user_id=owner_id,
+                changed_by_role=current_user.role,
+            )
+            if processing_updates:
+                updated_job = await self.job_repo.update(job_id, processing_updates)
+                if updated_job is None:
+                    raise NotFoundError("Job not found")
 
-        workflow_id = self._build_publish_workflow_id(job_id)
+        updated_job = await self.job_repo.set_publishing_workflow(
+            updated_job,
+            workflow_id=workflow_id,
+        )
+
         client = await TemporalClient.get_client()
         from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 
@@ -363,9 +376,11 @@ class JobService:
                 f"Invalid job state transition from '{job.status}' to '{target_status.value}'"
             )
 
-        updated_job = await self.job_repo.update(job_id, {"status": target_status.value})
-        if updated_job is None:
-            raise NotFoundError("Job not found")
+        updated_job = await self.job_repo.update_status(
+            job,
+            status=target_status,
+            changed_by_role="SYSTEM",
+        )
 
         return JobResponse.model_validate(updated_job)
 
@@ -428,6 +443,13 @@ class JobService:
                 parsing_status="failed",
                 parsing_error=str(exc),
                 structured_updates=self._empty_structured_updates(),
+            )
+            await self.job_repo.update(
+                job.id,
+                {
+                    "publishing_failed_at": datetime.now(timezone.utc),
+                    "publishing_error": str(exc),
+                },
             )
             raise BadRequestError(f"Failed to finalize job description breakdown: {exc}") from exc
 

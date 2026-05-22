@@ -1,22 +1,37 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Mapping
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Job
+from app.core.enums import JobStatus
+from app.db.models import Job, JobStatusHistory
 
 
 class JobRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, job_data: Mapping[str, Any], *, recruiter_id: uuid.UUID) -> Job:
+    async def create(
+        self,
+        job_data: Mapping[str, Any],
+        *,
+        recruiter_id: uuid.UUID,
+        changed_by_role: str | None = None,
+    ) -> Job:
         job = Job(**dict(job_data), recruiter_id=recruiter_id)
         self.session.add(job)
+        await self.session.flush()
+        self._add_status_history_entry(
+            job,
+            from_status=None,
+            to_status=job.status,
+            changed_by_user_id=recruiter_id,
+            changed_by_role=changed_by_role,
+        )
         await self.session.flush()
         await self.session.refresh(job)
         return job
@@ -132,6 +147,48 @@ class JobRepository:
         await self.session.refresh(job)
         return job
 
+    async def update_status(
+        self,
+        job: Job,
+        *,
+        status: JobStatus,
+        changed_by_user_id: uuid.UUID | None = None,
+        changed_by_role: str | None = None,
+        reason: str | None = None,
+        notes: str | None = None,
+    ) -> Job:
+        previous_status = job.status
+        job.status = status.value
+        self._apply_status_timestamps(job, status)
+        self._add_status_history_entry(
+            job,
+            from_status=previous_status,
+            to_status=status.value,
+            changed_by_user_id=changed_by_user_id,
+            changed_by_role=changed_by_role,
+            reason=reason,
+            notes=notes,
+        )
+        await self.session.flush()
+        await self.session.refresh(job)
+        return job
+
+    async def set_publishing_workflow(
+        self,
+        job: Job,
+        *,
+        workflow_id: str,
+    ) -> Job:
+        job.publishing_workflow_id = workflow_id
+        job.publishing_error = None
+        job.publishing_failed_at = None
+        if job.processing_started_at is None and job.status == JobStatus.PROCESSING.value:
+            job.processing_started_at = datetime.now(timezone.utc)
+
+        await self.session.flush()
+        await self.session.refresh(job)
+        return job
+
     async def delete(self, job_id: uuid.UUID) -> bool:
         job = await self.get_by_id(job_id)
         if job is None:
@@ -140,3 +197,35 @@ class JobRepository:
         await self.session.delete(job)
         await self.session.flush()
         return True
+
+    def _apply_status_timestamps(self, job: Job, status: JobStatus) -> None:
+        changed_at = datetime.now(timezone.utc)
+        if status == JobStatus.PROCESSING and job.processing_started_at is None:
+            job.processing_started_at = changed_at
+        elif status == JobStatus.READY and job.ready_at is None:
+            job.ready_at = changed_at
+        elif status == JobStatus.ARCHIVED and job.archived_at is None:
+            job.archived_at = changed_at
+
+    def _add_status_history_entry(
+        self,
+        job: Job,
+        *,
+        from_status: str | None,
+        to_status: str,
+        changed_by_user_id: uuid.UUID | None,
+        changed_by_role: str | None,
+        reason: str | None = None,
+        notes: str | None = None,
+    ) -> None:
+        self.session.add(
+            JobStatusHistory(
+                job_id=job.id,
+                from_status=from_status,
+                to_status=to_status,
+                changed_by_user_id=changed_by_user_id,
+                changed_by_role=changed_by_role,
+                reason=reason,
+                notes=notes,
+            )
+        )

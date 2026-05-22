@@ -5,6 +5,7 @@ import uuid
 from app.core.enums import JobStatus
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
+from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.schemas.application import EligibilityResult
 from app.services.exceptions import NotFoundError
@@ -15,10 +16,12 @@ class EligibilityService:
         self,
         job_repo: JobRepository,
         candidate_repo: CandidateRepository,
+        candidate_resume_repo: CandidateResumeRepository,
         application_repo: ApplicationRepository,
     ) -> None:
         self.job_repo = job_repo
         self.candidate_repo = candidate_repo
+        self.candidate_resume_repo = candidate_resume_repo
         self.application_repo = application_repo
 
     async def check_eligibility(
@@ -52,7 +55,7 @@ class EligibilityService:
                 match_score=0.0,
             )
 
-        candidate_skills = self._normalize_skills(candidate.master_profile_data.get("skills", []))
+        candidate_skills = await self._resolve_candidate_skills(candidate_id, candidate.master_profile_data)
         required_skills = self._normalize_skills(job.required_skills or [])
 
         if not required_skills:
@@ -90,3 +93,18 @@ class EligibilityService:
                 if cleaned:
                     normalized.add(cleaned)
         return normalized
+
+    async def _resolve_candidate_skills(
+        self,
+        candidate_id: uuid.UUID,
+        master_profile_data: dict,
+    ) -> set[str]:
+        canonical_skills = self._normalize_skills(master_profile_data.get("skills", []))
+        if canonical_skills:
+            return canonical_skills
+
+        latest_resume = await self.candidate_resume_repo.get_latest_parsed_for_candidate(candidate_id)
+        if latest_resume is None or latest_resume.structured_data is None:
+            return canonical_skills
+
+        return self._normalize_skills(latest_resume.structured_data.get("skills", []))

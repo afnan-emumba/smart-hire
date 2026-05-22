@@ -121,10 +121,10 @@ flowchart TB
 ### Persistence Layer
 
 - Primary store: PostgreSQL
-- **Flexible fields:** JSONB for application resume data, parsed job content, and application metadata
+- **Flexible fields:** JSONB for candidate master profiles, candidate resume parsing output, parsed job content, and application metadata
 - **Schema control:** Alembic migrations committed to git
 - **Transaction management:** Session commit/rollback is handled by the `get_db_session()` dependency. Repositories use `flush()` to get IDs without committing; the session commits only after the route handler completes successfully.
-- **Resume storage:** Internal `resume_storage_path` is stored in the database for internal use only; API responses **do not** include this path (security best practice)
+- **Resume storage:** Resume files and parsed output live in candidate-owned resume snapshots; internal `storage_path` is stored for internal use only and API responses expose a nested resume object without that path
 - **JD storage:** Internal `jd_storage_path` is stored in the database for internal use only; API responses **do not** include this path
 
 ### Manual Validation Surface

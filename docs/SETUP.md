@@ -194,7 +194,7 @@ Recommended Day 5 validation order:
    ```
    GET /applications/{applicationId}
    ```
-   Confirm resume metadata is present (but NOT `resume_storage_path`, which is internal).
+   Confirm the nested `resume` object is present with file metadata and parsing status (but NOT `storage_path`, which is internal).
 
 ## Authorization & Auth Headers
 

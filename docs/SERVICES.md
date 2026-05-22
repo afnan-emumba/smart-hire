@@ -177,6 +177,7 @@ sequenceDiagram
     participant Router as Router<br/>(File Size Limit)
     participant Service as ApplicationService
     participant AppRepo
+    participant ResumeRepo
     participant Disk as Local Storage
     participant DB as PostgreSQL
 
@@ -187,11 +188,13 @@ sequenceDiagram
     Service->>AppRepo: get_by_id(application_id)
     AppRepo->>DB: SELECT application
     Service->>Service: Validate content-type (PDF/DOC/DOCX only)
-    Service->>Disk: write file to uploads/resumes/{app_id}{ext}
-    Service->>AppRepo: attach resume metadata (file_name, content_type, uploaded_at)
-    AppRepo->>DB: UPDATE application (resume metadata only)
+    Service->>Disk: write file to uploads/resumes/{resume_id}{ext}
+    Service->>ResumeRepo: create candidate resume snapshot
+    ResumeRepo->>DB: INSERT candidate_resumes row
+    Service->>AppRepo: attach application to resume snapshot
+    AppRepo->>DB: UPDATE application (resume_id + workflow metadata)
     DB-->>AppRepo: updated application row
-    Service-->>Router: application response (NO resume_storage_path)
+    Service-->>Router: application response with nested resume object (NO storage_path)
     Router-->>Client: 200 OK
 ```
 
@@ -199,7 +202,8 @@ sequenceDiagram
 
 - Router pre-checks file size before streaming to service (prevents OOM)
 - Service verifies the authenticated candidate owns the application
-- Internal `resume_storage_path` is **not** included in API response
+- Parsed resume content and file metadata live on the candidate resume snapshot, not on the application row
+- Internal `storage_path` is **not** included in API response
 
 ## Service Design Rules
 
