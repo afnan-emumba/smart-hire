@@ -55,6 +55,7 @@ async def _run_application_service_operation(
                 candidate_repo=candidate_repo,
                 candidate_resume_repo=candidate_resume_repo,
                 application_repo=application_repo,
+                settings=get_settings(),
             ),
             settings=get_settings(),
         )

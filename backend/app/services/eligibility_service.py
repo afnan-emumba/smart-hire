@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+from app.core.config import Settings
 from app.core.enums import JobStatus
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
@@ -18,11 +19,13 @@ class EligibilityService:
         candidate_repo: CandidateRepository,
         candidate_resume_repo: CandidateResumeRepository,
         application_repo: ApplicationRepository,
+        settings: Settings,
     ) -> None:
         self.job_repo = job_repo
         self.candidate_repo = candidate_repo
         self.candidate_resume_repo = candidate_resume_repo
         self.application_repo = application_repo
+        self.settings = settings
 
     async def check_eligibility(
         self,
@@ -52,6 +55,19 @@ class EligibilityService:
             return EligibilityResult(
                 is_eligible=False,
                 reason="You have already applied to this job",
+                match_score=0.0,
+            )
+
+        active_application_count = await self.application_repo.count_active_by_candidate(
+            candidate_id
+        )
+        if active_application_count >= self.settings.max_applications_per_candidate:
+            return EligibilityResult(
+                is_eligible=False,
+                reason=(
+                    "You have reached the maximum of "
+                    f"{self.settings.max_applications_per_candidate} active applications"
+                ),
                 match_score=0.0,
             )
 

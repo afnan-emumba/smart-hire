@@ -312,7 +312,7 @@
       "item": [
         {
           "name": "Create Application",
-          "description": "Creates an application only after the job is publishable. The candidate identity is taken from X-User-ID, and the response metadata includes the eligibility result used during creation.",
+          "description": "Creates an application only after the job is publishable. The candidate identity is taken from X-User-ID, and the response should match the documented ApplicationResponse contract. Returns 400 when the candidate has reached the active application limit configured by MAX_APPLICATIONS_PER_CANDIDATE.",
           "event": [
             {
               "listen": "test",
@@ -324,9 +324,11 @@
                   "});",
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('applicationId', body.id);",
-                  "pm.test('Application is pending with eligibility metadata', function () {",
+                  "pm.test('Application is pending and matches response contract', function () {",
                   "    pm.expect(body.status).to.equal('pending');",
-                  "    pm.expect(body.metadata).to.have.property('eligibility_result');",
+                  "    pm.expect(body).to.have.property('metadata').that.is.an('object');",
+                  "    pm.expect(body).to.have.property('resume_id');",
+                  "    pm.expect(body).to.have.property('resume');",
                   "});"
                 ]
               }

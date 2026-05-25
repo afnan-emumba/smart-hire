@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
     jd_upload_dir: str = Field(default="uploads/job_descriptions", alias="JD_UPLOAD_DIR")
     max_jd_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_JD_SIZE_BYTES")
+    max_applications_per_candidate: int = Field(
+        default=5,
+        alias="MAX_APPLICATIONS_PER_CANDIDATE",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

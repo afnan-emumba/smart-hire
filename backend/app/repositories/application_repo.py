@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -65,6 +65,21 @@ class ApplicationRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def count_active_by_candidate(self, candidate_id: uuid.UUID) -> int:
+        terminal_statuses = {
+            ApplicationStatus.REJECTED.value,
+            ApplicationStatus.ACCEPTED.value,
+        }
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(Application)
+            .where(
+                Application.candidate_id == candidate_id,
+                Application.status.not_in(terminal_statuses),
+            )
+        )
+        return result.scalar_one()
 
     async def list_by_candidate(
         self,
