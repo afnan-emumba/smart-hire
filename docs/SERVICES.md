@@ -41,16 +41,17 @@ flowchart LR
 
 - Create draft jobs (status always `draft`, recruiter_id from auth context)
 - Accept manual description content as a fallback while PDF parsing is pending
+- Accept optional structured metadata overrides for employment type, seniority, location, compensation, experience, and deadlines
 - Upload recruiter-provided JD PDFs and persist parsing lifecycle metadata
 - Update jobs (PATCH) with authorization checks (only job owner can update)
 - Delete jobs (only job owner can delete)
 - Enforce recruiter ownership and status transition rules
-- Support JD parsing lifecycle
+- Support JD parsing lifecycle and normalize parsed metadata into first-class job columns
 
 ### ApplicationService
 
 - Bind application creation to authenticated candidate (from X-User-ID header)
-- Validate job exists and is in `published` status
+- Validate job exists and is in `ready` status
 - Prevent duplicate applications (unique constraint on job_id, candidate_id)
 - Create application records with server-set candidate_id
 - Resolve recruiter access through the job owner relationship instead of storing a duplicate recruiter FK on applications
@@ -81,6 +82,7 @@ sequenceDiagram
     ClientFallback->>Router: PATCH /jobs/{id} {description=...}
     Router->>Service: update_job(job_id, payload, current_user)
     Service->>Service: mark source_type=manual_text, parsing_status=parsed
+    Service->>Service: derive normalized job metadata and breakdown
     Service->>Repo: update(job_id, updates)
     Repo->>DB: UPDATE jobs
     Router-->>ClientFallback: 200 OK
@@ -103,8 +105,31 @@ sequenceDiagram
     Service->>Service: Validate content-type (PDF only)
     Service->>Disk: write file to uploads/job_descriptions/{job_id}.pdf
     Service->>Repo: attach_job_description_file(...)
-    Repo->>DB: UPDATE jobs (jd_file_name, jd_parsing_status='uploaded', ...)
+    Repo->>DB: UPDATE jobs (jd_file_name, jd_parsing_status='pending', clear parsed fields, ...)
     Service-->>Router: job response (NO jd_storage_path)
+    Router-->>Client: 202 Accepted
+```
+
+## Job Publishing Workflow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Router
+    participant Service as JobService
+    participant Temporal as Temporal Workflow
+    participant Activity as Breakdown Activity
+    participant Repo as JobRepository
+    participant DB as PostgreSQL
+
+    Client->>Router: POST /jobs/{id}/publish
+    Router->>Service: publish_job(job_id, current_user)
+    Service->>Service: verify owner and publishable state
+    Service->>Repo: update(job_id, {status='processing'})
+    Service->>Temporal: start JobPublishingWorkflow
+    Temporal->>Activity: finalize_job_breakdown(job_id)
+    Activity->>Repo: persist description, breakdown, required_skills, and structured metadata
+    Activity->>Repo: update(job_id, {status='ready'})
     Router-->>Client: 202 Accepted
 ```
 
@@ -126,7 +151,7 @@ sequenceDiagram
     Service->>Service: Extract candidate_id from X-User-ID
     Service->>JobRepo: get_by_id(job_id)
     JobRepo->>DB: SELECT job
-    Service->>Service: Verify job.status == 'published'
+    Service->>Service: Verify job.status == 'ready'
     Service->>CandidateRepo: get_by_id(candidate_id)
     CandidateRepo->>DB: SELECT candidate
     Service->>AppRepo: check for duplicate (job_id, candidate_id)
@@ -141,7 +166,7 @@ sequenceDiagram
 **Key changes:**
 
 - `candidate_id` comes from auth context (`X-User-ID`), not request body
-- Job must be `published` before allowing applications
+- Job must be `ready` before allowing applications
 - Database unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
 
 ## Resume Upload Flow
@@ -152,6 +177,7 @@ sequenceDiagram
     participant Router as Router<br/>(File Size Limit)
     participant Service as ApplicationService
     participant AppRepo
+    participant ResumeRepo
     participant Disk as Local Storage
     participant DB as PostgreSQL
 
@@ -162,11 +188,13 @@ sequenceDiagram
     Service->>AppRepo: get_by_id(application_id)
     AppRepo->>DB: SELECT application
     Service->>Service: Validate content-type (PDF/DOC/DOCX only)
-    Service->>Disk: write file to uploads/resumes/{app_id}{ext}
-    Service->>AppRepo: attach resume metadata (file_name, content_type, uploaded_at)
-    AppRepo->>DB: UPDATE application (resume metadata only)
+    Service->>Disk: write file to uploads/resumes/{resume_id}{ext}
+    Service->>ResumeRepo: create candidate resume snapshot
+    ResumeRepo->>DB: INSERT candidate_resumes row
+    Service->>AppRepo: attach application to resume snapshot
+    AppRepo->>DB: UPDATE application (resume_id + workflow metadata)
     DB-->>AppRepo: updated application row
-    Service-->>Router: application response (NO resume_storage_path)
+    Service-->>Router: application response with nested resume object (NO storage_path)
     Router-->>Client: 200 OK
 ```
 
@@ -174,7 +202,8 @@ sequenceDiagram
 
 - Router pre-checks file size before streaming to service (prevents OOM)
 - Service verifies the authenticated candidate owns the application
-- Internal `resume_storage_path` is **not** included in API response
+- Parsed resume content and file metadata live on the candidate resume snapshot, not on the application row
+- Internal `storage_path` is **not** included in API response
 
 ## Service Design Rules
 
@@ -182,11 +211,11 @@ sequenceDiagram
 
 2. **Bind ownership to auth context, not request bodies.** When creating jobs, use `current_user.id` (X-User-ID header) as the recruiter; similarly bind candidate applications to the authenticated candidate's UUID. This prevents authorization bypasses.
 
-3. **Enforce server-controlled status transitions.** Job `status` is never accepted from the request body on creation; it always defaults to `draft`. Status changes happen via explicit `PATCH /jobs/{id}` with scoped authorization checks.
+3. **Enforce server-controlled status transitions.** Job `status` is never accepted from the request body on creation; it always defaults to `draft`. Publishing happens through `POST /jobs/{id}/publish`, and subsequent transitions follow the explicit state machine.
 
 4. **Keep JD parsing lifecycle separate from publication lifecycle.** `jd_parsing_status` tracks content-ingestion progress, while `status` tracks recruiter-facing publication state. Services should not overload one field to represent both concerns.
 
-5. **Validate eligibility early.** Before creating an application, check that the job exists, is in `published` status, and that no duplicate application exists. Prevent applications to draft/closed jobs.
+5. **Validate eligibility early.** Before creating an application, check that the job exists, is in `ready` status, and that no duplicate application exists. Prevent applications to draft/processing/archived jobs.
 
 6. **Keep SQL construction in repositories, pagination in the database.** Repositories should compose `.limit()` and `.offset()` into queries, not return all records for Python-level slicing.
 

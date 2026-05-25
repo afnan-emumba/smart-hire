@@ -47,6 +47,7 @@ Thumbs.db
 uploads/
 backend/uploads/
 *.md
+samples/
 !README.md
 !docs/
 !docs/*.md

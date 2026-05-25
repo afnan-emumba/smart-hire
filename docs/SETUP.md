@@ -136,12 +136,12 @@ Recommended Day 5 validation order:
 
    ```
    POST /jobs
-   {"title": "Backend Engineer", "description": "Interim manual markdown while PDF parsing is pending.", "required_skills": ["python"]}
+   {"title": "Backend Engineer", "description": "Interim manual markdown while PDF parsing is pending.", "employment_type": "full_time", "seniority_level": "senior", "location": {"city": "Lahore", "country": "Pakistan", "remote_policy": "hybrid"}, "years_of_experience_required": 5, "required_skills": ["python"]}
    ```
 
    Note: `recruiter_id` is automatically bound to X-User-ID (cannot be overridden)  
    Note: `status` defaults to `draft` (cannot be set in request body)  
-   Note: manual `description` is a temporary fallback path; JD PDF parsing will be implemented in Week 2  
+   Note: manual `description` is parsed immediately and can populate `description_breakdown` plus normalized metadata fields  
    Save the returned `id` as `jobId`.
 
 4. **Upload a JD PDF** (as recruiter)
@@ -151,16 +151,15 @@ Recommended Day 5 validation order:
    multipart/form-data with field 'description_file' containing a PDF file
    ```
 
-   The API stores the file and updates `jd_parsing_status` to `uploaded`. JD parsing and breakdown will be implemented in Week 2.
+   The API stores the file and updates `jd_parsing_status` to `pending`. Parsed fields are populated when the publish workflow runs.
 
-5. **Publish the job** (as recruiter, PATCH to transition status)
+5. **Publish the job** (as recruiter, trigger the Temporal workflow)
 
    ```
-   PATCH /jobs/{jobId}
-   {"status": "published"}
+   POST /jobs/{jobId}/publish
    ```
 
-   Only published jobs can receive applications. Publication currently requires either manual description content or a future parsed JD.
+   Only ready jobs can receive applications. Publishing moves the job to `processing`, runs JD finalization, and marks the job `ready` on success.
 
 6. **Create an application** (as candidate with X-User-ID=candidateId)
 
@@ -170,7 +169,7 @@ Recommended Day 5 validation order:
    ```
 
    Note: `candidate_id` is automatically bound to X-User-ID (cannot be overridden)  
-   Note: Application fails if job is not published.
+   Note: Application fails if job is not ready.
    Save the returned `id` as `applicationId`.
 
 7. **Upload a resume** (as candidate)
@@ -195,7 +194,7 @@ Recommended Day 5 validation order:
    ```
    GET /applications/{applicationId}
    ```
-   Confirm resume metadata is present (but NOT `resume_storage_path`, which is internal).
+   Confirm the nested `resume` object is present with file metadata and parsing status (but NOT `storage_path`, which is internal).
 
 ## Authorization & Auth Headers
 
@@ -213,7 +212,7 @@ Most endpoints require two headers:
 
 - **Candidates** can:
   - Create/read/update/delete their own profiles
-  - View and apply to published jobs
+  - View and apply to ready jobs
   - Upload resumes to their own applications
   - View only their own applications
   - Cannot create jobs or view other candidates' profiles

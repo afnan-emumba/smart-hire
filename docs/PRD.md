@@ -28,7 +28,7 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 ### Candidate Use Cases
 
 - Register and maintain candidate profiles.
-- Browse and retrieve published jobs.
+- Browse and retrieve ready jobs.
 - Submit applications to eligible jobs.
 - Upload a job-specific resume for a submitted application.
 - Track application status through the hiring lifecycle.
@@ -53,9 +53,9 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 
 - FR-04: The system shall allow authenticated recruiters to create job postings.
 - FR-05: The system shall bind job ownership to the authenticated recruiter identity.
-- FR-06: The system shall store job descriptions, required skills, and structured breakdown data.
+- FR-06: The system shall store job descriptions, required skills, structured breakdown data, and normalized job metadata for filtering and matching.
 - FR-07: The system shall support job listing and retrieval with filtering and pagination.
-- FR-08: The system shall manage job status transitions such as `draft`, `publishing`, `published`, and `closed`.
+- FR-08: The system shall manage job status transitions such as `draft`, `processing`, `ready`, and `archived`.
 
 ### Application Management
 
@@ -69,7 +69,7 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 
 ### Workflow and Event Processing
 
-- FR-16: The system shall trigger a job publishing workflow after job publication or relevant updates.
+- FR-16: The system shall trigger a job publishing workflow after `POST /jobs/{id}/publish` or relevant draft updates.
 - FR-17: The system shall break down job descriptions into structured data for downstream retrieval and ranking.
 - FR-18: The system shall trigger an application workflow after a candidate submits an application.
 - FR-19: The system shall emit domain events after successful writes for jobs and applications.
