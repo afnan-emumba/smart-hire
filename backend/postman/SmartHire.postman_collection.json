@@ -6,14 +6,9 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8000" },
-    {
-      "key": "recruiterUserId",
-      "value": "{{$randomUUID}}"
-    },
-    {
-      "key": "candidateUserId",
-      "value": "{{$randomUUID}}"
-    },
+    { "key": "temporalUiUrl", "value": "http://localhost:8080" },
+    { "key": "recruiterUserId", "value": "{{$randomUUID}}" },
+    { "key": "candidateUserId", "value": "{{$randomUUID}}" },
     { "key": "recruiterId", "value": "" },
     { "key": "candidateId", "value": "" },
     { "key": "jobId", "value": "" },
@@ -22,10 +17,23 @@
   ],
   "item": [
     {
-      "name": "health",
+      "name": "Health",
       "item": [
         {
           "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health endpoint is up', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -39,7 +47,7 @@
       ]
     },
     {
-      "name": "recruiters",
+      "name": "Setup Data",
       "item": [
         {
           "name": "Create Recruiter",
@@ -47,12 +55,15 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
+                  "pm.test('Recruiter created', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('recruiterId', body.id);",
                   "pm.collectionVariables.set('recruiterUserId', body.id);"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ],
@@ -65,7 +76,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"recruiter@example.com\",\n  \"name\": \"Manual Recruiter\"\n}"
+              "raw": "{\n  \"email\": \"hr@example.com\",\n  \"name\": \"HR Manager\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/recruiters",
@@ -75,21 +86,38 @@
           }
         },
         {
-          "name": "List Recruiters",
+          "name": "Create Candidate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Candidate created', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('candidateId', body.id);",
+                  "pm.collectionVariables.set('candidateUserId', body.id);"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dev@example.com\",\n  \"name\": \"Software Developer\",\n  \"master_profile_data\": {\n    \"summary\": \"Backend engineer with experience building async APIs and workflow integrations.\",\n    \"skills\": [\"Python\", \"SQL\", \"Docker\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0198\",\n      \"location\": \"Islamabad, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Software Engineer\",\n        \"start_year\": 2022,\n        \"end_year\": 2024,\n        \"description\": \"Built recruiter and candidate workflow APIs.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\"\n    }\n  }\n}"
+            },
             "url": {
-              "raw": "{{baseUrl}}/recruiters?limit=20&offset=0",
+              "raw": "{{baseUrl}}/candidates",
               "host": ["{{baseUrl}}"],
-              "path": ["recruiters"],
-              "query": [
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
-              ]
+              "path": ["candidates"]
             }
           }
         },
@@ -107,63 +135,6 @@
               "path": ["recruiters", "{{recruiterId}}"]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "candidates",
-      "item": [
-        {
-          "name": "Create Candidate",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const body = pm.response.json();",
-                  "pm.collectionVariables.set('candidateId', body.id);",
-                  "pm.collectionVariables.set('candidateUserId', body.id);"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\",\n  \"master_profile_data\": {\n    \"summary\": \"Backend engineer with experience building async APIs and internal workflow tools.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0198\",\n      \"location\": \"Islamabad, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Software Engineer\",\n        \"start_year\": 2022,\n        \"end_year\": 2024,\n        \"description\": \"Built hiring APIs and async workflow integrations.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\",\n      \"portfolio\": \"https://portfolio.example.com\"\n    }\n  }\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/candidates",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates"]
-            }
-          }
-        },
-        {
-          "name": "List Candidates",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/candidates?limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates"],
-              "query": [
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
-              ]
-            }
-          }
         },
         {
           "name": "Get Candidate",
@@ -179,43 +150,30 @@
               "path": ["candidates", "{{candidateId}}"]
             }
           }
-        },
-        {
-          "name": "Update Candidate",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Manual Candidate Updated\",\n  \"master_profile_data\": {\n    \"summary\": \"Updated aggregate profile for recruiter search and matching.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"System Design\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0100\",\n      \"location\": \"Karachi, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Senior Software Engineer\",\n        \"start_year\": 2022,\n        \"description\": \"Led API design for recruiter and candidate workflows.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\"\n    }\n  }\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}"]
-            }
-          }
         }
       ]
     },
     {
-      "name": "jobs",
+      "name": "Job Publishing Workflow",
       "item": [
         {
           "name": "Create Job",
+          "description": "Creates a draft job using recruiter-bound auth context. The request intentionally omits recruiter_id and status because both are server-controlled.",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
+                  "pm.test('Job created as draft', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal('draft');",
+                  "    pm.expect(body).to.have.property('description_breakdown');",
+                  "});",
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('jobId', body.id);"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ],
@@ -228,7 +186,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"description\": \"Location: Hybrid (Lahore, Pakistan)\\nJob Type: Full-Time\\nDepartment: Engineering\\nJob Description\\nWe are looking for a Senior Backend Engineer to design reliable APIs and workflow-driven services.\\n\\n## Responsibilities\\n- Build async backend services with FastAPI and PostgreSQL.\\n- Own integrations with Temporal, Redis, and Kafka.\\n\\n## Requirements\\n- 5+ years of experience in backend engineering.\\n- Strong Python and FastAPI experience.\\n- Experience with PostgreSQL, Redis, and Docker.\\n\\n## Benefits\\n- Health insurance\\n- Flexible hybrid schedule\",\n  \"employment_type\": \"full_time\",\n  \"seniority_level\": \"senior\",\n  \"department\": \"Engineering\",\n  \"job_category\": \"Backend Engineering\",\n  \"location\": {\n    \"city\": \"Lahore\",\n    \"country\": \"Pakistan\",\n    \"remote_policy\": \"hybrid\"\n  },\n  \"compensation\": {\n    \"currency\": \"USD\",\n    \"min_amount\": 70000,\n    \"max_amount\": 95000,\n    \"interval\": \"annual\",\n    \"additional_benefits\": [\"health_insurance\"]\n  },\n  \"years_of_experience_required\": 5,\n  \"required_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"]\n}"
+              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Location: Hybrid (Lahore, Pakistan)\\nJob Type: Full-Time\\nDepartment: Engineering\\nJob Description\\nWe are looking for a Backend Engineer to design reliable APIs and workflow-driven services.\\n\\n## Responsibilities\\n- Build async backend services with FastAPI and PostgreSQL.\\n- Own integrations with Temporal and Docker-based development workflows.\\n\\n## Requirements\\n- 3+ years of experience in backend engineering.\\n- Strong Python and SQL experience.\\n- Experience with Docker and service-oriented systems.\\n\\n## Benefits\\n- Health insurance\\n- Flexible hybrid schedule\",\n  \"employment_type\": \"full_time\",\n  \"seniority_level\": \"mid\",\n  \"department\": \"Engineering\",\n  \"job_category\": \"Backend Engineering\",\n  \"location\": {\n    \"city\": \"Lahore\",\n    \"country\": \"Pakistan\",\n    \"remote_policy\": \"hybrid\"\n  },\n  \"years_of_experience_required\": 3,\n  \"required_skills\": [\"Python\", \"SQL\", \"Docker\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/jobs",
@@ -239,6 +197,7 @@
         },
         {
           "name": "Upload Job Description File",
+          "description": "Optional validation path for PDF-backed job descriptions. Use this only when you want to test jd_parsing_status moving from pending to processing through the Temporal workflow.",
           "request": {
             "method": "POST",
             "header": [
@@ -259,16 +218,23 @@
           }
         },
         {
-          "name": "Publish Job (Trigger Temporal Workflow)",
+          "name": "Publish Job",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
+                  "pm.test('Publish returns accepted response', function () {",
+                  "    pm.expect(pm.response.code).to.equal(202);",
+                  "});",
                   "const body = pm.response.json();",
-                  "pm.collectionVariables.set('workflowId', body.workflow_id);"
-                ],
-                "type": "text/javascript"
+                  "pm.collectionVariables.set('workflowId', body.workflow_id);",
+                  "pm.test('Publish response includes workflow id', function () {",
+                  "    pm.expect(body.workflow_id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(['processing', 'ready']).to.include(body.status);",
+                  "});"
+                ]
               }
             }
           ],
@@ -282,6 +248,41 @@
               "raw": "{{baseUrl}}/jobs/{{jobId}}/publish",
               "host": ["{{baseUrl}}"],
               "path": ["jobs", "{{jobId}}", "publish"]
+            }
+          }
+        },
+        {
+          "name": "Get Job",
+          "description": "Run this after Publish Job to verify that the job reaches ready state and that the normalized breakdown remains available.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Job retrieved successfully', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "pm.test('Job has workflow-ready fields', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(['processing', 'ready']).to.include(body.status);",
+                  "    pm.expect(body).to.have.property('description_breakdown');",
+                  "    pm.expect(body).to.have.property('jd_parsing_status');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
             }
           }
         },
@@ -303,58 +304,31 @@
               ]
             }
           }
-        },
-        {
-          "name": "Get Job",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
-            }
-          }
-        },
-        {
-          "name": "Update Job (Metadata Only)",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Lead Backend Engineer\",\n  \"description\": \"Location: Remote (Pakistan)\\nJob Type: Full-Time\\nDepartment: Engineering\\nCompensation: USD 90000-120000 annual\\nApplication Deadline: 2026-06-30\\nJob Description\\nYou will lead backend platform work across APIs, workflows, and integrations.\\n\\n## Responsibilities\\n- Lead architecture for recruiter and candidate APIs.\\n- Improve reliability for Temporal and event-driven jobs.\\n\\n## Requirements\\n- 7+ years of experience in backend or platform engineering.\\n- Expert Python, PostgreSQL, and distributed systems knowledge.\\n\\n## Skills\\n- Python\\n- FastAPI\\n- PostgreSQL\\n- Temporal\\n- Kafka\",\n  \"seniority_level\": \"lead\",\n  \"location\": {\n    \"country\": \"Pakistan\",\n    \"remote_policy\": \"remote\"\n  },\n  \"years_of_experience_required\": 7,\n  \"required_skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\", \"Temporal\", \"Kafka\"]\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
-            }
-          }
         }
       ]
     },
     {
-      "name": "applications",
+      "name": "Application Workflow",
       "item": [
         {
           "name": "Create Application",
+          "description": "Creates an application only after the job is publishable. The candidate identity is taken from X-User-ID, and the response metadata includes the eligibility result used during creation.",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
+                  "pm.test('Application created', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
                   "const body = pm.response.json();",
-                  "pm.collectionVariables.set('applicationId', body.id);"
-                ],
-                "type": "text/javascript"
+                  "pm.collectionVariables.set('applicationId', body.id);",
+                  "pm.test('Application is pending with eligibility metadata', function () {",
+                  "    pm.expect(body.status).to.equal('pending');",
+                  "    pm.expect(body.metadata).to.have.property('eligibility_result');",
+                  "});"
+                ]
               }
             }
           ],
@@ -377,7 +351,41 @@
           }
         },
         {
-          "name": "List Applications",
+          "name": "Create Duplicate Application",
+          "description": "Replays the same application request to verify duplicate protection. The implemented service raises 409 Conflict for duplicate submissions.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate application rejected', function () {",
+                  "    pm.expect(pm.response.code).to.equal(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_id\": \"{{jobId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            }
+          }
+        },
+        {
+          "name": "List Pending Applications",
           "request": {
             "method": "GET",
             "header": [
@@ -397,118 +405,24 @@
           }
         },
         {
-          "name": "Update Application Status",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"screening\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
-            }
-          }
-        },
-        {
-          "name": "Get Application",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}"]
-            }
-          }
-        },
-        {
-          "name": "Get Application (Check Resume Parsing Status)",
-          "description": "Retrieve the application details to check if resume parsing has completed. The application references a nested `resume` object, and that object carries the parsed `structured_data` once the Temporal workflow finishes parsing the uploaded PDF. The metadata field contains the parsing status (pending, processing, parsed, failed, or unsupported).",
+          "name": "Upload Application Resume",
+          "description": "Uploads a PDF resume to the application. Resume parsing is validated as a Week 2 workflow side effect, but full candidate scoring remains out of scope until Week 3.",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
-                  "pm.test('Application retrieved', function () {",
+                  "pm.test('Resume upload accepted', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
                   "});",
-                  "",
-                  "pm.test('Resume parsing metadata visible', function () {",
+                  "pm.test('Resume snapshot returned', function () {",
                   "    const body = pm.response.json();",
+                  "    pm.expect(body.resume_id).to.be.a('string');",
+                  "    pm.expect(body.resume).to.be.an('object');",
                   "    pm.expect(body.metadata).to.have.property('resume_parsing');",
-                  "    const status = body.metadata.resume_parsing.status;",
-                  "    pm.expect(['pending', 'processing', 'parsed', 'failed', 'unsupported']).to.include(status);",
-                  "});",
-                  "",
-                  "pm.test('Resume data structure (if parsing completed)', function () {",
-                  "    const body = pm.response.json();",
-                  "    if (body.resume && body.resume.structured_data) {",
-                  "        pm.expect(body.resume).to.have.property('parsing_status');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('summary');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('skills').that.is.an('array');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('contact').that.is.an('object');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('education').that.is.an('array');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('work_experience').that.is.an('array');",
-                  "        pm.expect(body.resume.structured_data).to.have.property('markdown');",
-                  "    }",
                   "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}"]
-            }
-          }
-        },
-        {
-          "name": "Upload Application Resume",
-          "description": "Upload a PDF resume for the application. The resume is parsed asynchronously by the Temporal worker (parse_application_resume activity). The response includes a nested `resume` snapshot, and its parsed `structured_data` becomes available after the workflow completes (typically within 1-3 seconds).",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Resume uploaded successfully', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "",
-                  "pm.test('Response has application fields', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body).to.have.property('id');",
-                  "    pm.expect(body).to.have.property('resume_id');",
-                  "    pm.expect(body).to.have.property('resume').that.is.an('object');",
-                  "    pm.expect(body.resume).to.have.property('file_name');",
-                  "    pm.expect(body.resume).to.have.property('content_type').to.equal('application/pdf');",
-                  "    pm.expect(body.resume).to.have.property('uploaded_at');",
-                  "});",
-                  "",
-                  "pm.test('Workflow metadata initialized', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.metadata).to.have.property('resume_parsing');",
-                  "    pm.expect(body.metadata.resume_parsing.status).to.equal('pending');",
-                  "});"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ],
@@ -528,11 +442,116 @@
               "path": ["applications", "{{applicationId}}", "resume"]
             }
           }
+        },
+        {
+          "name": "Get Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Application retrieved', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "pm.test('Application shows workflow metadata', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.metadata).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Recruiter can move application to screening', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal('screening');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"screening\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "List Screening Applications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications?status=screening&limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [
+                { "key": "status", "value": "screening" },
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "cleanup",
+      "name": "Temporal UI Inspection",
+      "description": "Manual verification folder for Day 5. Use the stored workflowId to inspect the job publishing workflow in the Temporal UI.",
+      "item": [
+        {
+          "name": "Temporal UI Root",
+          "description": "Open the Temporal UI and search for the workflow stored in {{workflowId}}. Confirm the workflow history contains the publish activities and no unresolved failures.",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{temporalUiUrl}}",
+              "host": ["{{temporalUiUrl}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
       "item": [
         {
           "name": "Delete Job",

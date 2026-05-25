@@ -131,7 +131,7 @@ flowchart TB
 
 - Swagger UI and Postman are the primary clients for the current backend-only scope.
 - Resume files are uploaded per application and stored locally in development.
-- Job description PDFs are uploaded per job and stored locally until the Week 2 parser workflow is added.
+- Job description PDFs are uploaded per job and processed through the Week 2 Temporal publishing workflow.
 
 ### Async Processing
 
@@ -148,7 +148,7 @@ sequenceDiagram
     participant Service as JobService
     participant Repo as JobRepository
     participant DB as PostgreSQL
-    participant Temporal as Future Temporal Workflow
+    participant Temporal as Temporal Workflow
 
     Recruiter->>API: POST /jobs (X-User-ID, X-User-Role=RECRUITER)
     API->>Service: create_job(payload, current_user)
@@ -187,6 +187,14 @@ sequenceDiagram
 - The publish workflow persists normalized metadata into top-level job fields and a richer `description_breakdown` JSONB payload
 
 ```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> processing: publish requested
+    processing --> ready: workflow completed
+    ready --> archived: future lifecycle transition
+```
+
+```mermaid
 sequenceDiagram
     participant Candidate
     participant API as FastAPI Router
@@ -195,7 +203,6 @@ sequenceDiagram
     participant CandidateRepo as CandidateRepository
     participant AppRepo as ApplicationRepository
     participant DB as PostgreSQL
-    participant Kafka as Kafka
     participant Temporal as Temporal Workflow
 
     Candidate->>API: POST /applications (X-User-ID, X-User-Role=CANDIDATE)
@@ -206,11 +213,11 @@ sequenceDiagram
     Service->>Service: Verify job.status='ready'
     Service->>CandidateRepo: get_by_id(candidate_id)
     CandidateRepo->>DB: SELECT candidate
+    Service->>Service: Run eligibility check against required skills
     Service->>AppRepo: get_by_job_and_candidate (check duplicate)
     Service->>AppRepo: create(job_id, candidate_id=extracted_id)
     AppRepo->>DB: INSERT application (unique constraint checked)
     DB-->>AppRepo: application row
-    Service->>Kafka: emit ApplicationReceived
     Service->>Temporal: start application workflow
     Service-->>API: application response
     API-->>Candidate: 201 Created
@@ -222,6 +229,20 @@ sequenceDiagram
 - Job must be in `ready` status; applications to draft/processing/archived jobs are rejected
 - Unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
 - Duplicate applications return `409 Conflict`
+- Resume upload is a separate `POST /applications/{id}/resume` operation
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> screening
+    pending --> rejected
+    screening --> interview
+    screening --> rejected
+    interview --> offer
+    interview --> rejected
+    offer --> accepted
+    offer --> rejected
+```
 
 ## Deployment View
 

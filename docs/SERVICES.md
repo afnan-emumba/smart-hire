@@ -52,12 +52,21 @@ flowchart LR
 
 - Bind application creation to authenticated candidate (from X-User-ID header)
 - Validate job exists and is in `ready` status
+- Use `EligibilityService` to enforce a minimum skills match before application creation
 - Prevent duplicate applications (unique constraint on job_id, candidate_id)
 - Create application records with server-set candidate_id
 - Resolve recruiter access through the job owner relationship instead of storing a duplicate recruiter FK on applications
 - Handle resume uploads with file-size and content-type validation
 - Authorize access: candidates see only their own apps, recruiters see apps for their jobs
-- Start downstream scoring or notification workflows
+- Initialize application workflow metadata and start the Temporal workflow
+
+### EligibilityService
+
+- Confirms that the target job exists and is in `ready` status.
+- Rejects duplicate applications before create.
+- Compares candidate skills from `master_profile_data.skills` against `jobs.required_skills`.
+- Enforces the Week 2 threshold of at least 50 percent skills overlap.
+- Returns a structured eligibility result that is persisted on the created application.
 
 ## Job Creation Flow
 
@@ -133,6 +142,14 @@ sequenceDiagram
     Router-->>Client: 202 Accepted
 ```
 
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> processing: POST /jobs/{id}/publish
+    processing --> ready: finalize_job_breakdown + mark_job_ready
+    ready --> archived: future lifecycle transition
+```
+
 ## Application Submission Flow
 
 ```mermaid
@@ -154,6 +171,7 @@ sequenceDiagram
     Service->>Service: Verify job.status == 'ready'
     Service->>CandidateRepo: get_by_id(candidate_id)
     CandidateRepo->>DB: SELECT candidate
+    Service->>Service: check eligibility result and required skill overlap
     Service->>AppRepo: check for duplicate (job_id, candidate_id)
     Service->>AppRepo: create(application, candidate_id=extracted_id)
     AppRepo->>DB: INSERT application (if unique constraint passes)
@@ -168,6 +186,19 @@ sequenceDiagram
 - `candidate_id` comes from auth context (`X-User-ID`), not request body
 - Job must be `ready` before allowing applications
 - Database unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> screening
+    pending --> rejected
+    screening --> interview
+    screening --> rejected
+    interview --> offer
+    interview --> rejected
+    offer --> accepted
+    offer --> rejected
+```
 
 ## Resume Upload Flow
 
