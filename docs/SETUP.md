@@ -6,7 +6,6 @@ Tracked templates live here:
 
 - `.env.example`
 - `backend/.env.example`
-- `backend/.env.docker.example`
 
 Real `.env` files remain untracked and should stay local.
 
@@ -29,7 +28,6 @@ flowchart TD
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
-cp backend/.env.docker.example backend/.env.docker
 docker compose up -d --build
 cd backend
 alembic upgrade head
@@ -55,20 +53,32 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 **Backend environment variables** (in `backend/.env`):
 
-| Variable                  | Default                    | Purpose                       |
-| ------------------------- | -------------------------- | ----------------------------- |
-| `DATABASE_URL`            | (required)                 | PostgreSQL connection string  |
-| `APP_ENV`                 | `development`              | Environment mode              |
-| `APP_HOST`                | `0.0.0.0`                  | Bind address                  |
-| `APP_PORT`                | `8000`                     | HTTP port                     |
-| `RESUME_UPLOAD_DIR`       | `uploads/resumes`          | Local resume storage path     |
-| `MAX_RESUME_SIZE_BYTES`   | `10485760` (10 MB)         | Max resume file size in bytes |
-| `JD_UPLOAD_DIR`           | `uploads/job_descriptions` | Local JD storage path         |
-| `MAX_JD_SIZE_BYTES`       | `10485760` (10 MB)         | Max JD file size in bytes     |
-| `PYTHONDONTWRITEBYTECODE` | `1`                        | Suppress .pyc files           |
-| `PYTHONUNBUFFERED`        | `1`                        | Unbuffered output             |
+| Variable                      | Default                      | Purpose                       |
+| ----------------------------- | ---------------------------- | ----------------------------- |
+| `DATABASE_URL`                | (required)                   | PostgreSQL connection string  |
+| `KAFKA_BOOTSTRAP_SERVERS`     | `localhost:29092`            | Local Kafka bootstrap address |
+| `SCHEMA_REGISTRY_URL`         | `http://localhost:8081`      | Local schema registry URL     |
+| `RABBITMQ_URL`                | `amqp://...@localhost:5672/` | Local RabbitMQ broker URL     |
+| `REDIS_URL`                   | `redis://localhost:6379/0`   | Local Redis URL               |
+| `CELERY_BROKER_URL`           | `amqp://...@localhost:5672/` | Celery broker URL             |
+| `CELERY_RESULT_BACKEND`       | `redis://localhost:6379/0`   | Celery result backend         |
+| `LOG_LEVEL`                   | `INFO`                       | Application log level         |
+| `METRICS_ENABLED`             | `true`                       | Metrics toggle                |
+| `TRACING_ENABLED`             | `false`                      | Tracing toggle                |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317`      | OTLP collector endpoint       |
+| `APP_ENV`                     | `development`                | Environment mode              |
+| `APP_HOST`                    | `0.0.0.0`                    | Bind address                  |
+| `APP_PORT`                    | `8000`                       | HTTP port                     |
+| `RESUME_UPLOAD_DIR`           | `uploads/resumes`            | Local resume storage path     |
+| `MAX_RESUME_SIZE_BYTES`       | `10485760` (10 MB)           | Max resume file size in bytes |
+| `JD_UPLOAD_DIR`               | `uploads/job_descriptions`   | Local JD storage path         |
+| `MAX_JD_SIZE_BYTES`           | `10485760` (10 MB)           | Max JD file size in bytes     |
+| `PYTHONDONTWRITEBYTECODE`     | `1`                          | Suppress .pyc files           |
+| `PYTHONUNBUFFERED`            | `1`                          | Unbuffered output             |
 
 Override any variable in `backend/.env` to change behavior.
+
+The root `.env` is only for Docker Compose interpolation and container-to-container settings. The backend app and Alembic commands load `backend/.env`.
 
 ## Docker Compose Run
 

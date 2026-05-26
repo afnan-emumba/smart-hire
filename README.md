@@ -115,7 +115,6 @@ smart-hire/
 ├── backend/
 │   ├── requirements.txt               # Python dependencies
 │   ├── .env.example                   # Backend env template
-│   ├── .env.docker.example            # Backend container-runtime env template
 │   ├── alembic.ini                    # Migration config
 │   ├── migrations/                    # Alembic migration files
 │   ├── infra/
@@ -150,27 +149,20 @@ smart-hire/
 
 ### Environment Setup
 
-SmartHire uses environment variables for configuration. Three templates are tracked:
+SmartHire uses environment variables for configuration. Two templates are tracked:
 
 **1. Root `.env` (Docker Compose):**
 
 ```bash
 cp .env.example .env
-# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV, and upload limits
+# Contains: Compose interpolation values, container-to-container service URLs, ports, and Week 3 runtime settings
 ```
 
 **2. Backend `.env` (App Runtime):**
 
 ```bash
 cp backend/.env.example backend/.env
-# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, resume/JD storage settings
-```
-
-**3. Backend `.env.docker` (Container Runtime, optional but recommended):**
-
-```bash
-cp backend/.env.docker.example backend/.env.docker
-# Mirrors the backend runtime settings with the Compose/Postgres hostname
+# Contains: local backend and Alembic settings, using localhost service URLs where needed
 ```
 
 ⚠️ **Important:** `.env` files are **never committed**. Use `.env.example` as templates.
