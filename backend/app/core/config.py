@@ -23,31 +23,26 @@ class Settings(BaseSettings):
         default="candidate-application",
         alias="TEMPORAL_APPLICATION_TASK_QUEUE",
     )
-    kafka_bootstrap_servers: str = Field(default="localhost:29092", alias="KAFKA_BOOTSTRAP_SERVERS")
-    schema_registry_url: str = Field(default="http://localhost:8081", alias="SCHEMA_REGISTRY_URL")
+    kafka_bootstrap_servers: str = Field(alias="KAFKA_BOOTSTRAP_SERVERS")
+    schema_registry_url: str = Field(alias="SCHEMA_REGISTRY_URL")
     kafka_job_published_topic: str = Field(
-        default="smarthire.jobs.published.v1",
         alias="KAFKA_JOB_PUBLISHED_TOPIC",
     )
     kafka_application_received_topic: str = Field(
-        default="smarthire.applications.received.v1",
         alias="KAFKA_APPLICATION_RECEIVED_TOPIC",
     )
-    rabbitmq_url: str = Field(default="amqp://smarthire:smarthire@localhost:5672/", alias="RABBITMQ_URL")
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    rabbitmq_url: str = Field(alias="RABBITMQ_URL")
+    redis_url: str = Field(alias="REDIS_URL")
     celery_broker_url: str = Field(
-        default="amqp://smarthire:smarthire@localhost:5672/",
         alias="CELERY_BROKER_URL",
     )
     celery_result_backend: str = Field(
-        default="redis://localhost:6379/0",
         alias="CELERY_RESULT_BACKEND",
     )
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     metrics_enabled: bool = Field(default=True, alias="METRICS_ENABLED")
     tracing_enabled: bool = Field(default=False, alias="TRACING_ENABLED")
     otel_exporter_otlp_endpoint: str = Field(
-        default="http://localhost:4317",
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
     )
     resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
