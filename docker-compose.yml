@@ -17,6 +17,99 @@ services:
       retries: 5
       start_period: 10s
 
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: smarthire-kafka
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://${KAFKA_ADVERTISED_HOST}:${KAFKA_HOST_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "${KAFKA_HOST_PORT}:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: smarthire-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    ports:
+      - "${SCHEMA_REGISTRY_HOST_PORT}:8081"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8081/subjects > /dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: smarthire-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "${RABBITMQ_HOST_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_HOST_PORT}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: smarthire-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_HOST_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   temporal:
     image: temporalio/auto-setup:1.25
     container_name: smarthire-temporal
@@ -79,10 +172,24 @@ services:
         condition: service_healthy
       backend:
         condition: service_started
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       TEMPORAL_ADDRESS: temporal:7233
       DATABASE_URL: ${DATABASE_URL}
       APP_ENV: ${APP_ENV}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     volumes:
@@ -109,12 +216,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV}
       APP_HOST: 0.0.0.0
       APP_PORT: ${BACKEND_PORT}
       DATABASE_URL: ${DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL}
+      KAFKA_JOB_PUBLISHED_TOPIC: ${KAFKA_JOB_PUBLISHED_TOPIC}
+      KAFKA_APPLICATION_RECEIVED_TOPIC: ${KAFKA_APPLICATION_RECEIVED_TOPIC}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      LOG_LEVEL: ${LOG_LEVEL}
+      METRICS_ENABLED: ${METRICS_ENABLED}
+      TRACING_ENABLED: ${TRACING_ENABLED}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
       JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
@@ -129,3 +256,6 @@ services:
 
 volumes:
   postgres_data:
+  kafka_data:
+  rabbitmq_data:
+  redis_data:
