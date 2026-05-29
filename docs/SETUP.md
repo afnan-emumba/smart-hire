@@ -78,13 +78,21 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Override any variable in `backend/.env` to change behavior.
 
-The root `.env` is only for Docker Compose interpolation and container-to-container settings. The backend app and Alembic commands load `backend/.env`.
+The root `.env` is the Docker env file for Compose and container-to-container settings. The backend app and host-side Alembic commands load `backend/.env`.
+
+For Docker-backed processes, the backend, Temporal worker, and event relay now load the root `.env` through Compose `env_file` entries anchored to the compose file location. This prevents `docker compose` runs from accidentally picking up `backend/.env` values such as `localhost` Kafka or Postgres endpoints.
 
 ## Docker Compose Run
 
 ```bash
 docker compose up -d --build
 docker compose logs -f backend
+```
+
+Run Docker Compose from the repo root when possible. If you run it from another directory, prefer an explicit command such as:
+
+```bash
+docker compose --project-directory .. -f ../docker-compose.yml up -d --build
 ```
 
 The root [docker-compose.yml](docker-compose.yml) remains the local development entrypoint. Canonical backend Docker assets now live under `backend/infra/docker/`, including separate `Dockerfile.dev` and `Dockerfile.prod` variants plus `backend/infra/docker/compose.prod.yml` for a production-style compose run.
