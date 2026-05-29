@@ -9,6 +9,7 @@ from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
+from app.repositories.outbox_repo import OutboxRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.services.application_service import ApplicationService
 from app.services.candidate_service import CandidateService
@@ -33,6 +34,7 @@ async def get_job_service(session: AsyncSession = Depends(get_db_session)) -> Jo
     return JobService(
         job_repo=JobRepository(session),
         recruiter_repo=RecruiterRepository(session),
+        outbox_repo=OutboxRepository(session),
         settings=get_settings(),
     )
 
@@ -49,6 +51,7 @@ async def get_application_service(
         job_repo=job_repo,
         candidate_repo=candidate_repo,
         candidate_resume_repo=candidate_resume_repo,
+        outbox_repo=OutboxRepository(session),
         eligibility_service=EligibilityService(
             job_repo=job_repo,
             candidate_repo=candidate_repo,
