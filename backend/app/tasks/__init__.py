@@ -12,8 +12,10 @@ from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
+from app.repositories.recruiter_repo import RecruiterRepository
 from app.services.application_service import ApplicationService
 from app.services.eligibility_service import EligibilityService
+from app.services.job_service import JobService
 
 
 APPLICATION_SCORING_TASK = "app.tasks.scoring.process_application_scoring"
@@ -47,6 +49,17 @@ def build_application_service(session: AsyncSession) -> ApplicationService:
             application_repo=application_repo,
             settings=settings,
         ),
+        settings=settings,
+    )
+
+
+def build_job_service(session: AsyncSession) -> JobService:
+    settings = get_settings()
+    job_repo = JobRepository(session)
+    return JobService(
+        job_repo=job_repo,
+        recruiter_repo=RecruiterRepository(session),
+        outbox_repo=OutboxRepository(session),
         settings=settings,
     )
 

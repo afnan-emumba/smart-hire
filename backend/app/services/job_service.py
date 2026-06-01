@@ -133,6 +133,24 @@ class JobService:
 
         return [JobResponse.model_validate(job) for job in jobs]
 
+    async def record_analytics_result(
+        self,
+        job_id: uuid.UUID,
+        *,
+        analytics_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+
+        analytics_metadata = dict(job.analytics_metadata or {})
+        analytics_metadata["job_published"] = analytics_result
+        updated_job = await self.job_repo.update_analytics_metadata(
+            job,
+            analytics_metadata=analytics_metadata,
+        )
+        return dict(updated_job.analytics_metadata)
+
     async def update_job(
         self,
         job_id: uuid.UUID,

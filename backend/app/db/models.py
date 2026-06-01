@@ -169,6 +169,12 @@ class Job(TimestampMixin, Base):
     years_of_experience_required: Mapped[int | None] = mapped_column(nullable=True)
     application_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     description_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    analytics_metadata: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
     required_skills: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,

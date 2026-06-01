@@ -12,6 +12,7 @@ from app.tasks import (
     APPLICATION_ANALYTICS_TASK,
     JOB_ANALYTICS_TASK,
     build_application_service,
+    build_job_service,
     run_async_task,
 )
 
@@ -173,6 +174,20 @@ async def _process_job_published_analytics(
             return {"job_id": str(event.job_id), "status": "skipped"}
 
         try:
+            job_service = build_job_service(session)
+            analytics_result = {
+                "status": "updated",
+                "event_id": str(event.event_id),
+                "event_type": event.event_type(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "job_id": str(event.job_id),
+                "recruiter_id": str(event.recruiter_id),
+                "job_status": event.status,
+            }
+            await job_service.record_analytics_result(
+                event.job_id,
+                analytics_result=analytics_result,
+            )
             await processing_repo.mark_completed(
                 record,
                 metadata={
