@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable
+from threading import local
 from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+try:
+    from celery.signals import worker_process_shutdown
+except ImportError:  # pragma: no cover
+    worker_process_shutdown = None
 
 from app.core.config import get_settings
 from app.repositories.application_repo import ApplicationRepository
@@ -25,9 +31,37 @@ JOB_ANALYTICS_TASK = "app.tasks.analytics.process_job_published_analytics"
 
 TaskResult = TypeVar("TaskResult")
 
+_task_runtime = local()
+
+
+def _get_task_event_loop() -> asyncio.AbstractEventLoop:
+    event_loop = getattr(_task_runtime, "event_loop", None)
+    if event_loop is None or event_loop.is_closed():
+        event_loop = asyncio.new_event_loop()
+        _task_runtime.event_loop = event_loop
+    return event_loop
+
 
 def run_async_task(awaitable: Awaitable[TaskResult]) -> TaskResult:
-    return asyncio.run(awaitable)
+    event_loop = _get_task_event_loop()
+    return event_loop.run_until_complete(awaitable)
+
+
+def close_task_event_loop() -> None:
+    event_loop = getattr(_task_runtime, "event_loop", None)
+    if event_loop is None or event_loop.is_closed():
+        return
+
+    event_loop.run_until_complete(event_loop.shutdown_asyncgens())
+    event_loop.close()
+    _task_runtime.event_loop = None
+
+
+if worker_process_shutdown is not None:
+
+    @worker_process_shutdown.connect
+    def _close_worker_event_loop(**_: Any) -> None:
+        close_task_event_loop()
 
 
 def build_application_service(session: AsyncSession) -> ApplicationService:
