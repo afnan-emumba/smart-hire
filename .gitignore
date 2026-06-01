@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!backend/.env.example
+!backend/.env.docker.example
 
 # Python / Backend (FastAPI, Celery, Temporal)
 __pycache__/
@@ -38,11 +40,16 @@ out/
 build/
 dist/
 
-# OS & Editor / IDE Files  
-# Mac / Windows system files
+# Miscellaneous
 .DS_Store
 Thumbs.db
 .github/
+uploads/
+backend/uploads/
+*.md
+!README.md
+!docs/
+!docs/*.md
 
 # Docker & Infrastructure
 .docker/

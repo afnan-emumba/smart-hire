@@ -1,0 +1,442 @@
+{
+  "info": {
+    "name": "SmartHire Backend Validation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "API validation flow for SmartHire."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    {
+      "key": "recruiterUserId",
+      "value": "{{$randomUUID}}"
+    },
+    {
+      "key": "candidateUserId",
+      "value": "{{$randomUUID}}"
+    },
+    { "key": "recruiterId", "value": "" },
+    { "key": "candidateId", "value": "" },
+    { "key": "jobId", "value": "" },
+    { "key": "applicationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "recruiters",
+      "item": [
+        {
+          "name": "Create Recruiter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('recruiterId', body.id);",
+                  "pm.collectionVariables.set('recruiterUserId', body.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter@example.com\",\n  \"name\": \"Manual Recruiter\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/recruiters",
+              "host": ["{{baseUrl}}"],
+              "path": ["recruiters"]
+            }
+          }
+        },
+        {
+          "name": "List Recruiters",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recruiters?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["recruiters"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Recruiter",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recruiters/{{recruiterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["recruiters", "{{recruiterId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "candidates",
+      "item": [
+        {
+          "name": "Create Candidate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('candidateId', body.id);",
+                  "pm.collectionVariables.set('candidateUserId', body.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"candidate@example.com\",\n  \"name\": \"Manual Candidate\",\n  \"master_profile_data\": {\n    \"summary\": \"Backend engineer with experience building async APIs and internal workflow tools.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0198\",\n      \"location\": \"Islamabad, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Software Engineer\",\n        \"start_year\": 2022,\n        \"end_year\": 2024,\n        \"description\": \"Built hiring APIs and async workflow integrations.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\",\n      \"portfolio\": \"https://portfolio.example.com\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/candidates",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates"]
+            }
+          }
+        },
+        {
+          "name": "List Candidates",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/candidates?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Candidate",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Candidate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Manual Candidate Updated\",\n  \"master_profile_data\": {\n    \"summary\": \"Updated aggregate profile for recruiter search and matching.\",\n    \"skills\": [\"Python\", \"FastAPI\", \"System Design\"],\n    \"contact\": {\n      \"phone\": \"+1-555-0100\",\n      \"location\": \"Karachi, PK\"\n    },\n    \"education\": [\n      {\n        \"institution\": \"State University\",\n        \"degree\": \"BSc\",\n        \"field_of_study\": \"Computer Science\",\n        \"start_year\": 2018,\n        \"end_year\": 2022\n      }\n    ],\n    \"work_experience\": [\n      {\n        \"company\": \"Acme Corp\",\n        \"title\": \"Senior Software Engineer\",\n        \"start_year\": 2022,\n        \"description\": \"Led API design for recruiter and candidate workflows.\"\n      }\n    ],\n    \"links\": {\n      \"linkedin\": \"https://www.linkedin.com/in/example\",\n      \"github\": \"https://github.com/example\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "jobs",
+      "item": [
+        {
+          "name": "Create Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('jobId', body.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"description\": \"Interim manual markdown while PDF parsing is pending.\",\n  \"required_skills\": [\"python\", \"fastapi\", \"postgresql\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "Upload Job Description File",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "description_file", "type": "file", "src": [] }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/description-file",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "description-file"]
+            }
+          }
+        },
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Job",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"published\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "applications",
+      "item": [
+        {
+          "name": "Create Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('applicationId', body.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_id\": \"{{jobId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            }
+          }
+        },
+        {
+          "name": "List Applications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Application",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Upload Application Resume",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "resume", "type": "file", "src": [] }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "resume"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cleanup",
+      "item": [
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Candidate",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
