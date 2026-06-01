@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.events.producer import start_event_publisher, stop_event_publisher
 from app.services.exceptions import (
     BadRequestError,
     ConflictError,
@@ -28,8 +29,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
+    await start_event_publisher(settings)
     yield
     # Shutdown
+    await stop_event_publisher()
     await TemporalClient.close()
 
 

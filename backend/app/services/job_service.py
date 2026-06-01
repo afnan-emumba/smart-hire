@@ -12,7 +12,9 @@ from app.core.auth import CurrentUser
 from app.core.config import Settings
 from app.core.enums import JobStatus
 from app.core.state_machine import StateMachine
+from app.events.schemas import EventContext, JobPublishedEvent
 from app.repositories.job_repo import JobRepository
+from app.repositories.outbox_repo import OutboxRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.schemas.job import JobCreate, JobResponse, JobUpdate, PublishJobResponse
 from app.temporal.client import TemporalClient
@@ -45,10 +47,12 @@ class JobService:
         self,
         job_repo: JobRepository,
         recruiter_repo: RecruiterRepository,
+        outbox_repo: OutboxRepository,
         settings: Settings,
     ) -> None:
         self.job_repo = job_repo
         self.recruiter_repo = recruiter_repo
+        self.outbox_repo = outbox_repo
         self.settings = settings
 
     async def create_job(self, job_create: JobCreate, current_user: CurrentUser) -> JobResponse:
@@ -383,6 +387,36 @@ class JobService:
         )
 
         return JobResponse.model_validate(updated_job)
+
+    async def record_job_published_event(self, job_id: uuid.UUID) -> None:
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+        if job.status != JobStatus.READY.value:
+            raise BadRequestError("JobPublished can only be emitted for ready jobs")
+
+        event = JobPublishedEvent(
+            aggregate_id=job.id,
+            job_id=job.id,
+            recruiter_id=job.recruiter_id,
+            status=job.status,
+            workflow_id=job.publishing_workflow_id,
+            context=EventContext(
+                correlation_id=job.publishing_workflow_id,
+                user_id=str(job.recruiter_id),
+            ),
+        )
+        await self.outbox_repo.create_event(
+            aggregate_type="job",
+            aggregate_id=job.id,
+            topic_name=self.settings.kafka_job_published_topic,
+            event_type=event.event_type(),
+            schema_version=event.schema_version,
+            payload=event.payload(),
+            headers=event.headers(),
+            trace_context=event.trace_context(),
+            idempotency_key=f"{event.event_type()}:{job.id}",
+        )
 
     @staticmethod
     def _require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:

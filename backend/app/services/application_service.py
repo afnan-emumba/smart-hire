@@ -15,6 +15,8 @@ from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
+from app.repositories.outbox_repo import OutboxRepository
+from app.events.schemas import ApplicationReceivedEvent, EventContext
 from app.schemas.application import ApplicationCreate, ApplicationResponse
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
@@ -41,6 +43,7 @@ class ApplicationService:
         job_repo: JobRepository,
         candidate_repo: CandidateRepository,
         candidate_resume_repo: CandidateResumeRepository,
+        outbox_repo: OutboxRepository,
         eligibility_service: EligibilityService,
         settings: Settings,
     ) -> None:
@@ -48,6 +51,7 @@ class ApplicationService:
         self.job_repo = job_repo
         self.candidate_repo = candidate_repo
         self.candidate_resume_repo = candidate_resume_repo
+        self.outbox_repo = outbox_repo
         self.eligibility_service = eligibility_service
         self.settings = settings
 
@@ -80,6 +84,12 @@ class ApplicationService:
             eligibility_result=eligibility.model_dump(),
         )
 
+        workflow_id = self._build_application_workflow_id(application.id)
+        await self._create_application_received_event(
+            application,
+            current_user=current_user,
+            workflow_id=workflow_id,
+        )
         await self._start_application_workflow(application.id)
         return ApplicationResponse.model_validate(application)
 
@@ -500,6 +510,37 @@ class ApplicationService:
             raise NotFoundError("Job not found")
         if job.recruiter_id != recruiter_id:
             raise ForbiddenError("Not authorized to view this application")
+
+    async def _create_application_received_event(
+        self,
+        application: Application,
+        *,
+        current_user: CurrentUser,
+        workflow_id: str,
+    ) -> None:
+        event = ApplicationReceivedEvent(
+            aggregate_id=application.id,
+            application_id=application.id,
+            job_id=application.job_id,
+            candidate_id=application.candidate_id,
+            status=application.status,
+            workflow_id=workflow_id,
+            context=EventContext(
+                correlation_id=workflow_id,
+                user_id=current_user.id,
+            ),
+        )
+        await self.outbox_repo.create_event(
+            aggregate_type="application",
+            aggregate_id=application.id,
+            topic_name=self.settings.kafka_application_received_topic,
+            event_type=event.event_type(),
+            schema_version=event.schema_version,
+            payload=event.payload(),
+            headers=event.headers(),
+            trace_context=event.trace_context(),
+            idempotency_key=f"{event.event_type()}:{application.id}",
+        )
 
     async def _start_application_workflow(self, application_id: uuid.UUID) -> None:
         workflow_id = self._build_application_workflow_id(application_id)

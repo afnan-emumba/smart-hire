@@ -14,6 +14,7 @@ from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.recruiter_repo import RecruiterRepository
+from app.repositories.outbox_repo import OutboxRepository
 from app.services.application_service import ApplicationService
 from app.services.eligibility_service import EligibilityService
 from app.services.job_service import JobService
@@ -26,6 +27,7 @@ async def _run_job_service_operation(
         service = JobService(
             job_repo=JobRepository(session),
             recruiter_repo=RecruiterRepository(session),
+            outbox_repo=OutboxRepository(session),
             settings=get_settings(),
         )
         try:
@@ -50,6 +52,7 @@ async def _run_application_service_operation(
             job_repo=job_repo,
             candidate_repo=candidate_repo,
             candidate_resume_repo=candidate_resume_repo,
+            outbox_repo=OutboxRepository(session),
             eligibility_service=EligibilityService(
                 job_repo=job_repo,
                 candidate_repo=candidate_repo,
@@ -84,6 +87,7 @@ async def mark_job_ready(job_id: str) -> dict[str, Any]:
 
     async def _mark_ready(service: JobService) -> dict[str, Any]:
         job = await service.update_job_status(parsed_job_id, JobStatus.READY)
+        await service.record_job_published_event(parsed_job_id)
         return {
             "job_id": str(job.id),
             "status": job.status,

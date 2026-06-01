@@ -167,6 +167,8 @@ services:
       context: ./backend
       dockerfile: infra/docker/Dockerfile.worker
     container_name: smarthire-temporal-worker
+    env_file:
+      - ./.env
     depends_on:
       temporal:
         condition: service_healthy
@@ -182,14 +184,6 @@ services:
         condition: service_healthy
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      DATABASE_URL: ${DATABASE_URL}
-      APP_ENV: ${APP_ENV}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL}
-      RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     volumes:
@@ -213,6 +207,8 @@ services:
       context: ./backend
       dockerfile: infra/docker/Dockerfile.dev
     container_name: smarthire-backend
+    env_file:
+      - ./.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,27 +221,9 @@ services:
       redis:
         condition: service_healthy
     environment:
-      APP_ENV: ${APP_ENV}
       APP_HOST: 0.0.0.0
       APP_PORT: ${BACKEND_PORT}
-      DATABASE_URL: ${DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL}
-      KAFKA_JOB_PUBLISHED_TOPIC: ${KAFKA_JOB_PUBLISHED_TOPIC}
-      KAFKA_APPLICATION_RECEIVED_TOPIC: ${KAFKA_APPLICATION_RECEIVED_TOPIC}
-      RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      LOG_LEVEL: ${LOG_LEVEL}
-      METRICS_ENABLED: ${METRICS_ENABLED}
-      TRACING_ENABLED: ${TRACING_ENABLED}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-      RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
-      MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
-      JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
-      MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     ports:
@@ -253,6 +231,32 @@ services:
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  event-relay:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/Dockerfile.dev
+    container_name: smarthire-event-relay
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      EVENT_RELAY_BATCH_SIZE: ${EVENT_RELAY_BATCH_SIZE:-50}
+      EVENT_RELAY_POLL_INTERVAL_SECONDS: ${EVENT_RELAY_POLL_INTERVAL_SECONDS:-2}
+      EVENT_RELAY_MAX_RETRIES: ${EVENT_RELAY_MAX_RETRIES:-5}
+      EVENT_RELAY_RETRY_BACKOFF_SECONDS: ${EVENT_RELAY_RETRY_BACKOFF_SECONDS:-5}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./backend:/app
+    command: python -m app.events.outbox_relay
+    restart: unless-stopped
 
 volumes:
   postgres_data:

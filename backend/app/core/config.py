@@ -5,6 +5,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.events.topics import APPLICATION_RECEIVED_TOPIC, JOB_PUBLISHED_TOPIC
+
 
 class Settings(BaseSettings):
     app_name: str = "SmartHire API"
@@ -26,9 +28,11 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = Field(alias="KAFKA_BOOTSTRAP_SERVERS")
     schema_registry_url: str = Field(alias="SCHEMA_REGISTRY_URL")
     kafka_job_published_topic: str = Field(
+        default=JOB_PUBLISHED_TOPIC,
         alias="KAFKA_JOB_PUBLISHED_TOPIC",
     )
     kafka_application_received_topic: str = Field(
+        default=APPLICATION_RECEIVED_TOPIC,
         alias="KAFKA_APPLICATION_RECEIVED_TOPIC",
     )
     rabbitmq_url: str = Field(alias="RABBITMQ_URL")
@@ -44,6 +48,16 @@ class Settings(BaseSettings):
     tracing_enabled: bool = Field(default=False, alias="TRACING_ENABLED")
     otel_exporter_otlp_endpoint: str = Field(
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+    event_relay_batch_size: int = Field(default=50, alias="EVENT_RELAY_BATCH_SIZE")
+    event_relay_poll_interval_seconds: float = Field(
+        default=2.0,
+        alias="EVENT_RELAY_POLL_INTERVAL_SECONDS",
+    )
+    event_relay_max_retries: int = Field(default=5, alias="EVENT_RELAY_MAX_RETRIES")
+    event_relay_retry_backoff_seconds: float = Field(
+        default=5.0,
+        alias="EVENT_RELAY_RETRY_BACKOFF_SECONDS",
     )
     resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
     max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
