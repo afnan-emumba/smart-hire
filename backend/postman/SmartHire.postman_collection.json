@@ -9,11 +9,11 @@
     { "key": "temporalUiUrl", "value": "http://localhost:8080" },
     { "key": "recruiterUserId", "value": "{{$randomUUID}}" },
     { "key": "candidateUserId", "value": "{{$randomUUID}}" },
-    { "key": "recruiterId", "value": "" },
-    { "key": "candidateId", "value": "" },
-    { "key": "jobId", "value": "" },
-    { "key": "workflowId", "value": "" },
-    { "key": "applicationId", "value": "" }
+    { "key": "recruiterId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "candidateId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "jobId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "workflowId", "value": "pending-workflow-id" },
+    { "key": "applicationId", "value": "00000000-0000-0000-0000-000000000000" }
   ],
   "item": [
     {
@@ -687,41 +687,6 @@
             "url": {
               "raw": "{{temporalUiUrl}}",
               "host": ["{{temporalUiUrl}}"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Cleanup",
-      "item": [
-        {
-          "name": "Delete Job",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
-            }
-          }
-        },
-        {
-          "name": "Delete Candidate",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/candidates/{{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}"]
             }
           }
         }
