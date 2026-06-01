@@ -235,7 +235,7 @@
       "name": "Jobs",
       "item": [
         {
-          "name": "Create Job (Bare Bones)",
+          "name": "Create Job",
           "description": "Creates a draft job with minimal required data. Job description data must be extracted from uploaded PDF, not manual text.",
           "event": [
             {
