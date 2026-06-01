@@ -235,6 +235,16 @@ class ApplicationRepository:
         await self.session.flush()
         return await self.get_by_id(application.id)
 
+    async def update_eligibility_result(
+        self,
+        application: Application,
+        *,
+        eligibility_result: dict[str, Any],
+    ) -> Application:
+        application.eligibility_result = eligibility_result
+        await self.session.flush()
+        return await self.get_by_id(application.id)
+
     async def attach_resume(
         self,
         application: Application,

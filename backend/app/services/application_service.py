@@ -68,20 +68,20 @@ class ApplicationService:
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
 
-        eligibility = await self.eligibility_service.check_eligibility(
+        submission_eligibility = await self.eligibility_service.check_submission_eligibility(
             candidate_id,
             application_create.job_id,
         )
-        if not eligibility.is_eligible:
-            if eligibility.reason == "You have already applied to this job":
-                raise ConflictError(eligibility.reason)
-            raise BadRequestError(f"Not eligible: {eligibility.reason}")
+        if not submission_eligibility.is_eligible:
+            if submission_eligibility.reason == "You have already applied to this job":
+                raise ConflictError(submission_eligibility.reason)
+            raise BadRequestError(f"Not eligible: {submission_eligibility.reason}")
 
         application = await self.application_repo.create(
             application_create,
             candidate_id=candidate_id,
             status=ApplicationStatus.PENDING,
-            eligibility_result=eligibility.model_dump(),
+            eligibility_result=submission_eligibility.model_dump(),
         )
 
         workflow_id = self._build_application_workflow_id(application.id)
@@ -381,6 +381,15 @@ class ApplicationService:
             section_name="resume_parsing",
             section_value=resume_metadata,
         )
+        eligibility_result = await self.eligibility_service.check_eligibility(
+            updated_application.candidate_id,
+            updated_application.job_id,
+        )
+        updated_application = await self.application_repo.update_eligibility_result(
+            updated_application,
+            eligibility_result=eligibility_result.model_dump(),
+        )
+        await self._enqueue_scoring_task(updated_application)
         return {
             "application_id": str(updated_application.id),
             "resume_parsing_status": resume_metadata["status"],
@@ -627,6 +636,31 @@ class ApplicationService:
             headers=event.headers(),
             trace_context=event.trace_context(),
             idempotency_key=f"{event.event_type()}:{application.id}",
+        )
+
+    async def _enqueue_scoring_task(self, application: Application) -> None:
+        from app.celery_app import celery_app
+        from app.tasks import APPLICATION_SCORING_TASK
+
+        workflow_id = application.workflow_id or self._build_application_workflow_id(application.id)
+        event = ApplicationReceivedEvent(
+            aggregate_id=application.id,
+            application_id=application.id,
+            job_id=application.job_id,
+            candidate_id=application.candidate_id,
+            status=application.status,
+            workflow_id=workflow_id,
+            context=EventContext(
+                correlation_id=workflow_id,
+                user_id=str(application.candidate_id),
+            ),
+        )
+        celery_app.send_task(
+            APPLICATION_SCORING_TASK,
+            kwargs={
+                "payload": event.payload(),
+                "headers": event.headers(),
+            },
         )
 
     async def _start_application_workflow(self, application_id: uuid.UUID) -> None:

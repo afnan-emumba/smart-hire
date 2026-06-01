@@ -63,6 +63,33 @@ async def _process_application_scoring(
         try:
             application_service = build_application_service(session)
             context = await application_service.get_background_task_context(event.application_id)
+            resume_parsing = dict(context["application_metadata"].get("resume_parsing", {}))
+
+            if resume_parsing.get("status") != "parsed":
+                pending_result = {
+                    "status": "pending_resume",
+                    "event_id": str(event.event_id),
+                    "processed_at": datetime.now(timezone.utc).isoformat(),
+                    "reason": "Waiting for parsed resume data before scoring",
+                }
+                await application_service.record_scoring_result(
+                    event.application_id,
+                    scoring_result=pending_result,
+                )
+                await processing_repo.mark_completed(
+                    record,
+                    metadata={
+                        "celery_task_id": celery_task_id,
+                        "event_type": event.event_type(),
+                        "headers": headers,
+                        "status": "pending_resume",
+                    },
+                )
+                await session.commit()
+                return {
+                    "application_id": str(event.application_id),
+                    "status": "pending_resume",
+                }
 
             eligibility_result = dict(context["eligibility_result"])
             required_skills = normalize_skills(context["job_required_skills"])

@@ -27,7 +27,7 @@ class EligibilityService:
         self.application_repo = application_repo
         self.settings = settings
 
-    async def check_eligibility(
+    async def check_submission_eligibility(
         self,
         candidate_id: uuid.UUID,
         job_id: uuid.UUID,
@@ -68,6 +68,32 @@ class EligibilityService:
                     "You have reached the maximum of "
                     f"{self.settings.max_applications_per_candidate} active applications"
                 ),
+                match_score=0.0,
+            )
+
+        return EligibilityResult(
+            is_eligible=True,
+            reason="Application accepted pending resume evaluation",
+            match_score=0.0,
+        )
+
+    async def check_eligibility(
+        self,
+        candidate_id: uuid.UUID,
+        job_id: uuid.UUID,
+    ) -> EligibilityResult:
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+
+        candidate = await self.candidate_repo.get_by_id(candidate_id)
+        if candidate is None:
+            raise NotFoundError("Candidate not found")
+
+        if job.status != JobStatus.READY.value:
+            return EligibilityResult(
+                is_eligible=False,
+                reason="Job is not yet published",
                 match_score=0.0,
             )
 
