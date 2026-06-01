@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EventProcessingRecord
@@ -60,7 +61,19 @@ class EventProcessingRepository:
             processing_metadata=dict(metadata or {}),
         )
         self.session.add(record)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            record = await self.get_by_event_and_handler(
+                event_id=event_id,
+                handler_name=handler_name,
+                for_update=True,
+            )
+            if record is None:
+                raise
+            return record, False
+
         await self.session.refresh(record)
         return record, True
 
