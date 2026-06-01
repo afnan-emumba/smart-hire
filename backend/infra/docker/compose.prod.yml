@@ -256,6 +256,50 @@ services:
     command: python -m app.events.outbox_relay
     restart: unless-stopped
 
+  celery-worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.prod
+    container_name: smarthire-celery-worker-prod
+    env_file:
+      - ../../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    command: celery --app app.celery_app:celery_app worker --loglevel=INFO
+    restart: unless-stopped
+
+  kafka-consumer:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.prod
+    container_name: smarthire-kafka-consumer-prod
+    env_file:
+      - ../../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    command: python -m app.events.consumer
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   kafka_data:

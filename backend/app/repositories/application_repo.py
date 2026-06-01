@@ -204,6 +204,27 @@ class ApplicationRepository:
         await self.session.flush()
         return await self.get_by_id(application.id)
 
+    async def update_metadata_section(
+        self,
+        application: Application,
+        *,
+        section_name: str,
+        section_value: dict[str, Any],
+    ) -> Application:
+        result = await self.session.execute(
+            select(Application)
+            .where(Application.id == application.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        locked_application = result.scalar_one()
+        await self.session.refresh(locked_application, attribute_names=["application_metadata"])
+        metadata = dict(locked_application.application_metadata)
+        metadata[section_name] = section_value
+        locked_application.application_metadata = metadata
+        await self.session.flush()
+        return await self.get_by_id(application.id)
+
     async def update_resume_parsing(
         self,
         application: Application,
