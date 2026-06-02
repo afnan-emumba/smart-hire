@@ -211,11 +211,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "orange",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "green",
                 "value": 1
               }
             ]
@@ -268,12 +268,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "orange",
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 1
+                "color": "green",
+                "value": 0
               }
             ]
           }
@@ -389,7 +389,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(workflow_execution_time_seconds_sum[5m])) by (workflow_name) / sum(rate(workflow_execution_time_seconds_count[5m])) by (workflow_name)",
+          "expr": "smarthire_workflow_average_duration_seconds{status=\"success\",workflow_name!~\"job_publishing|candidate_application_initialization\"}",
           "legendFormat": "{{workflow_name}}",
           "refId": "A"
         }
@@ -475,7 +475,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(smarthire_task_executions_total[1h])) by (task_name, status)",
+          "expr": "smarthire_task_outcomes_total{task_name!~\"app\\\\.tasks\\\\..*\"}",
           "legendFormat": "{{task_name}} {{status}}",
           "refId": "A"
         }

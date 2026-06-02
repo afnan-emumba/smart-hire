@@ -119,7 +119,7 @@ async def handle_unexpected_error(_: object, exc: Exception) -> JSONResponse:
 
 @app.get("/metrics", include_in_schema=False)
 async def metrics_endpoint():
-    return build_metrics_response()
+    return await build_metrics_response()
 
 
 app.include_router(api_router)
