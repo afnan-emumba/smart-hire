@@ -117,19 +117,17 @@ def queue_post_commit_metric(session: AsyncSession, callback: Callable[[], None]
 
 
 def queue_jobs_published_increment(session: AsyncSession) -> None:
-    """
-    Directly increment jobs published counter.
-    Called after job state transitions to READY.
-    """
-    JOBS_PUBLISHED_TOTAL.inc()
+    queue_post_commit_metric(
+        session,
+        JOBS_PUBLISHED_TOTAL.inc,
+    )
 
 
 def queue_applications_received_increment(session: AsyncSession) -> None:
-    """
-    Directly increment applications received counter.
-    Called after application is persisted.
-    """
-    APPLICATIONS_RECEIVED_TOTAL.inc()
+    queue_post_commit_metric(
+        session,
+        APPLICATIONS_RECEIVED_TOTAL.inc,
+    )
 
 
 def queue_workflow_duration(
