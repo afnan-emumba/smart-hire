@@ -365,7 +365,7 @@ services:
       start_period: 20s
 
   grafana:
-    image: grafana/grafana:11.1.4
+    image: grafana/grafana:13.0.1
     container_name: smarthire-grafana
     depends_on:
       prometheus:
