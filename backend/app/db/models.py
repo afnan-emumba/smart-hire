@@ -169,6 +169,12 @@ class Job(TimestampMixin, Base):
     years_of_experience_required: Mapped[int | None] = mapped_column(nullable=True)
     application_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     description_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    analytics_metadata: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
     required_skills: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
@@ -373,3 +379,49 @@ class OutboxEvent(TimestampMixin, Base):
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class EventProcessingRecord(TimestampMixin, Base):
+    __tablename__ = "event_processing_records"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'queued', 'processing', 'completed', 'failed')",
+            name="ck_event_processing_records_status_valid",
+        ),
+        UniqueConstraint("event_id", "handler_name", name="uq_event_processing_records_event_handler"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    handler_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    topic_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    schema_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="v1",
+        server_default="v1",
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+    )
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processing_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )

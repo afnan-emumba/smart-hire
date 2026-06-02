@@ -147,6 +147,25 @@ class JobRepository:
         await self.session.refresh(job)
         return job
 
+    async def update_analytics_metadata(
+        self,
+        job: Job,
+        *,
+        analytics_metadata: dict[str, Any],
+    ) -> Job:
+        result = await self.session.execute(
+            select(Job)
+            .where(Job.id == job.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        locked_job = result.scalar_one()
+        await self.session.refresh(locked_job, attribute_names=["analytics_metadata"])
+        locked_job.analytics_metadata = analytics_metadata
+        await self.session.flush()
+        await self.session.refresh(locked_job)
+        return locked_job
+
     async def update_status(
         self,
         job: Job,

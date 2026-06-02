@@ -68,20 +68,20 @@ class ApplicationService:
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
 
-        eligibility = await self.eligibility_service.check_eligibility(
+        submission_eligibility = await self.eligibility_service.check_submission_eligibility(
             candidate_id,
             application_create.job_id,
         )
-        if not eligibility.is_eligible:
-            if eligibility.reason == "You have already applied to this job":
-                raise ConflictError(eligibility.reason)
-            raise BadRequestError(f"Not eligible: {eligibility.reason}")
+        if not submission_eligibility.is_eligible:
+            if submission_eligibility.reason == "You have already applied to this job":
+                raise ConflictError(submission_eligibility.reason)
+            raise BadRequestError(f"Not eligible: {submission_eligibility.reason}")
 
         application = await self.application_repo.create(
             application_create,
             candidate_id=candidate_id,
             status=ApplicationStatus.PENDING,
-            eligibility_result=eligibility.model_dump(),
+            eligibility_result=submission_eligibility.model_dump(),
         )
 
         workflow_id = self._build_application_workflow_id(application.id)
@@ -203,26 +203,30 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        workflow_metadata = dict(application.application_metadata)
-        workflow_metadata["workflow"] = {
+        workflow_section = {
             "initialized": True,
             "state": "initialized",
         }
-        if "resume_parsing" not in workflow_metadata:
-            workflow_metadata["resume_parsing"] = {
-                "status": "pending_upload",
-                "error": None,
-            }
         application = await self.application_repo.set_workflow_tracking(
             application,
             workflow_initialized_at=datetime.now(timezone.utc),
             workflow_failed_at=None,
             workflow_error=None,
         )
-        updated_application = await self.application_repo.update_metadata(
+        updated_application = await self.application_repo.update_metadata_section(
             application,
-            metadata=workflow_metadata,
+            section_name="workflow",
+            section_value=workflow_section,
         )
+        if "resume_parsing" not in updated_application.application_metadata:
+            updated_application = await self.application_repo.update_metadata_section(
+                updated_application,
+                section_name="resume_parsing",
+                section_value={
+                    "status": "pending_upload",
+                    "error": None,
+                },
+            )
         return {
             "application_id": str(updated_application.id),
             "status": updated_application.status,
@@ -233,8 +237,7 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        workflow_metadata = dict(application.application_metadata)
-        resume_metadata = dict(workflow_metadata.get("resume_parsing", {}))
+        resume_metadata = dict(application.application_metadata.get("resume_parsing", {}))
         resume = application.resume
 
         if resume is None:
@@ -242,10 +245,10 @@ class ApplicationService:
                 "status": "pending_upload",
                 "error": None,
             })
-            workflow_metadata["resume_parsing"] = resume_metadata
-            await self.application_repo.update_resume_parsing(
+            await self.application_repo.update_metadata_section(
                 application,
-                metadata=workflow_metadata,
+                section_name="resume_parsing",
+                section_value=resume_metadata,
             )
             return {
                 "application_id": str(application.id),
@@ -257,7 +260,6 @@ class ApplicationService:
                 "status": "unsupported",
                 "error": "Resume parsing currently supports PDF uploads only",
             })
-            workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
                 parsing_status="unsupported",
@@ -266,9 +268,10 @@ class ApplicationService:
                 raw_markdown=None,
                 structured_data=None,
             )
-            await self.application_repo.update_resume_parsing(
+            await self.application_repo.update_metadata_section(
                 application,
-                metadata=workflow_metadata,
+                section_name="resume_parsing",
+                section_value=resume_metadata,
             )
             return {
                 "application_id": str(application.id),
@@ -279,10 +282,10 @@ class ApplicationService:
             "status": "processing",
             "error": None,
         })
-        workflow_metadata["resume_parsing"] = resume_metadata
-        await self.application_repo.update_resume_parsing(
+        await self.application_repo.update_metadata_section(
             application,
-            metadata=workflow_metadata,
+            section_name="resume_parsing",
+            section_value=resume_metadata,
         )
 
         if resume.storage_path is None:
@@ -290,7 +293,6 @@ class ApplicationService:
                 "status": "failed",
                 "error": "Resume storage path is missing",
             })
-            workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
                 parsing_status="failed",
@@ -299,9 +301,10 @@ class ApplicationService:
                 raw_markdown=None,
                 structured_data=None,
             )
-            await self.application_repo.update_resume_parsing(
+            await self.application_repo.update_metadata_section(
                 application,
-                metadata=workflow_metadata,
+                section_name="resume_parsing",
+                section_value=resume_metadata,
             )
             return {
                 "application_id": str(application.id),
@@ -314,7 +317,6 @@ class ApplicationService:
                 "status": "failed",
                 "error": "Uploaded resume file is no longer available",
             })
-            workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
                 parsing_status="failed",
@@ -323,9 +325,10 @@ class ApplicationService:
                 raw_markdown=None,
                 structured_data=None,
             )
-            await self.application_repo.update_resume_parsing(
+            await self.application_repo.update_metadata_section(
                 application,
-                metadata=workflow_metadata,
+                section_name="resume_parsing",
+                section_value=resume_metadata,
             )
             return {
                 "application_id": str(application.id),
@@ -341,7 +344,6 @@ class ApplicationService:
                 "status": "failed",
                 "error": str(exc),
             })
-            workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
                 parsing_status="failed",
@@ -350,9 +352,10 @@ class ApplicationService:
                 raw_markdown=None,
                 structured_data=None,
             )
-            await self.application_repo.update_resume_parsing(
+            await self.application_repo.update_metadata_section(
                 application,
-                metadata=workflow_metadata,
+                section_name="resume_parsing",
+                section_value=resume_metadata,
             )
             return {
                 "application_id": str(application.id),
@@ -365,7 +368,6 @@ class ApplicationService:
             "error": None,
             "parsed_at": parsed_at.isoformat(),
         })
-        workflow_metadata["resume_parsing"] = resume_metadata
         await self._update_resume_record(
             resume,
             parsing_status="parsed",
@@ -374,10 +376,20 @@ class ApplicationService:
             raw_markdown=markdown,
             structured_data=parsed_resume,
         )
-        updated_application = await self.application_repo.update_resume_parsing(
+        updated_application = await self.application_repo.update_metadata_section(
             application,
-            metadata=workflow_metadata,
+            section_name="resume_parsing",
+            section_value=resume_metadata,
         )
+        eligibility_result = await self.eligibility_service.check_eligibility(
+            updated_application.candidate_id,
+            updated_application.job_id,
+        )
+        updated_application = await self.application_repo.update_eligibility_result(
+            updated_application,
+            eligibility_result=eligibility_result.model_dump(),
+        )
+        await self._enqueue_scoring_task(updated_application)
         return {
             "application_id": str(updated_application.id),
             "resume_parsing_status": resume_metadata["status"],
@@ -453,21 +465,105 @@ class ApplicationService:
             resume=resume,
         )
 
-        updated_metadata = dict(updated_application.application_metadata)
-        updated_metadata["resume_parsing"] = {
+        updated_application = await self.application_repo.update_metadata_section(
+            updated_application,
+            section_name="resume_parsing",
+            section_value={
             "status": "pending",
             "error": None,
             "uploaded_at": uploaded_at.isoformat(),
             "resume_id": str(resume.id),
-        }
-        updated_application = await self.application_repo.update_resume_parsing(
-            updated_application,
-            metadata=updated_metadata,
+        },
         )
 
         await self._start_resume_processing_workflow(updated_application.id, uploaded_at)
 
         return ApplicationResponse.model_validate(updated_application)
+
+    async def get_background_task_context(self, application_id: uuid.UUID) -> dict[str, Any]:
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        job = await self.job_repo.get_by_id(application.job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+
+        candidate = await self.candidate_repo.get_by_id(application.candidate_id)
+        if candidate is None:
+            raise NotFoundError("Candidate not found")
+
+        latest_resume = await self.candidate_resume_repo.get_latest_parsed_for_candidate(candidate.id)
+
+        return {
+            "application_id": str(application.id),
+            "candidate_id": str(candidate.id),
+            "job_id": str(job.id),
+            "application_status": application.status,
+            "eligibility_result": dict(application.eligibility_result or {}),
+            "application_metadata": dict(application.application_metadata),
+            "job_required_skills": list(job.required_skills or []),
+            "candidate_master_profile": dict(candidate.master_profile_data or {}),
+            "resume_structured_data": (
+                dict(latest_resume.structured_data)
+                if latest_resume is not None and latest_resume.structured_data is not None
+                else None
+            ),
+        }
+
+    async def record_scoring_result(
+        self,
+        application_id: uuid.UUID,
+        *,
+        scoring_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        updated_application = await self.application_repo.update_metadata_section(
+            application,
+            section_name="scoring",
+            section_value=scoring_result,
+        )
+        return dict(updated_application.application_metadata)
+
+    async def record_notification_result(
+        self,
+        application_id: uuid.UUID,
+        *,
+        notification_name: str,
+        notification_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        notifications = dict(application.application_metadata.get("notifications", {}))
+        notifications[notification_name] = notification_result
+        updated_application = await self.application_repo.update_metadata_section(
+            application,
+            section_name="notifications",
+            section_value=notifications,
+        )
+        return dict(updated_application.application_metadata)
+
+    async def record_analytics_result(
+        self,
+        application_id: uuid.UUID,
+        *,
+        analytics_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        updated_application = await self.application_repo.update_metadata_section(
+            application,
+            section_name="analytics",
+            section_value=analytics_result,
+        )
+        return dict(updated_application.application_metadata)
 
     async def _update_resume_record(
         self,
@@ -540,6 +636,31 @@ class ApplicationService:
             headers=event.headers(),
             trace_context=event.trace_context(),
             idempotency_key=f"{event.event_type()}:{application.id}",
+        )
+
+    async def _enqueue_scoring_task(self, application: Application) -> None:
+        from app.celery_app import celery_app
+        from app.tasks import APPLICATION_SCORING_TASK
+
+        workflow_id = application.workflow_id or self._build_application_workflow_id(application.id)
+        event = ApplicationReceivedEvent(
+            aggregate_id=application.id,
+            application_id=application.id,
+            job_id=application.job_id,
+            candidate_id=application.candidate_id,
+            status=application.status,
+            workflow_id=workflow_id,
+            context=EventContext(
+                correlation_id=workflow_id,
+                user_id=str(application.candidate_id),
+            ),
+        )
+        celery_app.send_task(
+            APPLICATION_SCORING_TASK,
+            kwargs={
+                "payload": event.payload(),
+                "headers": event.headers(),
+            },
         )
 
     async def _start_application_workflow(self, application_id: uuid.UUID) -> None:

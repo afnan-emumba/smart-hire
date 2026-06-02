@@ -59,6 +59,22 @@ class Settings(BaseSettings):
         default=5.0,
         alias="EVENT_RELAY_RETRY_BACKOFF_SECONDS",
     )
+    kafka_consumer_group_id: str = Field(
+        default="smarthire-consumer",
+        alias="KAFKA_CONSUMER_GROUP_ID",
+    )
+    kafka_consumer_poll_timeout_ms: int = Field(
+        default=1000,
+        alias="KAFKA_CONSUMER_POLL_TIMEOUT_MS",
+    )
+    celery_task_max_retries: int = Field(
+        default=3,
+        alias="CELERY_TASK_MAX_RETRIES",
+    )
+    celery_task_retry_backoff: int = Field(
+        default=2,
+        alias="CELERY_TASK_RETRY_BACKOFF",
+    )
     resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
     max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
     jd_upload_dir: str = Field(default="uploads/job_descriptions", alias="JD_UPLOAD_DIR")
