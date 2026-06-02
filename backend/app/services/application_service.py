@@ -10,13 +10,15 @@ from typing import Any
 from app.core.auth import CurrentUser
 from app.core.application_states import ApplicationStatus, is_valid_app_transition
 from app.core.config import Settings
+from app.core.metrics import queue_applications_received_increment, queue_workflow_duration
+from app.core.tracing import build_event_context
 from app.db.models import Application, CandidateResume
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
-from app.events.schemas import ApplicationReceivedEvent, EventContext
+from app.events.schemas import ApplicationReceivedEvent
 from app.schemas.application import ApplicationCreate, ApplicationResponse
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
@@ -90,6 +92,7 @@ class ApplicationService:
             current_user=current_user,
             workflow_id=workflow_id,
         )
+        queue_applications_received_increment(self.application_repo.session)
         await self._start_application_workflow(application.id)
         return ApplicationResponse.model_validate(application)
 
@@ -226,6 +229,16 @@ class ApplicationService:
                     "status": "pending_upload",
                     "error": None,
                 },
+            )
+        if updated_application.workflow_initialized_at is not None:
+            queue_workflow_duration(
+                self.application_repo.session,
+                workflow_name="candidate_application_initialization",
+                status="success",
+                duration_seconds=max(
+                    (updated_application.workflow_initialized_at - updated_application.created_at).total_seconds(),
+                    0.0,
+                ),
             )
         return {
             "application_id": str(updated_application.id),
@@ -621,7 +634,7 @@ class ApplicationService:
             candidate_id=application.candidate_id,
             status=application.status,
             workflow_id=workflow_id,
-            context=EventContext(
+            context=build_event_context(
                 correlation_id=workflow_id,
                 user_id=current_user.id,
             ),
@@ -650,7 +663,7 @@ class ApplicationService:
             candidate_id=application.candidate_id,
             status=application.status,
             workflow_id=workflow_id,
-            context=EventContext(
+            context=build_event_context(
                 correlation_id=workflow_id,
                 user_id=str(application.candidate_id),
             ),

@@ -11,8 +11,10 @@ from typing import Any
 from app.core.auth import CurrentUser
 from app.core.config import Settings
 from app.core.enums import JobStatus
+from app.core.metrics import queue_jobs_published_increment, queue_workflow_duration
 from app.core.state_machine import StateMachine
-from app.events.schemas import EventContext, JobPublishedEvent
+from app.core.tracing import build_event_context
+from app.events.schemas import JobPublishedEvent
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
 from app.repositories.recruiter_repo import RecruiterRepository
@@ -419,7 +421,7 @@ class JobService:
             recruiter_id=job.recruiter_id,
             status=job.status,
             workflow_id=job.publishing_workflow_id,
-            context=EventContext(
+            context=build_event_context(
                 correlation_id=job.publishing_workflow_id,
                 user_id=str(job.recruiter_id),
             ),
@@ -435,6 +437,14 @@ class JobService:
             trace_context=event.trace_context(),
             idempotency_key=f"{event.event_type()}:{job.id}",
         )
+        queue_jobs_published_increment(self.job_repo.session)
+        if job.processing_started_at is not None and job.ready_at is not None:
+            queue_workflow_duration(
+                self.job_repo.session,
+                workflow_name="job_publishing",
+                status="success",
+                duration_seconds=max((job.ready_at - job.processing_started_at).total_seconds(), 0.0),
+            )
 
     @staticmethod
     def _require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:

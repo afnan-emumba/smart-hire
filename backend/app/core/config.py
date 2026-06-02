@@ -44,10 +44,16 @@ class Settings(BaseSettings):
         alias="CELERY_RESULT_BACKEND",
     )
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_json: bool = Field(default=True, alias="LOG_JSON")
     metrics_enabled: bool = Field(default=True, alias="METRICS_ENABLED")
     tracing_enabled: bool = Field(default=False, alias="TRACING_ENABLED")
+    otel_service_name: str = Field(default="smarthire-backend", alias="OTEL_SERVICE_NAME")
     otel_exporter_otlp_endpoint: str = Field(
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+    healthcheck_timeout_seconds: float = Field(
+        default=5.0,
+        alias="HEALTHCHECK_TIMEOUT_SECONDS",
     )
     event_relay_batch_size: int = Field(default=50, alias="EVENT_RELAY_BATCH_SIZE")
     event_relay_poll_interval_seconds: float = Field(

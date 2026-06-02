@@ -20,6 +20,8 @@ class EventContext(BaseModel):
 
     trace_id: str | None = None
     span_id: str | None = None
+    traceparent: str | None = None
+    tracestate: str | None = None
     correlation_id: str | None = None
     user_id: str | None = None
 
@@ -59,6 +61,10 @@ class BaseEvent(BaseModel):
             headers["trace_id"] = self.context.trace_id
         if self.context.span_id:
             headers["span_id"] = self.context.span_id
+        if self.context.traceparent:
+            headers["traceparent"] = self.context.traceparent
+        if self.context.tracestate:
+            headers["tracestate"] = self.context.tracestate
         if self.context.correlation_id:
             headers["correlation_id"] = self.context.correlation_id
         if self.workflow_id:
@@ -71,6 +77,10 @@ class BaseEvent(BaseModel):
             trace_context["trace_id"] = self.context.trace_id
         if self.context.span_id:
             trace_context["span_id"] = self.context.span_id
+        if self.context.traceparent:
+            trace_context["traceparent"] = self.context.traceparent
+        if self.context.tracestate:
+            trace_context["tracestate"] = self.context.tracestate
         if self.context.correlation_id:
             trace_context["correlation_id"] = self.context.correlation_id
         if self.context.user_id:

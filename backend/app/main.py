@@ -3,12 +3,16 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.logging import bind_log_context, configure_logging, reset_log_context
+from app.core.metrics import build_metrics_response, record_http_metrics
+from app.core.tracing import configure_tracing
+from app.db.session import engine
 from app.events.producer import start_event_publisher, stop_event_publisher
 from app.services.exceptions import (
     BadRequestError,
@@ -22,6 +26,7 @@ from app.temporal.client import TemporalClient
 
 
 settings = get_settings()
+configure_logging(settings)
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +34,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
+    configure_tracing(settings, app=app, sqlalchemy_engine=engine)
     await start_event_publisher(settings)
     yield
     # Shutdown
@@ -43,6 +49,21 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    tokens = bind_log_context(
+        user_id=request.headers.get("X-User-ID"),
+        workflow_id=request.headers.get("X-Workflow-ID"),
+        correlation_id=request.headers.get("X-Correlation-ID") or request.headers.get("X-Request-ID"),
+    )
+    try:
+        if settings.metrics_enabled:
+            return await record_http_metrics(request, call_next)
+        return await call_next(request)
+    finally:
+        reset_log_context(tokens)
 
 app.add_middleware(
     CORSMiddleware,
@@ -94,6 +115,11 @@ async def handle_invalid_state_transition(
 async def handle_unexpected_error(_: object, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled application error", exc_info=exc)
     return _json_error(500, "Internal server error")
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics_endpoint():
+    return build_metrics_response()
 
 
 app.include_router(api_router)
