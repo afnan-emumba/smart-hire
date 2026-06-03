@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
+from app.repositories.analytics_repo import AnalyticsRepository
 from app.core.config import get_settings
 from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
@@ -12,6 +13,7 @@ from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.services.application_service import ApplicationService
+from app.services.analytics_service import AnalyticsService
 from app.services.candidate_service import CandidateService
 from app.services.eligibility_service import EligibilityService
 from app.services.job_service import JobService
@@ -28,6 +30,12 @@ async def get_candidate_service(
     session: AsyncSession = Depends(get_db_session),
 ) -> CandidateService:
     return CandidateService(CandidateRepository(session))
+
+
+async def get_analytics_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> AnalyticsService:
+    return AnalyticsService(AnalyticsRepository(session))
 
 
 async def get_job_service(session: AsyncSession = Depends(get_db_session)) -> JobService:

@@ -110,6 +110,7 @@ flowchart TB
 - Principle: services own behavior, repositories own queries
 - **Exception pattern:** Services raise domain exceptions (`NotFoundError`, `ForbiddenError`, `BadRequestError`, `ConflictError`, `PayloadTooLargeError`), **not** `HTTPException`. This decouples services from HTTP and allows them to be called from workflows, background tasks, or other contexts.
 - **Auth binding:** Services extract ownership IDs from `current_user` context (X-User-ID header), not from request bodies. Prevents authorization bypasses.
+- **Analytics read layer:** `AnalyticsService` serves the reporting API by querying transactional tables and durable failure records directly instead of maintaining a separate analytics store.
 
 ### Repository Layer
 
@@ -131,13 +132,18 @@ flowchart TB
 
 - Swagger UI and Postman are the primary clients for the current backend-only scope.
 - Resume files are uploaded per application and stored locally in development.
-- Job description PDFs are uploaded per job and processed through the Week 2 Temporal publishing workflow.
 
 ### Async Processing
 
 - Temporal: stateful workflows such as job publishing and application progression
 - Kafka: domain events such as `JobPublished` and `ApplicationReceived`
 - Celery: isolated, stateless background work such as notifications and analytics updates
+
+### Analytics Read Surface
+
+- `GET /analytics/summary` is a query-backed read endpoint for the required metrics.
+- The endpoint reads directly from `jobs`, `applications`, `recruiters`, `candidates`, `event_processing_records`, and `outbox_events`.
+- Failure analytics stay durable by counting persisted workflow and delivery failures instead of inferring from logs.
 
 ## Job Publishing Flow
 

@@ -109,6 +109,8 @@ alembic revision --autogenerate -m "describe change"
 
 ```bash
 curl http://localhost:8000/health
+curl http://localhost:8000/metrics
+curl http://localhost:8000/analytics/summary
 ```
 
 Expected response:
@@ -116,6 +118,8 @@ Expected response:
 ```json
 { "status": "ok", "database": "up" }
 ```
+
+`GET /metrics` should expose Prometheus text output and `GET /analytics/summary` should return the analytics payload.
 
 ## Manual API Testing
 
@@ -130,7 +134,7 @@ Required mock auth headers for most requests:
 - `X-User-ID`
 - `X-User-Role` with value `RECRUITER` or `CANDIDATE`
 
-Recommended Day 5 validation order:
+Recommended validation order:
 
 1. **Create a recruiter** (role: RECRUITER)
 
@@ -209,10 +213,28 @@ Recommended Day 5 validation order:
    Should return `409 Conflict`: "Candidate already applied to this job"
 
 9. **Retrieve the application** (as candidate)
+
    ```
    GET /applications/{applicationId}
    ```
+
    Confirm the nested `resume` object is present with file metadata and parsing status (but NOT `storage_path`, which is internal).
+
+10. **Verify analytics summary** (as recruiter)
+
+```
+GET /analytics/summary
+```
+
+Confirm the response includes total candidates, total recruiters, total jobs published, new applications over time, application-to-interview rate, average time to hire, most applied jobs, average applications per candidate, and failed workflow/system error totals.
+
+11. **Verify observability surfaces**
+
+```
+GET /metrics
+```
+
+Then inspect Jaeger, Grafana, and Temporal UI for the publish and application flows.
 
 ## Authorization & Auth Headers
 

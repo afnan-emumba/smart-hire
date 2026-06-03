@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EventProcessingRecord
@@ -43,39 +44,42 @@ class EventProcessingRepository:
         schema_version: str = "v1",
         metadata: Mapping[str, Any] | None = None,
     ) -> tuple[EventProcessingRecord, bool]:
-        record = await self.get_by_event_and_handler(
-            event_id=event_id,
-            handler_name=handler_name,
-            for_update=True,
-        )
-        if record is not None:
-            return record, False
+        for attempt in range(3):
+            stmt = (
+                insert(EventProcessingRecord)
+                .values(
+                    event_id=event_id,
+                    handler_name=handler_name,
+                    event_type=event_type,
+                    topic_name=topic_name,
+                    aggregate_id=aggregate_id,
+                    schema_version=schema_version,
+                    processing_metadata=dict(metadata or {}),
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        EventProcessingRecord.event_id,
+                        EventProcessingRecord.handler_name,
+                    ]
+                )
+                .returning(EventProcessingRecord.id)
+            )
+            inserted = (await self.session.execute(stmt)).scalar_one_or_none()
 
-        record = EventProcessingRecord(
-            event_id=event_id,
-            handler_name=handler_name,
-            event_type=event_type,
-            topic_name=topic_name,
-            aggregate_id=aggregate_id,
-            schema_version=schema_version,
-            processing_metadata=dict(metadata or {}),
-        )
-        self.session.add(record)
-        try:
-            await self.session.flush()
-        except IntegrityError:
-            await self.session.rollback()
             record = await self.get_by_event_and_handler(
                 event_id=event_id,
                 handler_name=handler_name,
                 for_update=True,
             )
-            if record is None:
-                raise
-            return record, False
+            if record is not None:
+                return record, inserted is not None
 
-        await self.session.refresh(record)
-        return record, True
+            if attempt < 2:
+                await asyncio.sleep(0.05 * (attempt + 1))
+
+        raise RuntimeError(
+            "Failed to get or create event processing record after concurrent insert attempts"
+        )
 
     async def mark_queued(
         self,
