@@ -178,7 +178,7 @@ docker compose logs -f backend
 
 # Verify health
 curl http://localhost:8000/health
-# Expected: {"status":"ok","database":"up"}
+# Expected: structured JSON with overall status and dependency checks
 
 # Stop the stack
 docker compose down
