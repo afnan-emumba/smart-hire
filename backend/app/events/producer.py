@@ -11,6 +11,7 @@ from aiokafka.admin import AIOKafkaAdminClient, NewTopic
 from aiokafka.errors import TopicAlreadyExistsError
 
 from app.core.config import Settings, get_settings
+from app.core.tracing import inject_trace_headers, start_trace_span
 from app.events.schemas import EVENT_CONTRACTS, get_event_contract
 
 
@@ -43,9 +44,12 @@ class SchemaRegistryClient:
         except error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="ignore")
             if exc.code == 409:
-                raise RuntimeError(
-                    f"Schema registry rejected incompatible schema for subject '{subject}': {body}"
-                ) from exc
+                logger.warning(
+                    "Schema registry kept existing schema for subject %s after incompatibility response: %s",
+                    subject,
+                    body,
+                )
+                return
             raise RuntimeError(
                 f"Schema registry request failed for subject '{subject}': {exc.code} {body}"
             ) from exc
@@ -134,16 +138,27 @@ class KafkaEventPublisher:
             raise RuntimeError("Kafka producer has not been started")
 
         await self.ensure_event_schema(event_type)
-        kafka_headers = [
-            (header_key, header_value.encode("utf-8"))
-            for header_key, header_value in (headers or {}).items()
-        ]
-        await self._producer.send_and_wait(
-            topic_name,
-            payload,
-            key=key,
-            headers=kafka_headers,
-        )
+        with start_trace_span(
+            "kafka.publish",
+            headers=headers,
+            attributes={
+                "messaging.system": "kafka",
+                "messaging.destination.name": topic_name,
+                "messaging.operation": "publish",
+                "smarthire.event_type": event_type,
+            },
+        ):
+            propagated_headers = inject_trace_headers(headers)
+            kafka_headers = [
+                (header_key, header_value.encode("utf-8"))
+                for header_key, header_value in propagated_headers.items()
+            ]
+            await self._producer.send_and_wait(
+                topic_name,
+                payload,
+                key=key,
+                headers=kafka_headers,
+            )
 
 
 _event_publisher: KafkaEventPublisher | None = None

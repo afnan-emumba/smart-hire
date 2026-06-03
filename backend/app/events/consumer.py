@@ -10,7 +10,9 @@ from aiokafka import AIOKafkaConsumer
 
 from app.celery_app import celery_app
 from app.core.config import get_settings
-from app.db.session import SessionLocal
+from app.core.logging import bind_log_context, configure_logging, reset_log_context
+from app.core.tracing import configure_tracing, start_trace_span
+from app.db.session import SessionLocal, engine
 from app.events.schemas import get_event_contract
 from app.events.topics import APPLICATION_RECEIVED_EVENT_TYPE, JOB_PUBLISHED_EVENT_TYPE
 from app.repositories.event_processing_repo import EventProcessingRepository
@@ -22,6 +24,9 @@ from app.tasks import (
 )
 
 
+settings = get_settings()
+configure_logging(settings)
+configure_tracing(settings, sqlalchemy_engine=engine)
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +44,7 @@ EVENT_TASK_MAP: dict[str, tuple[str, ...]] = {
 
 class EventConsumer:
     def __init__(self) -> None:
-        self.settings = get_settings()
+        self.settings = settings
         self.consumer = AIOKafkaConsumer(
             self.settings.kafka_job_published_topic,
             self.settings.kafka_application_received_topic,
@@ -77,63 +82,81 @@ class EventConsumer:
         if event_type is None:
             raise RuntimeError(f"Kafka message on topic '{topic_name}' is missing event_type header")
 
-        contract = get_event_contract(event_type)
-        event = contract.model_validate(payload)
-        header_schema_version = headers.get("schema_version")
-        if header_schema_version is not None and header_schema_version != event.schema_version:
-            raise RuntimeError(
-                "Kafka message schema version header does not match the validated payload"
-            )
-        handler_names = EVENT_TASK_MAP.get(event_type, ())
-        if not handler_names:
-            logger.info("No task handlers registered for event type", extra={"event_type": event_type})
-            return
-
-        async with SessionLocal() as session:
-            processing_repo = EventProcessingRepository(session)
-            for handler_name in handler_names:
-                record, _ = await processing_repo.get_or_create(
-                    event_id=event.event_id,
-                    handler_name=handler_name,
-                    event_type=event_type,
-                    topic_name=topic_name,
-                    aggregate_id=event.aggregate_id,
-                    schema_version=event.schema_version,
-                    metadata={
-                        "consumer_group_id": self.settings.kafka_consumer_group_id,
-                    },
-                )
-                if self._should_skip_dispatch(record):
-                    continue
-
-                try:
-                    async_result = celery_app.send_task(
-                        handler_name,
-                        kwargs={
-                            "payload": event.payload(),
-                            "headers": headers,
-                        },
+        tokens = bind_log_context(
+            user_id=headers.get("user_id"),
+            workflow_id=headers.get("workflow_id"),
+            correlation_id=headers.get("correlation_id"),
+        )
+        try:
+            with start_trace_span(
+                "kafka.consume",
+                headers=headers,
+                attributes={
+                    "messaging.system": "kafka",
+                    "messaging.destination.name": topic_name,
+                    "messaging.operation": "process",
+                    "smarthire.event_type": event_type,
+                },
+            ):
+                contract = get_event_contract(event_type)
+                event = contract.model_validate(payload)
+                header_schema_version = headers.get("schema_version")
+                if header_schema_version is not None and header_schema_version != event.schema_version:
+                    raise RuntimeError(
+                        "Kafka message schema version header does not match the validated payload"
                     )
-                except Exception as exc:
-                    await processing_repo.mark_failed(
-                        record,
-                        error_message=str(exc),
-                        metadata={
-                            "dispatch_failed_at": datetime.now(timezone.utc).isoformat(),
-                        },
-                    )
+                handler_names = EVENT_TASK_MAP.get(event_type, ())
+                if not handler_names:
+                    logger.info("No task handlers registered for event type", extra={"event_type": event_type})
+                    return
+
+                async with SessionLocal() as session:
+                    processing_repo = EventProcessingRepository(session)
+                    for handler_name in handler_names:
+                        record, _ = await processing_repo.get_or_create(
+                            event_id=event.event_id,
+                            handler_name=handler_name,
+                            event_type=event_type,
+                            topic_name=topic_name,
+                            aggregate_id=event.aggregate_id,
+                            schema_version=event.schema_version,
+                            metadata={
+                                "consumer_group_id": self.settings.kafka_consumer_group_id,
+                            },
+                        )
+                        if self._should_skip_dispatch(record):
+                            continue
+
+                        try:
+                            async_result = celery_app.send_task(
+                                handler_name,
+                                kwargs={
+                                    "payload": event.payload(),
+                                    "headers": headers,
+                                },
+                            )
+                        except Exception as exc:
+                            await processing_repo.mark_failed(
+                                record,
+                                error_message=str(exc),
+                                metadata={
+                                    "dispatch_failed_at": datetime.now(timezone.utc).isoformat(),
+                                },
+                            )
+                            await session.commit()
+                            raise
+
+                        await processing_repo.mark_queued(
+                            record,
+                            metadata={
+                                "celery_task_id": async_result.id,
+                                "enqueued_at": datetime.now(timezone.utc).isoformat(),
+                            },
+                        )
+
                     await session.commit()
-                    raise
-
-                await processing_repo.mark_queued(
-                    record,
-                    metadata={
-                        "celery_task_id": async_result.id,
-                        "enqueued_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-
-            await session.commit()
+        finally:
+            reset_log_context(tokens)
 
     @staticmethod
     def _decode_headers(raw_headers: list[tuple[str, bytes]] | None) -> dict[str, str]:
