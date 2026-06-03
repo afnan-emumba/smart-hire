@@ -60,13 +60,27 @@ flowchart LR
 - Authorize access: candidates see only their own apps, recruiters see apps for their jobs
 - Initialize application workflow metadata and start the Temporal workflow
 
+### AnalyticsService
+
+- Serve the analytics API through query-backed reads.
+- Aggregate the required metrics directly from transactional tables.
+- Count durable failure signals from job workflows, application workflows, event-processing records, and outbox publishing records.
+- Keep reporting read-only; do not introduce a separate analytics store or projection pipeline.
+
 ### EligibilityService
 
 - Confirms that the target job exists and is in `ready` status.
 - Rejects duplicate applications before create.
 - Compares candidate skills from `master_profile_data.skills` against `jobs.required_skills`.
-- Enforces the Week 2 threshold of at least 50 percent skills overlap.
+- Enforces the threshold of at least 50 percent skills overlap.
 - Returns a structured eligibility result that is persisted on the created application.
+
+## Event and Worker Responsibilities
+
+- `JobService` and `ApplicationService` persist their state changes before writing transactional outbox records.
+- The outbox relay publishes durable domain events without coupling API success to Kafka availability.
+- Kafka consumers stay thin and dispatch idempotent Celery tasks for analytics, notifications, and scoring.
+- `AnalyticsService` exposes the reporting surface after those durable writes and task outcomes are persisted.
 
 ## Job Creation Flow
 

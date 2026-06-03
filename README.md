@@ -88,7 +88,7 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 
 - Recruiters can upload JD PDFs through `POST /jobs/{id}/description-file`
 - Job description parsing state is tracked separately from recruiter-facing publication status
-- `jobs.description` now represents canonical markdown content, whether provided manually for Week 1 fallback or produced later by the parser
+- `jobs.description` represents canonical markdown content, whether provided manually or produced later by the parser
 - JD files are stored locally in `uploads/job_descriptions/` during development; internal storage paths stay out of API responses
 
 ### Structured Candidate Profiles
@@ -155,7 +155,7 @@ SmartHire uses environment variables for configuration. Two templates are tracke
 
 ```bash
 cp .env.example .env
-# Contains: Compose interpolation values, container-to-container service URLs, ports, and Week 3 runtime settings
+# Contains: Compose interpolation values, container-to-container service URLs, ports, and runtime settings
 ```
 
 **2. Backend `.env` (App Runtime):**
@@ -223,6 +223,8 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 **Available Endpoints:**
 
 - `GET /health` — System health check
+- `GET /metrics` — Prometheus metrics for observability
+- `GET /analytics/summary` — Analytics summary backed by transactional data
 - `POST /recruiters` — Create recruiter
 - `GET /recruiters/{id}` — Retrieve recruiter
 - `GET /recruiters` — List recruiters with pagination
@@ -247,7 +249,7 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 **Manual API Testing:**
 
 - Use Swagger UI at `/docs` for quick request/response inspection.
-- Use Postman for the full Week 1 validation flow. A starter collection lives in `backend/postman/`.
+- Use Postman for the validation flow. The maintained collection lives in `backend/postman/`.
 - For local development, resume and JD uploads are stored on disk under `backend/uploads/` and should remain untracked.
 
 **Authentication:**

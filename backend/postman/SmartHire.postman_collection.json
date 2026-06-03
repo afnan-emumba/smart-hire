@@ -43,6 +43,35 @@
               "path": ["health"]
             }
           }
+        },
+        {
+          "name": "Metrics Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Metrics endpoint is up', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "pm.test('Week 3 counters are exposed', function () {",
+                  "    pm.expect(pm.response.text()).to.include('jobs_published_total');",
+                  "    pm.expect(pm.response.text()).to.include('applications_received_total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics"]
+            }
+          }
         }
       ]
     },
@@ -393,7 +422,7 @@
         },
         {
           "name": "Publish Job",
-          "description": "Publishes job after PDF breakdown has been extracted and processed.",
+          "description": "Publishes a recruiter job and starts the event-driven path. Follow this request with analytics, metrics, and Temporal checks.",
           "event": [
             {
               "listen": "test",
@@ -448,7 +477,7 @@
       "item": [
         {
           "name": "Create Application",
-          "description": "Creates an application for a published job. Resume data must be uploaded separately from PDF, not included in request body.",
+          "description": "Creates an application for a published job and triggers the application event flow. Resume data must be uploaded separately from PDF, not included in request body.",
           "event": [
             {
               "listen": "test",
@@ -669,6 +698,52 @@
               "raw": "{{baseUrl}}/applications",
               "host": ["{{baseUrl}}"],
               "path": ["applications"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Analytics Summary",
+          "description": "Returns the analytics summary backed directly by transactional tables and durable failure records.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Analytics summary is available', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "pm.test('Analytics summary includes required Part A metrics', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('total_candidates');",
+                  "    pm.expect(body).to.have.property('total_recruiters');",
+                  "    pm.expect(body).to.have.property('total_jobs_published');",
+                  "    pm.expect(body).to.have.property('new_applications_over_time');",
+                  "    pm.expect(body).to.have.property('application_to_interview_rate');",
+                  "    pm.expect(body).to.have.property('average_time_to_hire_seconds');",
+                  "    pm.expect(body).to.have.property('most_applied_jobs');",
+                  "    pm.expect(body).to.have.property('average_applications_per_candidate');",
+                  "    pm.expect(body).to.have.property('failed_workflows_system_errors');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "summary"]
             }
           }
         }

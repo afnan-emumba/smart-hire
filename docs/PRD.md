@@ -1,12 +1,12 @@
-# Product Requirements Document: SmartHire Part A
+# Product Requirements Document: SmartHire
 
 ## Overview
 
-SmartHire Part A defines the core recruitment platform for TalentSphere Inc. The focus is a scalable backend system for recruiter operations, candidate applications, workflow orchestration, and reliable asynchronous processing. This phase intentionally excludes GenAI features and instead establishes the operational backbone required for future intelligence capabilities.
+SmartHire defines the core recruitment platform for TalentSphere Inc. The focus is a scalable backend system for recruiter operations, candidate applications, workflow orchestration, and reliable asynchronous processing. This phase intentionally excludes GenAI features and instead establishes the operational backbone required for future intelligence capabilities.
 
 ## Problem Statement
 
-TalentSphere's existing hiring operations are slowed by manual job publishing, inconsistent candidate processing, fragmented workflow state, and unreliable background execution during high-volume hiring periods. SmartHire Part A addresses these constraints by centralizing recruitment data, formalizing workflow boundaries, and introducing event-driven processing with observability.
+TalentSphere's existing hiring operations are slowed by manual job publishing, inconsistent candidate processing, fragmented workflow state, and unreliable background execution during high-volume hiring periods. SmartHire addresses these constraints by centralizing recruitment data, formalizing workflow boundaries, and introducing event-driven processing with observability.
 
 ## Goals
 
@@ -162,4 +162,4 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 
 ## Acceptance Orientation
 
-This PRD is satisfied when the Part A backend exposes the required domain APIs, enforces ownership and duplicate rules, persists recruitment entities consistently, supports orchestration and event-driven extensions, and documents validation and deployment paths clearly enough for local verification.
+This PRD is satisfied when the backend exposes the required domain APIs, enforces ownership and duplicate rules, persists recruitment entities consistently, supports orchestration and event-driven extensions, and documents validation and deployment paths clearly enough for local verification.
