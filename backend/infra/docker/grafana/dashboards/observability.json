@@ -27,6 +27,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Incoming API traffic over the last five minutes.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -39,20 +40,20 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
+            "lineWidth": 2,
+            "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -89,8 +90,8 @@
       "id": 1,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -102,7 +103,7 @@
       "targets": [
         {
           "expr": "sum(rate(smarthire_http_requests_total[5m]))",
-          "legendFormat": "requests/s",
+          "legendFormat": "Requests per second",
           "refId": "A"
         }
       ],
@@ -114,6 +115,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "P95 and P99 latency help spot slowdowns before they affect all users.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -126,20 +128,20 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
+            "lineWidth": 2,
+            "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -158,8 +160,12 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 1
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 2
               }
             ]
           },
@@ -176,8 +182,8 @@
       "id": 2,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["lastNotNull", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -189,11 +195,16 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(smarthire_http_request_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "p95 latency",
+          "legendFormat": "P95 latency",
           "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(smarthire_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99 latency",
+          "refId": "B"
         }
       ],
-      "title": "API Latency P95",
+      "title": "API Latency Percentiles",
       "type": "timeseries"
     },
     {
@@ -201,6 +212,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Durable total of jobs that reached the ready state.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -219,13 +231,14 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 8
       },
@@ -233,7 +246,7 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
@@ -241,7 +254,7 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "textMode": "value",
         "wideLayout": true
       },
       "targets": [
@@ -258,6 +271,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Durable total of applications stored successfully.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -273,24 +287,25 @@
               },
               {
                 "color": "green",
-                "value": 0
+                "value": 1
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 6,
+        "w": 8,
+        "x": 8,
         "y": 8
       },
       "id": 4,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
@@ -298,7 +313,7 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "textMode": "value",
         "wideLayout": true
       },
       "targets": [
@@ -315,6 +330,77 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Open workflow failures that still need attention.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "smarthire_job_publishing_failures_total",
+          "legendFormat": "Job publishing",
+          "refId": "A"
+        },
+        {
+          "expr": "smarthire_application_workflow_failures_total",
+          "legendFormat": "Application initialization",
+          "refId": "B"
+        }
+      ],
+      "title": "Workflow Failures",
+      "type": "stat"
+    },
+
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Average workflow duration derived from durable timestamps.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -327,20 +413,20 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
+            "lineWidth": 2,
+            "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -359,8 +445,12 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 60
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 300
               }
             ]
           },
@@ -371,14 +461,14 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 8
+        "x": 0,
+        "y": 16
       },
-      "id": 5,
+      "id": 7,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["lastNotNull", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -389,19 +479,21 @@
       },
       "targets": [
         {
-          "expr": "smarthire_workflow_average_duration_seconds{status=\"success\",workflow_name!~\"job_publishing|candidate_application_initialization\"}",
+          "expr": "smarthire_workflow_average_duration_seconds{status=\"success\"}",
           "legendFormat": "{{workflow_name}}",
           "refId": "A"
         }
       ],
-      "title": "Workflow Duration",
+      "title": "Workflow Duration (Average)",
       "type": "timeseries"
     },
+
     {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Durable task outcomes grouped by background task and result.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -414,20 +506,20 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
+            "lineWidth": 2,
+            "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -450,7 +542,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -458,13 +551,13 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
-      "id": 6,
+      "id": 9,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -475,13 +568,89 @@
       },
       "targets": [
         {
-          "expr": "smarthire_task_outcomes_total{task_name!~\"app\\\\.tasks\\\\..*\"}",
-          "legendFormat": "{{task_name}} {{status}}",
+          "expr": "smarthire_task_outcomes_total",
+          "legendFormat": "{{task_name}} - {{status}}",
           "refId": "A"
         }
       ],
       "title": "Task Outcomes",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Live status of SmartHire dependencies. Healthy is 1, down is 0.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "Down"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Healthy"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "space-around",
+        "orientation": "vertical",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": false
+      },
+      "targets": [
+        {
+          "expr": "smarthire_dependency_health_status",
+          "legendFormat": "{{dependency}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Dependency Health",
+      "type": "stat"
     }
   ],
   "refresh": "30s",
@@ -499,6 +668,6 @@
   "timezone": "browser",
   "title": "SmartHire Observability",
   "uid": "smarthire-observability",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

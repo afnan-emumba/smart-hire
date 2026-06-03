@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.enums import JobStatus
-from app.db.models import Application, EventProcessingRecord, Job
+from app.core.health import collect_dependency_results
+from app.db.models import Application, CandidateResume, EventProcessingRecord, Job
 from app.db.session import SessionLocal
 
 
@@ -31,6 +32,23 @@ TASK_HANDLER_DISPLAY_NAMES = {
 WORKFLOW_DISPLAY_NAMES = {
     "job_publishing": "Job Publishing",
     "candidate_application_initialization": "Application Initialization",
+}
+
+DEPENDENCY_DISPLAY_NAMES = {
+    "database": "PostgreSQL",
+    "temporal": "Temporal",
+    "kafka": "Kafka",
+    "schema_registry": "Schema Registry",
+    "rabbitmq": "RabbitMQ",
+    "redis": "Redis",
+}
+
+PROCESSING_STATUS_DISPLAY_NAMES = {
+    "pending": "Pending",
+    "processing": "Processing",
+    "parsed": "Parsed",
+    "failed": "Failed",
+    "unsupported": "Unsupported",
 }
 
 
@@ -54,6 +72,12 @@ HTTP_REQUEST_DURATION_SECONDS = Histogram(
     "smarthire_http_request_duration_seconds",
     "HTTP request latency in seconds.",
     labelnames=("method", "path"),
+)
+
+HTTP_ERRORS_TOTAL = Counter(
+    "smarthire_http_errors_total",
+    "Total HTTP responses that returned 4xx or 5xx status codes.",
+    labelnames=("method", "path", "status_code", "status_class"),
 )
 
 JOBS_PUBLISHED_TOTAL = Gauge(
@@ -88,6 +112,34 @@ TASK_OUTCOMES_TOTAL = Gauge(
     "smarthire_task_outcomes_total",
     "Current durable task outcome totals derived from event processing records.",
     labelnames=("task_name", "status"),
+)
+
+JOB_PUBLISHING_FAILURES_TOTAL = Gauge(
+    "smarthire_job_publishing_failures_total",
+    "Current number of jobs with a recorded publishing failure.",
+)
+
+APPLICATION_WORKFLOW_FAILURES_TOTAL = Gauge(
+    "smarthire_application_workflow_failures_total",
+    "Current number of applications with a recorded workflow failure.",
+)
+
+RESUME_PROCESSING_TOTAL = Gauge(
+    "smarthire_resume_processing_total",
+    "Current candidate resume totals by parsing status.",
+    labelnames=("status",),
+)
+
+JOB_DESCRIPTION_PROCESSING_TOTAL = Gauge(
+    "smarthire_job_description_processing_total",
+    "Current job description totals by parsing status.",
+    labelnames=("status",),
+)
+
+DEPENDENCY_HEALTH_STATUS = Gauge(
+    "smarthire_dependency_health_status",
+    "Current dependency health where 1 is healthy and 0 is unhealthy.",
+    labelnames=("dependency",),
 )
 
 
@@ -183,9 +235,28 @@ async def refresh_domain_metrics() -> None:
                 EventProcessingRecord.status,
             )
         )
+        job_publishing_failures_result = await session.execute(
+            select(func.count()).select_from(Job).where(Job.publishing_failed_at.is_not(None))
+        )
+        application_workflow_failures_result = await session.execute(
+            select(func.count()).select_from(Application).where(Application.workflow_failed_at.is_not(None))
+        )
+        resume_processing_result = await session.execute(
+            select(CandidateResume.parsing_status, func.count())
+            .select_from(CandidateResume)
+            .group_by(CandidateResume.parsing_status)
+        )
+        job_description_processing_result = await session.execute(
+            select(Job.jd_parsing_status, func.count())
+            .select_from(Job)
+            .group_by(Job.jd_parsing_status)
+        )
+        dependency_results = await collect_dependency_results(session)
 
     JOBS_PUBLISHED_TOTAL.set(float(published_jobs_result.scalar_one()))
     APPLICATIONS_RECEIVED_TOTAL.set(float(applications_received_result.scalar_one()))
+    JOB_PUBLISHING_FAILURES_TOTAL.set(float(job_publishing_failures_result.scalar_one()))
+    APPLICATION_WORKFLOW_FAILURES_TOTAL.set(float(application_workflow_failures_result.scalar_one()))
     WORKFLOW_AVERAGE_DURATION_SECONDS.labels(
         workflow_name=get_workflow_display_name("job_publishing"),
         status="success",
@@ -200,6 +271,21 @@ async def refresh_domain_metrics() -> None:
             task_name=get_task_display_name(task_name),
             status=status,
         ).set(float(total))
+    RESUME_PROCESSING_TOTAL.clear()
+    for status, total in resume_processing_result.all():
+        RESUME_PROCESSING_TOTAL.labels(
+            status=PROCESSING_STATUS_DISPLAY_NAMES.get(status, status.title()),
+        ).set(float(total))
+    JOB_DESCRIPTION_PROCESSING_TOTAL.clear()
+    for status, total in job_description_processing_result.all():
+        JOB_DESCRIPTION_PROCESSING_TOTAL.labels(
+            status=PROCESSING_STATUS_DISPLAY_NAMES.get(status, status.title()),
+        ).set(float(total))
+    DEPENDENCY_HEALTH_STATUS.clear()
+    for dependency_name, result in dependency_results.items():
+        DEPENDENCY_HEALTH_STATUS.labels(
+            dependency=DEPENDENCY_DISPLAY_NAMES.get(dependency_name, dependency_name.replace("_", " ").title()),
+        ).set(1.0 if result["status"] == "up" else 0.0)
 
 
 async def build_metrics_response() -> Response:
@@ -226,3 +312,10 @@ async def record_http_metrics(request: Request, call_next: Callable[[Request], A
             method=request.method,
             path=route_path,
         ).observe(perf_counter() - started_at)
+        if status_code >= 400:
+            HTTP_ERRORS_TOTAL.labels(
+                method=request.method,
+                path=route_path,
+                status_code=str(status_code),
+                status_class=f"{status_code // 100}xx",
+            ).inc()
