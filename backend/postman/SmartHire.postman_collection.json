@@ -76,6 +76,423 @@
       ]
     },
     {
+      "name": "E2E Flow - Complete Workflow",
+      "description": "Complete end-to-end test flow: Health → Create Recruiter → Create Candidate → Create Job → Upload Job PDF → Publish → Create Application → Upload Resume → Update Status. Run requests in order using the Postman Runner.",
+      "item": [
+        {
+          "name": "1. Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Health check passed', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "2. Create Recruiter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Recruiter created (201)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('recruiterId', body.id);",
+                  "pm.collectionVariables.set('recruiterUserId', body.id);",
+                  "console.log('Recruiter ID: ' + body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter@smarthire.com\",\n  \"name\": \"E2E Test Recruiter\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/recruiters",
+              "host": ["{{baseUrl}}"],
+              "path": ["recruiters"]
+            }
+          }
+        },
+        {
+          "name": "3. Create Candidate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Candidate created (201)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('candidateId', body.id);",
+                  "pm.collectionVariables.set('candidateUserId', body.id);",
+                  "console.log('Candidate ID: ' + body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"candidate@smarthire.com\",\n  \"name\": \"E2E Test Candidate\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/candidates",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates"]
+            }
+          }
+        },
+        {
+          "name": "4. Create Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Job created in draft status (201)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal('draft');",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('jobId', body.id);",
+                  "console.log('Job ID: ' + body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Backend Engineer - E2E Test\",\n  \"employment_type\": \"full_time\",\n  \"seniority_level\": \"senior\",\n  \"department\": \"Engineering\",\n  \"location\": {\n    \"city\": \"San Francisco\",\n    \"country\": \"USA\",\n    \"remote_policy\": \"hybrid\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "5. Upload Job Description PDF",
+          "description": "⚠️ NOTE: Select a PDF file from your filesystem before running this request. Click on the 'description_file' field and choose a valid JD PDF.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Job description PDF uploaded (202)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(202);",
+                  "});",
+                  "pm.test('✓ Job has parsing status', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('jd_parsing_status');",
+                  "    console.log('JD Parsing Status: ' + body.jd_parsing_status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "description_file",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/description-file",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "description-file"]
+            }
+          }
+        },
+        {
+          "name": "6. Publish Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Job published - Temporal workflow created (202)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(202);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('workflowId', body.workflow_id);",
+                  "pm.test('✓ Workflow ID returned', function () {",
+                  "    pm.expect(body.workflow_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "console.log('Workflow ID: ' + body.workflow_id);",
+                  "console.log('Job Status: ' + body.status);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "publish"]
+            }
+          }
+        },
+        {
+          "name": "7. Create Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Application created (201)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('applicationId', body.id);",
+                  "pm.test('✓ Application is in pending status', function () {",
+                  "    pm.expect(body.status).to.equal('pending');",
+                  "});",
+                  "console.log('Application ID: ' + body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_id\": \"{{jobId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            }
+          }
+        },
+        {
+          "name": "8. Upload Resume PDF",
+          "description": "⚠️ NOTE: Select a PDF file (resume) from your filesystem before running this request. Click on the 'resume' field and choose a valid resume PDF.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Resume PDF uploaded (200)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "pm.test('✓ Resume extracted from PDF', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('resume_id');",
+                  "    pm.expect(body).to.have.property('resume');",
+                  "    console.log('Resume ID: ' + body.resume_id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "resume"]
+            }
+          }
+        },
+        {
+          "name": "9. Update Application Status to Screening",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Application status updated to screening (200)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal('screening');",
+                  "});",
+                  "console.log('✓ Application moved to screening phase');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"screening\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "10. Get Application (Final State)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Application retrieved successfully (200)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('✓ Application has resume and is in screening', function () {",
+                  "    pm.expect(body).to.have.property('resume');",
+                  "    pm.expect(body.status).to.equal('screening');",
+                  "});",
+                  "console.log('Final Application Status: ' + body.status);",
+                  "console.log('Resume Parsing Status: ' + body.metadata?.resume_parsing);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            }
+          }
+        },
+        {
+          "name": "11. Analytics Summary",
+          "description": "Verify the complete flow was recorded in analytics (jobs published, applications received).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Analytics available (200)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('✓ Analytics includes all metrics', function () {",
+                  "    pm.expect(body).to.have.property('total_jobs_published');",
+                  "    pm.expect(body).to.have.property('total_candidates');",
+                  "    pm.expect(body).to.have.property('total_recruiters');",
+                  "});",
+                  "console.log('Total Jobs Published: ' + body.total_jobs_published);",
+                  "console.log('Total Candidates: ' + body.total_candidates);",
+                  "console.log('Total Recruiters: ' + body.total_recruiters);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Recruiters",
       "item": [
         {
