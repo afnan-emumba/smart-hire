@@ -117,6 +117,19 @@ class ApplicationService:
         if application.resume_id is None:
             raise BadRequestError("Upload a resume before submitting the application")
 
+        resume_eligibility = await self.eligibility_service.check_submission_resume_eligibility(
+            candidate_id,
+            application.job_id,
+            application.resume_id,
+        )
+        if not resume_eligibility.is_eligible:
+            raise BadRequestError(f"Cannot submit: {resume_eligibility.reason}")
+
+        application = await self.application_repo.update_eligibility_result(
+            application,
+            eligibility_result=resume_eligibility.model_dump(),
+        )
+
         existing_workflow_id = application.workflow_id
         submission_metadata = dict(application.application_metadata.get("submission", {}))
         already_submitted = self._is_application_submitted(application)
@@ -474,14 +487,6 @@ class ApplicationService:
             application,
             section_name="resume_parsing",
             section_value=resume_metadata,
-        )
-        eligibility_result = await self.eligibility_service.check_eligibility(
-            updated_application.candidate_id,
-            updated_application.job_id,
-        )
-        updated_application = await self.application_repo.update_eligibility_result(
-            updated_application,
-            eligibility_result=eligibility_result.model_dump(),
         )
         await self._enqueue_scoring_task(updated_application)
         return {
