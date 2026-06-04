@@ -144,7 +144,8 @@ class ApplicationService:
                 workflow_id=workflow_id,
             )
             queue_applications_received_increment(self.application_repo.session)
-            await self._start_application_workflow(application.id)
+            parse_resume = application.resume_id is not None
+            await self._start_application_workflow(application.id, parse_resume=parse_resume)
         else:
             workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
             if existing_workflow_id is None:
@@ -241,12 +242,13 @@ class ApplicationService:
 
         return [ApplicationResponse.model_validate(application) for application in applications]
 
-    async def update_application_status(
+    async def update_application(
         self,
         application_id: uuid.UUID,
-        new_status: ApplicationStatus,
+        update_data: dict[str, Any],
         current_user: CurrentUser,
     ) -> ApplicationResponse:
+        """Update application fields. Status updates require RECRUITER role."""
         recruiter_id = self._require_recruiter_user_id(current_user)
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
@@ -258,23 +260,27 @@ class ApplicationService:
         if job.recruiter_id != recruiter_id:
             raise ForbiddenError("Not authorized to update this application")
 
-        current_status = ApplicationStatus(application.status)
-        if current_status == new_status:
-            return ApplicationResponse.model_validate(application)
-        if not self._is_application_submitted(application):
-            raise BadRequestError("Application must be submitted before recruiters can change its status")
-        if not is_valid_app_transition(current_status, new_status):
-            raise InvalidStateTransition(
-                f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
-            )
+        if "status" in update_data:
+            new_status = ApplicationStatus(update_data["status"])
+            current_status = ApplicationStatus(application.status)
+            if current_status == new_status:
+                return ApplicationResponse.model_validate(application)
+            if not self._is_application_submitted(application):
+                raise BadRequestError("Application must be submitted before recruiters can change its status")
+            if not is_valid_app_transition(current_status, new_status):
+                raise InvalidStateTransition(
+                    f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
+                )
 
-        updated_application = await self.application_repo.update_status(
-            application,
-            status=new_status,
-            changed_by_user_id=recruiter_id,
-            changed_by_role=current_user.role,
-        )
-        return ApplicationResponse.model_validate(updated_application)
+            updated_application = await self.application_repo.update_status(
+                application,
+                status=new_status,
+                changed_by_user_id=recruiter_id,
+                changed_by_role=current_user.role,
+            )
+            return ApplicationResponse.model_validate(updated_application)
+
+        return ApplicationResponse.model_validate(application)
 
     async def initialize_application_workflow_state(self, application_id: uuid.UUID) -> dict[str, Any]:
         application = await self.application_repo.get_by_id(application_id)
@@ -564,8 +570,6 @@ class ApplicationService:
         },
         )
 
-        await self._start_resume_processing_workflow(updated_application.id, uploaded_at)
-
         return ApplicationResponse.model_validate(updated_application)
 
     async def get_background_task_context(self, application_id: uuid.UUID) -> dict[str, Any]:
@@ -751,7 +755,7 @@ class ApplicationService:
             },
         )
 
-    async def _start_application_workflow(self, application_id: uuid.UUID) -> None:
+    async def _start_application_workflow(self, application_id: uuid.UUID, parse_resume: bool = False) -> None:
         workflow_id = self._build_application_workflow_id(application_id)
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
@@ -771,7 +775,10 @@ class ApplicationService:
         try:
             await client.start_workflow(
                 CandidateApplicationWorkflow.run,
-                CandidateApplicationWorkflowInput(application_id=str(application_id)),
+                CandidateApplicationWorkflowInput(
+                    application_id=str(application_id),
+                    parse_resume=parse_resume,
+                ),
                 id=workflow_id,
                 task_queue=self.settings.temporal_application_task_queue,
                 execution_timeout=timedelta(
@@ -789,54 +796,11 @@ class ApplicationService:
                 workflow_error=f"Failed to start workflow: {exc}",
             )
 
-    async def _start_resume_processing_workflow(
-        self,
-        application_id: uuid.UUID,
-        uploaded_at: datetime,
-    ) -> None:
-        client = await TemporalClient.get_client()
-        from app.temporal.workflows import (
-            CandidateApplicationWorkflow,
-            CandidateApplicationWorkflowInput,
-        )
 
-        try:
-            await client.start_workflow(
-                CandidateApplicationWorkflow.run,
-                CandidateApplicationWorkflowInput(
-                    application_id=str(application_id),
-                    parse_resume=True,
-                ),
-                id=self._build_resume_workflow_id(application_id, uploaded_at),
-                task_queue=self.settings.temporal_application_task_queue,
-                execution_timeout=timedelta(
-                    seconds=self.settings.temporal_application_workflow_execution_timeout_seconds,
-                ),
-                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
-            )
-        except WorkflowAlreadyStartedError:
-            pass
-        except Exception as exc:
-            logger.exception(
-                "Failed to start resume processing workflow",
-                extra={"application_id": str(application_id)},
-            )
-
-            application = await self.application_repo.get_by_id(application_id)
-            if application is not None:
-                await self.application_repo.set_workflow_tracking(
-                    application,
-                    workflow_failed_at=datetime.now(timezone.utc),
-                    workflow_error=f"Failed to start resume workflow: {exc}",
-                )
 
     @staticmethod
     def _build_application_workflow_id(application_id: uuid.UUID) -> str:
         return f"candidate-application:{application_id}"
-
-    @staticmethod
-    def _build_resume_workflow_id(application_id: uuid.UUID, uploaded_at: datetime) -> str:
-        return f"candidate-application-resume:{application_id}:{int(uploaded_at.timestamp())}"
 
     @staticmethod
     def _filter_single_application(

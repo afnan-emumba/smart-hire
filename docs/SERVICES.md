@@ -61,6 +61,7 @@ flowchart LR
 - Handle resume uploads with file-size and content-type validation
 - Authorize access: candidates see only their own apps, recruiters see apps for their jobs
 - Initialize application workflow metadata and start the Temporal workflow only after submit
+- Single unified workflow handles both application initialization and resume parsing (if resume exists at submit time)
 
 ### AnalyticsService
 

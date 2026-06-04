@@ -415,14 +415,14 @@
           }
         },
         {
-          "name": "10. Update Application Status to Screening",
+          "name": "10. Update Application to Screening",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('✓ Application status updated to screening (200)', function () {",
+                  "pm.test('✓ Application updated to screening (200)', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.status).to.equal('screening');",
@@ -444,9 +444,9 @@
               "raw": "{\n  \"status\": \"screening\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
+              "path": ["applications", "{{applicationId}}"]
             }
           }
         },
@@ -1117,18 +1117,18 @@
           }
         },
         {
-          "name": "Update Application Status",
+          "name": "Update Application",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Recruiter can move application to screening', function () {",
+                  "pm.test('Recruiter can update application', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.status).to.equal('screening');",
-                  "});"
+                  "}); "
                 ]
               }
             }
@@ -1145,9 +1145,9 @@
               "raw": "{\n  \"status\": \"screening\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
+              "path": ["applications", "{{applicationId}}"]
             }
           }
         },

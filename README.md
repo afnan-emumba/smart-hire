@@ -245,7 +245,7 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /applications` — List applications with filters
 - `POST /applications/{id}/resume` — Upload a resume file for a specific application
 - `POST /applications/{id}/submit` — Submit a prepared application and start workflow processing
-- `PATCH /applications/{id}/status` — Recruiter-driven lifecycle progression after submission
+- `PATCH /applications/{id}` — Recruiter-driven updates (status progression after submission)
 - `GET /docs` — Interactive Swagger UI
 - `GET /redoc` — Alternate API documentation
 

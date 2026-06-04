@@ -25,6 +25,11 @@ class ApplicationStatusUpdate(BaseModel):
     status: ApplicationStatus
 
 
+class ApplicationUpdate(BaseModel):
+    """Generic application update schema. Status updates require RECRUITER role."""
+    status: ApplicationStatus | None = None
+
+
 class ApplicationSubmitResponse(BaseModel):
     application_id: uuid.UUID
     workflow_id: str
