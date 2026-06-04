@@ -12,6 +12,8 @@ from app.db.session import engine
 from app.temporal.activities import (
     finalize_job_breakdown,
     initialize_application_processing,
+    mark_application_workflow_failed,
+    mark_job_publishing_failed,
     mark_job_ready,
     parse_application_resume,
 )
@@ -32,13 +34,21 @@ async def start_worker() -> None:
         client,
         task_queue=settings.temporal_job_task_queue,
         workflows=[JobPublishingWorkflow],
-        activities=[finalize_job_breakdown, mark_job_ready],
+        activities=[finalize_job_breakdown, mark_job_ready, mark_job_publishing_failed],
+        max_concurrent_workflow_tasks=settings.temporal_worker_max_concurrent_workflow_tasks,
+        max_concurrent_activities=settings.temporal_worker_max_concurrent_activities,
+        max_concurrent_workflow_task_polls=settings.temporal_worker_max_concurrent_workflow_task_polls,
+        max_concurrent_activity_task_polls=settings.temporal_worker_max_concurrent_activity_task_polls,
     )
     application_worker = Worker(
         client,
         task_queue=settings.temporal_application_task_queue,
         workflows=[CandidateApplicationWorkflow],
-        activities=[initialize_application_processing, parse_application_resume],
+        activities=[initialize_application_processing, parse_application_resume, mark_application_workflow_failed],
+        max_concurrent_workflow_tasks=settings.temporal_worker_max_concurrent_workflow_tasks,
+        max_concurrent_activities=settings.temporal_worker_max_concurrent_activities,
+        max_concurrent_workflow_task_polls=settings.temporal_worker_max_concurrent_workflow_task_polls,
+        max_concurrent_activity_task_polls=settings.temporal_worker_max_concurrent_activity_task_polls,
     )
     await asyncio.gather(job_worker.run(), application_worker.run())
 

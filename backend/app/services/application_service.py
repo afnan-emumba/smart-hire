@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 from datetime import timedelta
@@ -33,6 +34,9 @@ from app.services.exceptions import (
 from app.temporal.client import TemporalClient
 from app.utils.resume_pdf import ResumePdfConverter
 from temporalio.exceptions import WorkflowAlreadyStartedError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationService:
@@ -352,7 +356,7 @@ class ApplicationService:
             file_bytes = await asyncio.to_thread(resume_path.read_bytes)
             markdown = await asyncio.to_thread(ResumePdfConverter.convert_pdf_to_markdown, file_bytes)
             parsed_resume = await ResumeParsingService.extract_resume_profile(markdown)
-        except ValueError as exc:
+        except Exception as exc:
             resume_metadata.update({
                 "status": "failed",
                 "error": str(exc),
@@ -699,10 +703,20 @@ class ApplicationService:
                 CandidateApplicationWorkflowInput(application_id=str(application_id)),
                 id=workflow_id,
                 task_queue=self.settings.temporal_application_task_queue,
-                execution_timeout=timedelta(minutes=5),
+                execution_timeout=timedelta(
+                    seconds=self.settings.temporal_application_workflow_execution_timeout_seconds,
+                ),
+                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
+        except Exception as exc:
+            logger.exception("Failed to start application workflow", extra={"application_id": str(application_id)})
+            await self.application_repo.set_workflow_tracking(
+                application,
+                workflow_failed_at=datetime.now(timezone.utc),
+                workflow_error=f"Failed to start workflow: {exc}",
+            )
 
     async def _start_resume_processing_workflow(
         self,
@@ -724,10 +738,26 @@ class ApplicationService:
                 ),
                 id=self._build_resume_workflow_id(application_id, uploaded_at),
                 task_queue=self.settings.temporal_application_task_queue,
-                execution_timeout=timedelta(minutes=5),
+                execution_timeout=timedelta(
+                    seconds=self.settings.temporal_application_workflow_execution_timeout_seconds,
+                ),
+                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
+        except Exception as exc:
+            logger.exception(
+                "Failed to start resume processing workflow",
+                extra={"application_id": str(application_id)},
+            )
+
+            application = await self.application_repo.get_by_id(application_id)
+            if application is not None:
+                await self.application_repo.set_workflow_tracking(
+                    application,
+                    workflow_failed_at=datetime.now(timezone.utc),
+                    workflow_error=f"Failed to start resume workflow: {exc}",
+                )
 
     @staticmethod
     def _build_application_workflow_id(application_id: uuid.UUID) -> str:

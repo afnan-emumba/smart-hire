@@ -335,7 +335,10 @@ class JobService:
                 JobPublishingInput(job_id=str(job_id)),
                 id=workflow_id,
                 task_queue=self.settings.temporal_job_task_queue,
-                execution_timeout=timedelta(minutes=5),
+                execution_timeout=timedelta(
+                    seconds=self.settings.temporal_job_workflow_execution_timeout_seconds,
+                ),
+                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
