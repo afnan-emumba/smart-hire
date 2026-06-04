@@ -20,7 +20,7 @@ from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
 from app.events.schemas import ApplicationReceivedEvent
-from app.schemas.application import ApplicationCreate, ApplicationResponse
+from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationSubmitResponse
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.services.exceptions import (
@@ -90,15 +90,84 @@ class ApplicationService:
             eligibility_result=submission_eligibility.model_dump(),
         )
 
-        workflow_id = self._build_application_workflow_id(application.id)
-        await self._create_application_received_event(
+        application = await self.application_repo.update_metadata_section(
             application,
-            current_user=current_user,
-            workflow_id=workflow_id,
+            section_name="submission",
+            section_value={
+                "submitted": False,
+                "submitted_at": None,
+            },
         )
-        queue_applications_received_increment(self.application_repo.session)
-        await self._start_application_workflow(application.id)
         return ApplicationResponse.model_validate(application)
+
+    async def submit_application(
+        self,
+        application_id: uuid.UUID,
+        current_user: CurrentUser,
+    ) -> ApplicationSubmitResponse:
+        if current_user.role != "CANDIDATE":
+            raise ForbiddenError("Only candidates can submit applications")
+
+        candidate_id = self._require_candidate_user_id(current_user)
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+        if application.candidate_id != candidate_id:
+            raise ForbiddenError("Not authorized to submit this application")
+        if application.resume_id is None:
+            raise BadRequestError("Upload a resume before submitting the application")
+
+        existing_workflow_id = application.workflow_id
+        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        already_submitted = self._is_application_submitted(application)
+
+        if not already_submitted:
+            submitted_at = datetime.now(timezone.utc)
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+
+            application = await self.application_repo.set_workflow_tracking(
+                application,
+                workflow_id=workflow_id,
+            )
+            application = await self.application_repo.update_metadata_section(
+                application,
+                section_name="submission",
+                section_value={
+                    **submission_metadata,
+                    "submitted": True,
+                    "submitted_at": submitted_at.isoformat(),
+                },
+            )
+            await self._create_application_received_event(
+                application,
+                current_user=current_user,
+                workflow_id=workflow_id,
+            )
+            queue_applications_received_increment(self.application_repo.session)
+            await self._start_application_workflow(application.id)
+        else:
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+            if existing_workflow_id is None:
+                application = await self.application_repo.set_workflow_tracking(
+                    application,
+                    workflow_id=workflow_id,
+                )
+
+        refreshed_submission_metadata = dict(application.application_metadata.get("submission", {}))
+        submitted_at_raw = refreshed_submission_metadata.get("submitted_at")
+        submitted_at: datetime | None = None
+        if isinstance(submitted_at_raw, str):
+            try:
+                submitted_at = datetime.fromisoformat(submitted_at_raw)
+            except ValueError:
+                submitted_at = None
+        return ApplicationSubmitResponse(
+            application_id=application.id,
+            workflow_id=workflow_id,
+            status=application.status,
+            submitted=self._is_application_submitted(application),
+            submitted_at=submitted_at,
+        )
 
     async def get_application(
         self,
@@ -192,6 +261,8 @@ class ApplicationService:
         current_status = ApplicationStatus(application.status)
         if current_status == new_status:
             return ApplicationResponse.model_validate(application)
+        if not self._is_application_submitted(application):
+            raise BadRequestError("Application must be submitted before recruiters can change its status")
         if not is_valid_app_transition(current_status, new_status):
             raise InvalidStateTransition(
                 f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
@@ -797,3 +868,8 @@ class ApplicationService:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+
+    @staticmethod
+    def _is_application_submitted(application: Application) -> bool:
+        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        return bool(submission_metadata.get("submitted", False) or application.workflow_id)

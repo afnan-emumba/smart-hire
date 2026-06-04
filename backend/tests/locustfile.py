@@ -277,12 +277,14 @@ class SmartHireLoadTest(HttpUser):
         if not application_id:
             return
 
-        self._upload_resume(candidate_headers, application_id)
+        if not self._upload_resume(candidate_headers, application_id):
+            return
+        self._submit_application(candidate_headers, application_id)
 
-    def _upload_resume(self, headers: dict[str, str], application_id: str) -> None:
+    def _upload_resume(self, headers: dict[str, str], application_id: str) -> bool:
         cls = self.__class__
         if not cls._cv_files:
-            return
+            return False
 
         cv_name, cv_bytes = random.choice(cls._cv_files)
 
@@ -294,9 +296,24 @@ class SmartHireLoadTest(HttpUser):
             catch_response=True,
         ) as response:
             if response.status_code == 0:
-                return
+                return False
             if response.status_code not in {200, 201, 202}:
                 response.failure(f"Failed to upload Resume: {response.status_code}")
+                return False
+            response.success()
+            return True
+
+    def _submit_application(self, headers: dict[str, str], application_id: str) -> None:
+        with self.client.post(
+            f"/applications/{application_id}/submit",
+            headers=headers,
+            name="application::submit",
+            catch_response=True,
+        ) as response:
+            if response.status_code == 0:
+                return
+            if response.status_code not in {200, 202}:
+                response.failure(f"Failed to submit application: {response.status_code}")
                 return
             response.success()
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.application_states import ApplicationStatus
 from app.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.logging import bind_log_context, reset_log_context
@@ -143,6 +144,16 @@ async def _process_application_scoring(
                     event.application_id,
                     scoring_result=scoring_result,
                 )
+
+                application = await application_service.application_repo.get_by_id(event.application_id)
+                if application and application.status == ApplicationStatus.PENDING.value:
+                    await application_service.application_repo.update_status(
+                        application,
+                        status=ApplicationStatus.SCREENING,
+                        changed_by_role="SYSTEM",
+                        reason="Scoring completed successfully",
+                    )
+
                 await processing_repo.mark_completed(
                     record,
                     metadata={

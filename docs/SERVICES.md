@@ -55,10 +55,12 @@ flowchart LR
 - Use `EligibilityService` to enforce a minimum skills match before application creation
 - Prevent duplicate applications (unique constraint on job_id, candidate_id)
 - Create application records with server-set candidate_id
+- Require candidate-owned resume upload before final submission
+- Submit candidate applications explicitly through a dedicated endpoint
 - Resolve recruiter access through the job owner relationship instead of storing a duplicate recruiter FK on applications
 - Handle resume uploads with file-size and content-type validation
 - Authorize access: candidates see only their own apps, recruiters see apps for their jobs
-- Initialize application workflow metadata and start the Temporal workflow
+- Initialize application workflow metadata and start the Temporal workflow only after submit
 
 ### AnalyticsService
 
@@ -190,9 +192,15 @@ sequenceDiagram
     Service->>AppRepo: create(application, candidate_id=extracted_id)
     AppRepo->>DB: INSERT application (if unique constraint passes)
     DB-->>AppRepo: application row
-    Service->>Temporal: start workflow
     Service-->>Router: response model
     Router-->>Client: 201 Created
+
+    Client->>Router: POST /applications/{id}/submit
+    Router->>Service: submit_application(application_id, current_user)
+    Service->>Service: verify ownership + resume attached
+    Service->>Temporal: start workflow
+    Service-->>Router: submit response with workflow id
+    Router-->>Client: 202 Accepted
 ```
 
 **Key changes:**
@@ -200,6 +208,8 @@ sequenceDiagram
 - `candidate_id` comes from auth context (`X-User-ID`), not request body
 - Job must be `ready` before allowing applications
 - Database unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
+- Resume upload and submission are separated: candidates prepare data first, then explicitly submit
+- Recruiters can move application status only after the candidate has submitted the application
 
 ```mermaid
 stateDiagram-v2

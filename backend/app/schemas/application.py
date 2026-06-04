@@ -25,6 +25,14 @@ class ApplicationStatusUpdate(BaseModel):
     status: ApplicationStatus
 
 
+class ApplicationSubmitResponse(BaseModel):
+    application_id: uuid.UUID
+    workflow_id: str
+    status: ApplicationStatus
+    submitted: bool
+    submitted_at: datetime | None = None
+
+
 class ApplicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

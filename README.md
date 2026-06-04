@@ -67,8 +67,8 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 ### Auth-Bound Creation
 
 - **Job creation:** `recruiter_id` is derived from `X-User-ID` header, not from request body
-- **Application submission:** `candidate_id` is derived from `X-User-ID` header, not from request body
-- Job `status` is server-controlled (`draft` on creation, only recruiters can transition to `published` via PATCH)
+- **Application creation/submission:** `candidate_id` is derived from `X-User-ID` header, not from request body
+- Job `status` is server-controlled (`draft` on creation, only recruiters can transition publication state through `POST /jobs/{id}/publish`)
 - Prevents authorization bypass where a user could create resources on behalf of someone else
 
 ### Pagination & Filtering
@@ -238,11 +238,14 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /jobs` — List jobs (with filters)
 - `PATCH /jobs/{id}` — Update job details
 - `POST /jobs/{id}/description-file` — Upload a PDF job description for future parsing
+- `POST /jobs/{id}/publish` — Publish a job and start workflow processing
 - `DELETE /jobs/{id}` — Delete job
-- `POST /applications` — Submit application
+- `POST /applications` — Create a pending application draft
 - `GET /applications/{id}` — Retrieve application
 - `GET /applications` — List applications with filters
 - `POST /applications/{id}/resume` — Upload a resume file for a specific application
+- `POST /applications/{id}/submit` — Submit a prepared application and start workflow processing
+- `PATCH /applications/{id}/status` — Recruiter-driven lifecycle progression after submission
 - `GET /docs` — Interactive Swagger UI
 - `GET /redoc` — Alternate API documentation
 

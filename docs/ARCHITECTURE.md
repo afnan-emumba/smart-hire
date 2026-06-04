@@ -224,9 +224,22 @@ sequenceDiagram
     Service->>AppRepo: create(job_id, candidate_id=extracted_id)
     AppRepo->>DB: INSERT application (unique constraint checked)
     DB-->>AppRepo: application row
-    Service->>Temporal: start application workflow
-    Service-->>API: application response
+    Service-->>API: application response (draft pending state)
     API-->>Candidate: 201 Created
+
+    Candidate->>API: POST /applications/{id}/resume
+    API->>Service: upload_resume(application_id, file_bytes, current_user)
+    Service->>AppRepo: attach_resume(application, resume)
+    Service-->>API: application response with resume metadata
+    API-->>Candidate: 200 OK
+
+    Candidate->>API: POST /applications/{id}/submit
+    API->>Service: submit_application(application_id, current_user)
+    Service->>Service: validate candidate ownership and resume presence
+    Service->>Service: create ApplicationReceived outbox record
+    Service->>Temporal: start application workflow
+    Service-->>API: submit response with workflow_id
+    API-->>Candidate: 202 Accepted
 ```
 
 **Key points:**
@@ -236,6 +249,7 @@ sequenceDiagram
 - Unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
 - Duplicate applications return `409 Conflict`
 - Resume upload is a separate `POST /applications/{id}/resume` operation
+- Submission is explicit via `POST /applications/{id}/submit`; workflow/event processing starts only after submit
 
 ```mermaid
 stateDiagram-v2
