@@ -71,9 +71,8 @@ class SmartHireLoadTest(HttpUser):
     _job_ready_timeout_seconds = _env_int("SMARTHIRE_LOCUST_JOB_READY_TIMEOUT_SECONDS", 180)
     _job_ready_poll_interval_seconds = _env_float("SMARTHIRE_LOCUST_JOB_READY_POLL_SECONDS", 2.0)
 
-    _cv_bytes: bytes | None = None
+    _cv_files: list[tuple[str, bytes]] = []
     _jd_bytes: bytes | None = None
-    _cv_name: str = "CV 2.pdf"
     _jd_name: str = "JD 3.pdf"
 
     def on_start(self) -> None:
@@ -85,29 +84,38 @@ class SmartHireLoadTest(HttpUser):
 
     def _load_files(self) -> None:
         cls = self.__class__
-        if cls._cv_bytes is not None and cls._jd_bytes is not None:
+        if cls._cv_files and cls._jd_bytes is not None:
             return
 
         with cls._setup_lock:
-            if cls._cv_bytes is not None and cls._jd_bytes is not None:
+            if cls._cv_files and cls._jd_bytes is not None:
                 return
 
             samples_dir = Path(__file__).resolve().parents[2] / "samples"
             jd_path = samples_dir / cls._jd_name
-            cv_path = samples_dir / cls._cv_name
 
             if not jd_path.exists():
                 cls._setup_error = f"JD file not found at {jd_path}"
                 return
-            if not cv_path.exists():
-                cls._setup_error = f"CV file not found at {cv_path}"
-                return
 
             try:
                 cls._jd_bytes = jd_path.read_bytes()
-                cls._cv_bytes = cv_path.read_bytes()
             except Exception as e:
-                cls._setup_error = f"Failed to read sample PDF files: {e}"
+                cls._setup_error = f"Failed to read sample JD file: {e}"
+                return
+
+            cv_names = ["CV 1.pdf", "CV 2.pdf", "CV 3.pdf"]
+            cls._cv_files = []
+            for name in cv_names:
+                cv_path = samples_dir / name
+                if not cv_path.exists():
+                    cls._setup_error = f"CV file not found at {cv_path}"
+                    return
+                try:
+                    cls._cv_files.append((name, cv_path.read_bytes()))
+                except Exception as e:
+                    cls._setup_error = f"Failed to read sample CV file {name}: {e}"
+                    return
 
     def _ensure_test_job_ready(self) -> None:
         cls = self.__class__
@@ -273,13 +281,15 @@ class SmartHireLoadTest(HttpUser):
 
     def _upload_resume(self, headers: dict[str, str], application_id: str) -> None:
         cls = self.__class__
-        if cls._cv_bytes is None:
+        if not cls._cv_files:
             return
+
+        cv_name, cv_bytes = random.choice(cls._cv_files)
 
         with self.client.post(
             f"/applications/{application_id}/resume",
             headers=headers,
-            files={"resume": (cls._cv_name, io.BytesIO(cls._cv_bytes), "application/pdf")},
+            files={"resume": (cv_name, io.BytesIO(cv_bytes), "application/pdf")},
             name="application::upload_resume",
             catch_response=True,
         ) as response:
