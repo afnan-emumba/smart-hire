@@ -242,6 +242,30 @@ class ApplicationService:
 
         return [ApplicationResponse.model_validate(application) for application in applications]
 
+    async def get_job_applications(
+        self,
+        job_id: uuid.UUID,
+        current_user: CurrentUser,
+        *,
+        skip: int,
+        limit: int,
+    ) -> list[ApplicationResponse]:
+        if current_user.role != "RECRUITER":
+            raise ForbiddenError("Only recruiters can view job applications")
+        recruiter_id = self._require_recruiter_user_id(current_user)
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+        if job.recruiter_id != recruiter_id:
+            raise ForbiddenError("Not authorized to view applications for this job")
+        applications = await self.application_repo.list_by_job(
+            job_id,
+            status_filter=None,
+            limit=limit,
+            offset=skip,
+        )
+        return [ApplicationResponse.model_validate(a) for a in applications]
+
     async def update_application(
         self,
         application_id: uuid.UUID,

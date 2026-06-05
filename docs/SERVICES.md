@@ -58,7 +58,8 @@ flowchart LR
 - Submit candidate applications explicitly through a dedicated endpoint
 - Resolve recruiter access through the job owner relationship instead of storing a duplicate recruiter FK on applications
 - Handle resume uploads with file-size and content-type validation
-- Authorize access: candidates see only their own apps, recruiters see apps for their jobs
+- Authorize access: candidates see only their own apps, recruiters see apps for their jobs through sub-resource endpoints (e.g., `GET /jobs/{id}/applications`)
+- Enforce strict sub-resource architecture to prevent Broken Object Level Authorization (BOLA) vulnerabilities; recruiters access applications only through jobs they own
 - Initialize application workflow metadata and start the Temporal workflow only after submit
 - Single unified workflow handles both application initialization and resume parsing (if resume exists at submit time)
 

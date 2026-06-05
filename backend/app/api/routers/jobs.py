@@ -4,10 +4,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
-from app.api.dependencies import get_job_service
+from app.api.dependencies import get_application_service, get_job_service
 from app.core.auth import CurrentUser, get_current_user, require_role
 from app.core.config import get_settings
+from app.schemas.application import ApplicationResponse
 from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate, PublishJobResponse
+from app.services.application_service import ApplicationService
 from app.services.job_service import JobService
 
 
@@ -107,6 +109,17 @@ async def publish_job(
     service: JobService = Depends(get_job_service),
 ) -> PublishJobResponse:
     return await service.publish_job(job_id, current_user)
+
+
+@router.get("/{job_id}/applications", response_model=list[ApplicationResponse])
+async def list_job_applications(
+    job_id: uuid.UUID,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: ApplicationService = Depends(get_application_service),
+) -> list[ApplicationResponse]:
+    return await service.get_job_applications(job_id, current_user, skip=skip, limit=limit)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

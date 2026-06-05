@@ -34,6 +34,20 @@ flowchart TD
     celery --> observe
 ```
 
+## Authorization & Data Isolation
+
+### Sub-Resource Architecture
+
+The API enforces a strict sub-resource pattern to prevent BOLA (Broken Object Level Authorization) vulnerabilities:
+
+- **Candidates** access their own applications through `GET /applications?candidate_id={id}` (authenticated as the candidate).
+- **Recruiters** access applications only through specific jobs they own via `GET /jobs/{id}/applications`. The endpoint validates:
+  1. Caller has `RECRUITER` role
+  2. Job exists
+  3. Caller's recruiter ID matches the job's owner
+
+This design ensures no global applications listing and prevents cross-recruiter or cross-company data leakage.
+
 ## Layered Application Design
 
 ```mermaid

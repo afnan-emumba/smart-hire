@@ -239,6 +239,7 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /jobs` — List jobs (with filters)
 - `PATCH /jobs/{id}` — Update job details
 - `POST /jobs/{id}/description-file` — Upload a PDF job description for future parsing
+- `GET /jobs/{id}/applications` — Retrieve applications for a specific job (recruiter only, ownership-validated)
 - `POST /jobs/{id}/publish` — Publish a job and start workflow processing
 - `DELETE /jobs/{id}` — Delete job
 - `POST /applications` — Create a pending application draft
