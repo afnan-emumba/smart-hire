@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 from datetime import timedelta
@@ -19,7 +20,7 @@ from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
 from app.events.schemas import ApplicationReceivedEvent
-from app.schemas.application import ApplicationCreate, ApplicationResponse
+from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationSubmitResponse, EligibilityResult
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.services.exceptions import (
@@ -33,6 +34,9 @@ from app.services.exceptions import (
 from app.temporal.client import TemporalClient
 from app.utils.resume_pdf import ResumePdfConverter
 from temporalio.exceptions import WorkflowAlreadyStartedError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationService:
@@ -86,15 +90,85 @@ class ApplicationService:
             eligibility_result=submission_eligibility.model_dump(),
         )
 
-        workflow_id = self._build_application_workflow_id(application.id)
-        await self._create_application_received_event(
+        application = await self.application_repo.update_metadata_section(
             application,
-            current_user=current_user,
-            workflow_id=workflow_id,
+            section_name="submission",
+            section_value={
+                "submitted": False,
+                "submitted_at": None,
+            },
         )
-        queue_applications_received_increment(self.application_repo.session)
-        await self._start_application_workflow(application.id)
         return ApplicationResponse.model_validate(application)
+
+    async def submit_application(
+        self,
+        application_id: uuid.UUID,
+        current_user: CurrentUser,
+    ) -> ApplicationSubmitResponse:
+        if current_user.role != "CANDIDATE":
+            raise ForbiddenError("Only candidates can submit applications")
+
+        candidate_id = self._require_candidate_user_id(current_user)
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+        if application.candidate_id != candidate_id:
+            raise ForbiddenError("Not authorized to submit this application")
+        if application.resume_id is None:
+            raise BadRequestError("Upload a resume before submitting the application")
+
+        existing_workflow_id = application.workflow_id
+        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        already_submitted = self._is_application_submitted(application)
+
+        if not already_submitted:
+            submitted_at = datetime.now(timezone.utc)
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+
+            application = await self.application_repo.set_workflow_tracking(
+                application,
+                workflow_id=workflow_id,
+            )
+            application = await self.application_repo.update_metadata_section(
+                application,
+                section_name="submission",
+                section_value={
+                    **submission_metadata,
+                    "submitted": True,
+                    "submitted_at": submitted_at.isoformat(),
+                },
+            )
+            await self._create_application_received_event(
+                application,
+                current_user=current_user,
+                workflow_id=workflow_id,
+            )
+            queue_applications_received_increment(self.application_repo.session)
+            parse_resume = application.resume_id is not None
+            await self._start_application_workflow(application.id, parse_resume=parse_resume)
+        else:
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+            if existing_workflow_id is None:
+                application = await self.application_repo.set_workflow_tracking(
+                    application,
+                    workflow_id=workflow_id,
+                )
+
+        refreshed_submission_metadata = dict(application.application_metadata.get("submission", {}))
+        submitted_at_raw = refreshed_submission_metadata.get("submitted_at")
+        submitted_at: datetime | None = None
+        if isinstance(submitted_at_raw, str):
+            try:
+                submitted_at = datetime.fromisoformat(submitted_at_raw)
+            except ValueError:
+                submitted_at = None
+        return ApplicationSubmitResponse(
+            application_id=application.id,
+            workflow_id=workflow_id,
+            status=application.status,
+            submitted=self._is_application_submitted(application),
+            submitted_at=submitted_at,
+        )
 
     async def get_application(
         self,
@@ -168,12 +242,13 @@ class ApplicationService:
 
         return [ApplicationResponse.model_validate(application) for application in applications]
 
-    async def update_application_status(
+    async def update_application(
         self,
         application_id: uuid.UUID,
-        new_status: ApplicationStatus,
+        update_data: dict[str, Any],
         current_user: CurrentUser,
     ) -> ApplicationResponse:
+        """Update application fields. Status updates require RECRUITER role."""
         recruiter_id = self._require_recruiter_user_id(current_user)
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
@@ -185,21 +260,27 @@ class ApplicationService:
         if job.recruiter_id != recruiter_id:
             raise ForbiddenError("Not authorized to update this application")
 
-        current_status = ApplicationStatus(application.status)
-        if current_status == new_status:
-            return ApplicationResponse.model_validate(application)
-        if not is_valid_app_transition(current_status, new_status):
-            raise InvalidStateTransition(
-                f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
-            )
+        if "status" in update_data:
+            new_status = ApplicationStatus(update_data["status"])
+            current_status = ApplicationStatus(application.status)
+            if current_status == new_status:
+                return ApplicationResponse.model_validate(application)
+            if not self._is_application_submitted(application):
+                raise BadRequestError("Application must be submitted before recruiters can change its status")
+            if not is_valid_app_transition(current_status, new_status):
+                raise InvalidStateTransition(
+                    f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
+                )
 
-        updated_application = await self.application_repo.update_status(
-            application,
-            status=new_status,
-            changed_by_user_id=recruiter_id,
-            changed_by_role=current_user.role,
-        )
-        return ApplicationResponse.model_validate(updated_application)
+            updated_application = await self.application_repo.update_status(
+                application,
+                status=new_status,
+                changed_by_user_id=recruiter_id,
+                changed_by_role=current_user.role,
+            )
+            return ApplicationResponse.model_validate(updated_application)
+
+        return ApplicationResponse.model_validate(application)
 
     async def initialize_application_workflow_state(self, application_id: uuid.UUID) -> dict[str, Any]:
         application = await self.application_repo.get_by_id(application_id)
@@ -352,7 +433,7 @@ class ApplicationService:
             file_bytes = await asyncio.to_thread(resume_path.read_bytes)
             markdown = await asyncio.to_thread(ResumePdfConverter.convert_pdf_to_markdown, file_bytes)
             parsed_resume = await ResumeParsingService.extract_resume_profile(markdown)
-        except ValueError as exc:
+        except Exception as exc:
             resume_metadata.update({
                 "status": "failed",
                 "error": str(exc),
@@ -393,14 +474,6 @@ class ApplicationService:
             application,
             section_name="resume_parsing",
             section_value=resume_metadata,
-        )
-        eligibility_result = await self.eligibility_service.check_eligibility(
-            updated_application.candidate_id,
-            updated_application.job_id,
-        )
-        updated_application = await self.application_repo.update_eligibility_result(
-            updated_application,
-            eligibility_result=eligibility_result.model_dump(),
         )
         await self._enqueue_scoring_task(updated_application)
         return {
@@ -489,8 +562,6 @@ class ApplicationService:
         },
         )
 
-        await self._start_resume_processing_workflow(updated_application.id, uploaded_at)
-
         return ApplicationResponse.model_validate(updated_application)
 
     async def get_background_task_context(self, application_id: uuid.UUID) -> dict[str, Any]:
@@ -516,7 +587,6 @@ class ApplicationService:
             "eligibility_result": dict(application.eligibility_result or {}),
             "application_metadata": dict(application.application_metadata),
             "job_required_skills": list(job.required_skills or []),
-            "candidate_master_profile": dict(candidate.master_profile_data or {}),
             "resume_structured_data": (
                 dict(latest_resume.structured_data)
                 if latest_resume is not None and latest_resume.structured_data is not None
@@ -676,7 +746,7 @@ class ApplicationService:
             },
         )
 
-    async def _start_application_workflow(self, application_id: uuid.UUID) -> None:
+    async def _start_application_workflow(self, application_id: uuid.UUID, parse_resume: bool = False) -> None:
         workflow_id = self._build_application_workflow_id(application_id)
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
@@ -696,46 +766,32 @@ class ApplicationService:
         try:
             await client.start_workflow(
                 CandidateApplicationWorkflow.run,
-                CandidateApplicationWorkflowInput(application_id=str(application_id)),
-                id=workflow_id,
-                task_queue=self.settings.temporal_application_task_queue,
-                execution_timeout=timedelta(minutes=5),
-            )
-        except WorkflowAlreadyStartedError:
-            pass
-
-    async def _start_resume_processing_workflow(
-        self,
-        application_id: uuid.UUID,
-        uploaded_at: datetime,
-    ) -> None:
-        client = await TemporalClient.get_client()
-        from app.temporal.workflows import (
-            CandidateApplicationWorkflow,
-            CandidateApplicationWorkflowInput,
-        )
-
-        try:
-            await client.start_workflow(
-                CandidateApplicationWorkflow.run,
                 CandidateApplicationWorkflowInput(
                     application_id=str(application_id),
-                    parse_resume=True,
+                    parse_resume=parse_resume,
                 ),
-                id=self._build_resume_workflow_id(application_id, uploaded_at),
+                id=workflow_id,
                 task_queue=self.settings.temporal_application_task_queue,
-                execution_timeout=timedelta(minutes=5),
+                execution_timeout=timedelta(
+                    seconds=self.settings.temporal_application_workflow_execution_timeout_seconds,
+                ),
+                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
+        except Exception as exc:
+            logger.exception("Failed to start application workflow", extra={"application_id": str(application_id)})
+            await self.application_repo.set_workflow_tracking(
+                application,
+                workflow_failed_at=datetime.now(timezone.utc),
+                workflow_error=f"Failed to start workflow: {exc}",
+            )
+
+
 
     @staticmethod
     def _build_application_workflow_id(application_id: uuid.UUID) -> str:
         return f"candidate-application:{application_id}"
-
-    @staticmethod
-    def _build_resume_workflow_id(application_id: uuid.UUID, uploaded_at: datetime) -> str:
-        return f"candidate-application-resume:{application_id}:{int(uploaded_at.timestamp())}"
 
     @staticmethod
     def _filter_single_application(
@@ -767,3 +823,94 @@ class ApplicationService:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+
+    @staticmethod
+    def _is_application_submitted(application: Application) -> bool:
+        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        return bool(submission_metadata.get("submitted", False) or application.workflow_id)
+
+    async def check_eligibility_and_auto_reject(self, application_id: uuid.UUID) -> dict[str, Any]:
+        """Update parsed-resume eligibility after resume parsing and early-reject clear misses."""
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        if application.resume_id is None:
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 0.0,
+                "auto_rejected": False,
+            }
+
+        resume = await self.candidate_resume_repo.get_by_id(application.resume_id)
+        if resume is None or resume.structured_data is None:
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 0.0,
+                "auto_rejected": False,
+            }
+
+        job = await self.job_repo.get_by_id(application.job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+
+        resume_skills = self.eligibility_service._normalize_skills(resume.structured_data.get("skills", []))
+        required_skills = self.eligibility_service._normalize_skills(job.required_skills or [])
+
+        if not required_skills:
+            eligibility_result = EligibilityResult(
+                is_eligible=True,
+                reason="Job has no required skills configured",
+                missing_skills=[],
+                match_score=1.0,
+            )
+            await self.application_repo.update_eligibility_result(
+                application,
+                eligibility_result=eligibility_result.model_dump(),
+            )
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 1.0,
+                "auto_rejected": False,
+            }
+
+        matched_skills = resume_skills & required_skills
+        match_score = len(matched_skills) / len(required_skills)
+
+        eligibility_result = EligibilityResult(
+            is_eligible=match_score >= 0.5,
+            reason="Auto-evaluated based on parsed resume",
+            missing_skills=sorted(required_skills - resume_skills),
+            match_score=match_score,
+        )
+
+        application = await self.application_repo.update_eligibility_result(
+            application,
+            eligibility_result=eligibility_result.model_dump(),
+        )
+
+        if not eligibility_result.is_eligible:
+            await self.application_repo.update_status(
+                application,
+                status=ApplicationStatus.REJECTED,
+                changed_by_user_id=None,
+                changed_by_role="SYSTEM",
+                reason="Parsed resume did not meet minimum skill threshold",
+            )
+            return {
+                "application_id": str(application.id),
+                "status": ApplicationStatus.REJECTED.value,
+                "reason": eligibility_result.reason,
+                "match_score": match_score,
+                "auto_rejected": True,
+            }
+
+        return {
+            "application_id": str(application.id),
+            "status": application.status,
+            "match_score": match_score,
+            "auto_rejected": False,
+        }

@@ -26,7 +26,6 @@ erDiagram
         uuid id PK
         string email UK
         string name
-        jsonb master_profile_data
         timestamp created_at
         timestamp updated_at
     }
@@ -112,11 +111,10 @@ flowchart LR
 
 ### candidates
 
-- Purpose: job seekers and their identity/profile data.
+- Purpose: job seekers and their identity data.
 - Key constraints: unique email, UUID primary key.
 - CRUD behavior: candidates can update and delete only their own profiles through the API.
-- Flexible fields: `master_profile_data` JSONB stores the candidate's canonical aggregate profile with curated keys for `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
-- Canonical profile rule: this field is the candidate-level source of truth used for matching and recruiter views; it is not the raw output of a single parser run.
+- Scoring basis: application scoring is based solely on resume parsing; each resume is evaluated independently per application.
 
 ### candidate_resumes
 

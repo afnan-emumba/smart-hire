@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
 
 from fastapi import Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from sqlalchemy import event, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,8 @@ from app.db.session import SessionLocal
 
 
 logger = logging.getLogger(__name__)
+
+FAILURE_METRIC_WINDOW_SECONDS = 300
 
 _PENDING_METRICS_KEY = "smarthire_pending_metrics"
 
@@ -203,6 +207,7 @@ def record_task_execution(*, task_name: str, status: str) -> None:
 
 
 async def refresh_domain_metrics() -> None:
+    failure_window_start = datetime.now(timezone.utc) - timedelta(seconds=FAILURE_METRIC_WINDOW_SECONDS)
     async with SessionLocal() as session:
         published_jobs_result = await session.execute(
             select(func.count()).select_from(Job).where(
@@ -236,10 +241,10 @@ async def refresh_domain_metrics() -> None:
             )
         )
         job_publishing_failures_result = await session.execute(
-            select(func.count()).select_from(Job).where(Job.publishing_failed_at.is_not(None))
+            select(func.count()).select_from(Job).where(Job.publishing_failed_at >= failure_window_start)
         )
         application_workflow_failures_result = await session.execute(
-            select(func.count()).select_from(Application).where(Application.workflow_failed_at.is_not(None))
+            select(func.count()).select_from(Application).where(Application.workflow_failed_at >= failure_window_start)
         )
         resume_processing_result = await session.execute(
             select(CandidateResume.parsing_status, func.count())
@@ -289,7 +294,10 @@ async def refresh_domain_metrics() -> None:
 
 
 async def build_metrics_response() -> Response:
-    await refresh_domain_metrics()
+    try:
+        await refresh_domain_metrics()
+    except SQLAlchemyError:
+        logger.exception("Failed to refresh domain metrics; returning last known metric values")
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 

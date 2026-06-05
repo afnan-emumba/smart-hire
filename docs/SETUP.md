@@ -203,7 +203,15 @@ Recommended validation order:
 
    File is stored locally; metadata (filename, content_type, uploaded_at) appears in the application response.
 
-8. **Verify duplicate rejection** (as candidate)
+8. **Submit the application** (as candidate)
+
+   ```
+   POST /applications/{applicationId}/submit
+   ```
+
+   This starts workflow/event processing and returns a workflow identifier.
+
+9. **Verify duplicate rejection** (as candidate)
 
    ```
    POST /applications
@@ -212,15 +220,15 @@ Recommended validation order:
 
    Should return `409 Conflict`: "Candidate already applied to this job"
 
-9. **Retrieve the application** (as candidate)
+10. **Retrieve the application** (as candidate)
 
-   ```
-   GET /applications/{applicationId}
-   ```
+```
+GET /applications/{applicationId}
+```
 
-   Confirm the nested `resume` object is present with file metadata and parsing status (but NOT `storage_path`, which is internal).
+Confirm the nested `resume` object is present with file metadata and parsing status (but NOT `storage_path`, which is internal).
 
-10. **Verify analytics summary** (as recruiter)
+11. **Verify analytics summary** (as recruiter)
 
 ```
 GET /analytics/summary
@@ -228,7 +236,7 @@ GET /analytics/summary
 
 Confirm the response includes total candidates, total recruiters, total jobs published, new applications over time, application-to-interview rate, average time to hire, most applied jobs, average applications per candidate, and failed workflow/system error totals.
 
-11. **Verify observability surfaces**
+12. **Verify observability surfaces**
 
 ```
 GET /metrics
@@ -254,6 +262,7 @@ Most endpoints require two headers:
   - Create/read/update/delete their own profiles
   - View and apply to ready jobs
   - Upload resumes to their own applications
+  - Submit their own prepared applications
   - View only their own applications
   - Cannot create jobs or view other candidates' profiles
 

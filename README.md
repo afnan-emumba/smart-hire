@@ -67,8 +67,8 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 ### Auth-Bound Creation
 
 - **Job creation:** `recruiter_id` is derived from `X-User-ID` header, not from request body
-- **Application submission:** `candidate_id` is derived from `X-User-ID` header, not from request body
-- Job `status` is server-controlled (`draft` on creation, only recruiters can transition to `published` via PATCH)
+- **Application creation/submission:** `candidate_id` is derived from `X-User-ID` header, not from request body
+- Job `status` is server-controlled (`draft` on creation, only recruiters can transition publication state through `POST /jobs/{id}/publish`)
 - Prevents authorization bypass where a user could create resources on behalf of someone else
 
 ### Pagination & Filtering
@@ -91,11 +91,12 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - `jobs.description` represents canonical markdown content, whether provided manually or produced later by the parser
 - JD files are stored locally in `uploads/job_descriptions/` during development; internal storage paths stay out of API responses
 
-### Structured Candidate Profiles
+### Application Scoring & Resume-Based Matching
 
-- Candidate-level `master_profile_data` is stored as structured JSONB
-- Canonical profile sections are `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`
-- Uploaded resume files and parser output live in candidate-owned resume snapshots; applications only reference the specific resume used for that submission
+- Application scoring is based solely on resume parsing; each resume is evaluated independently
+- Candidates must attach a resume before submitting an application
+- Applications with resume score ≤ 0.5 are automatically rejected; scores > 0.5 move to screening status
+- Uploaded resume files and parser output live in candidate-owned resume snapshots; applications reference the specific resume used for that submission
 
 ---
 
@@ -238,11 +239,14 @@ SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, a
 - `GET /jobs` — List jobs (with filters)
 - `PATCH /jobs/{id}` — Update job details
 - `POST /jobs/{id}/description-file` — Upload a PDF job description for future parsing
+- `POST /jobs/{id}/publish` — Publish a job and start workflow processing
 - `DELETE /jobs/{id}` — Delete job
-- `POST /applications` — Submit application
+- `POST /applications` — Create a pending application draft
 - `GET /applications/{id}` — Retrieve application
 - `GET /applications` — List applications with filters
 - `POST /applications/{id}/resume` — Upload a resume file for a specific application
+- `POST /applications/{id}/submit` — Submit a prepared application and start workflow processing
+- `PATCH /applications/{id}` — Recruiter-driven updates (status progression after submission)
 - `GET /docs` — Interactive Swagger UI
 - `GET /redoc` — Alternate API documentation
 
@@ -287,7 +291,7 @@ SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes five co
 | Table                 | Purpose                    | Key Fields                                                                                                                                                        |
 | --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **recruiters**        | Hiring team members        | id (UUID), email, name, timestamps                                                                                                                                |
-| **candidates**        | Job seekers                | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                                                   |
+| **candidates**        | Job seekers                | id (UUID), email, name, timestamps                                                                                                                                |
 | **jobs**              | Job postings               | id (UUID), recruiter_id (FK), title, description, description_breakdown (JSONB), status, required_skills (JSONB), timestamps                                      |
 | **candidate_resumes** | Candidate resume snapshots | id (UUID), candidate_id (FK), source_application_id (FK), file_name, content_type, storage_path, uploaded_at, parsing_status, structured_data (JSONB), timestamps |
 | **applications**      | Candidate submissions      | id (UUID), job_id (FK), candidate_id (FK), resume_id (FK), status, metadata (JSONB), timestamps                                                                   |

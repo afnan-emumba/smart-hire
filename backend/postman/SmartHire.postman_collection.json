@@ -77,7 +77,7 @@
     },
     {
       "name": "E2E Flow - Complete Workflow",
-      "description": "Complete end-to-end test flow: Health → Create Recruiter → Create Candidate → Create Job → Upload Job PDF → Publish → Create Application → Upload Resume → Update Status. Run requests in order using the Postman Runner.",
+      "description": "Complete end-to-end test flow: Health → Create Recruiter → Create Candidate → Create Job → Upload Job PDF → Publish → Create Application → Upload Resume → Submit Application → Update Status. Run requests in order using the Postman Runner.",
       "item": [
         {
           "name": "1. Health Check",
@@ -382,14 +382,47 @@
           }
         },
         {
-          "name": "9. Update Application Status to Screening",
+          "name": "9. Submit Application",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('✓ Application status updated to screening (200)', function () {",
+                  "pm.test('✓ Application submitted and workflow started (202)', function () {",
+                  "    pm.expect(pm.response.code).to.equal(202);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('✓ Submit response includes workflow id', function () {",
+                  "    pm.expect(body.workflow_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "console.log('Application Workflow ID: ' + body.workflow_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "submit"]
+            }
+          }
+        },
+        {
+          "name": "10. Update Application to Screening",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('✓ Application updated to screening (200)', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.status).to.equal('screening');",
@@ -411,14 +444,14 @@
               "raw": "{\n  \"status\": \"screening\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
+              "path": ["applications", "{{applicationId}}"]
             }
           }
         },
         {
-          "name": "10. Get Application (Final State)",
+          "name": "11. Get Application (Final State)",
           "event": [
             {
               "listen": "test",
@@ -453,7 +486,7 @@
           }
         },
         {
-          "name": "11. Analytics Summary",
+          "name": "12. Analytics Summary",
           "description": "Verify the complete flow was recorded in analytics (jobs published, applications received).",
           "event": [
             {
@@ -894,7 +927,7 @@
       "item": [
         {
           "name": "Create Application",
-          "description": "Creates an application for a published job and triggers the application event flow. Resume data must be uploaded separately from PDF, not included in request body.",
+          "description": "Creates a pending application draft for a ready job. Resume upload and explicit submission happen in separate calls.",
           "event": [
             {
               "listen": "test",
@@ -978,6 +1011,40 @@
           }
         },
         {
+          "name": "Submit Application",
+          "description": "Finalizes a candidate-owned application and starts workflow/event processing. Requires an uploaded resume.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Application submitted', function () {",
+                  "    pm.expect(pm.response.code).to.equal(202);",
+                  "});",
+                  "pm.test('Submit response includes workflow_id', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('workflow_id');",
+                  "    pm.expect(body.workflow_id).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "submit"]
+            }
+          }
+        },
+        {
           "name": "Get Application",
           "event": [
             {
@@ -1050,18 +1117,18 @@
           }
         },
         {
-          "name": "Update Application Status",
+          "name": "Update Application",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Recruiter can move application to screening', function () {",
+                  "pm.test('Recruiter can update application', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.status).to.equal('screening');",
-                  "});"
+                  "}); "
                 ]
               }
             }
@@ -1078,9 +1145,9 @@
               "raw": "{\n  \"status\": \"screening\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
+              "path": ["applications", "{{applicationId}}"]
             }
           }
         },

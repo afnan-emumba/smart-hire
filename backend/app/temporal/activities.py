@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from temporalio import activity
@@ -90,6 +91,7 @@ async def finalize_job_breakdown(job_id: str) -> dict[str, Any]:
         reset_log_context(tokens)
 
 
+
 @activity.defn
 async def mark_job_ready(job_id: str) -> dict[str, Any]:
     parsed_job_id = uuid.UUID(job_id)
@@ -156,5 +158,99 @@ async def parse_application_resume(application_id: str) -> dict[str, Any]:
             return await _run_application_service_operation(
                 lambda service: service.process_uploaded_resume(parsed_application_id),
             )
+    finally:
+        reset_log_context(tokens)
+
+
+@activity.defn
+async def check_application_eligibility_and_auto_reject(application_id: str) -> dict[str, Any]:
+    """Check eligibility after resume parsing. Auto-reject if score < 50%."""
+    parsed_application_id = uuid.UUID(application_id)
+    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    try:
+        with start_trace_span(
+            "temporal.activity.check_application_eligibility_and_auto_reject",
+            attributes={
+                "smarthire.application_id": application_id,
+                "smarthire.workflow_id": activity.info().workflow_id,
+            },
+        ):
+            activity.logger.info(
+                "Checking application eligibility after resume parsing",
+                extra={"application_id": application_id},
+            )
+            return await _run_application_service_operation(
+                lambda service: service.check_eligibility_and_auto_reject(parsed_application_id),
+            )
+    finally:
+        reset_log_context(tokens)
+
+
+@activity.defn
+async def mark_job_publishing_failed(job_id: str, error_message: str) -> dict[str, Any]:
+    parsed_job_id = uuid.UUID(job_id)
+    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    try:
+        with start_trace_span(
+            "temporal.activity.mark_job_publishing_failed",
+            attributes={
+                "smarthire.job_id": job_id,
+                "smarthire.workflow_id": activity.info().workflow_id,
+            },
+        ):
+            activity.logger.warning(
+                "Marking job publishing workflow as failed",
+                extra={"job_id": job_id},
+            )
+
+            async def _mark_failed(service: JobService) -> dict[str, Any]:
+                job = await service.job_repo.get_by_id(parsed_job_id)
+                if job is None:
+                    return {"job_id": job_id, "status": "not_found"}
+
+                await service.job_repo.update(
+                    parsed_job_id,
+                    {
+                        "publishing_failed_at": datetime.now(timezone.utc),
+                        "publishing_error": error_message,
+                    },
+                )
+                return {"job_id": job_id, "status": "failed_recorded"}
+
+            return await _run_job_service_operation(_mark_failed)
+    finally:
+        reset_log_context(tokens)
+
+
+@activity.defn
+async def mark_application_workflow_failed(application_id: str, error_message: str) -> dict[str, Any]:
+    parsed_application_id = uuid.UUID(application_id)
+    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    try:
+        with start_trace_span(
+            "temporal.activity.mark_application_workflow_failed",
+            attributes={
+                "smarthire.application_id": application_id,
+                "smarthire.workflow_id": activity.info().workflow_id,
+            },
+        ):
+            activity.logger.warning(
+                "Marking application workflow as failed",
+                extra={"application_id": application_id},
+            )
+
+            async def _mark_failed(service: ApplicationService) -> dict[str, Any]:
+                application = await service.application_repo.get_by_id(parsed_application_id)
+                if application is None:
+                    return {"application_id": application_id, "status": "not_found"}
+
+                await service.application_repo.set_workflow_tracking(
+                    application,
+                    workflow_failed_at=datetime.now(timezone.utc),
+                    workflow_error=error_message,
+                )
+                return {"application_id": application_id, "status": "failed_recorded"}
+
+            return await _run_application_service_operation(_mark_failed)
     finally:
         reset_log_context(tokens)

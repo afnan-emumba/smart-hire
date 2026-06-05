@@ -175,6 +175,24 @@ services:
       retries: 10
       start_period: 20s
 
+  backend-migrations:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/Dockerfile.dev
+    container_name: smarthire-backend-migrations
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./backend:/app
+    command: alembic upgrade head
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -185,6 +203,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      backend-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       schema-registry:
@@ -231,6 +251,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_started
+      backend-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       schema-registry:
@@ -271,6 +293,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      backend-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       schema-registry:
@@ -299,6 +323,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      backend-migrations:
+        condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
       redis:
@@ -323,6 +349,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      backend-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       schema-registry:

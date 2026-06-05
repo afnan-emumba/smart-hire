@@ -46,6 +46,12 @@ class CandidateResumeRepository:
         await self.session.refresh(resume)
         return resume
 
+    async def get_by_id(self, resume_id: uuid.UUID) -> CandidateResume | None:
+        result = await self.session.execute(
+            select(CandidateResume).where(CandidateResume.id == resume_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_latest_parsed_for_candidate(self, candidate_id: uuid.UUID) -> CandidateResume | None:
         result = await self.session.execute(
             select(CandidateResume)

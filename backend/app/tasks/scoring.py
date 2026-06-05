@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.application_states import ApplicationStatus
 from app.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.logging import bind_log_context, reset_log_context
@@ -109,15 +110,12 @@ async def _process_application_scoring(
 
                 eligibility_result = dict(context["eligibility_result"])
                 required_skills = normalize_skills(context["job_required_skills"])
-                master_profile = dict(context["candidate_master_profile"])
                 resume_structured_data = context["resume_structured_data"]
-                master_profile_skills = normalize_skills(master_profile.get("skills", []))
                 resume_skills = normalize_skills(
                     resume_structured_data.get("skills", []) if isinstance(resume_structured_data, dict) else []
                 )
-                candidate_skill_pool = master_profile_skills | resume_skills
-                matched_skills = sorted(candidate_skill_pool & required_skills)
-                missing_skills = sorted(required_skills - candidate_skill_pool)
+                matched_skills = sorted(resume_skills & required_skills)
+                missing_skills = sorted(required_skills - resume_skills)
                 observed_match_score = 1.0 if not required_skills else len(matched_skills) / len(required_skills)
                 eligibility_match_score = float(eligibility_result.get("match_score") or 0.0)
                 final_score = round(((eligibility_match_score * 0.6) + (observed_match_score * 0.4)), 4)
@@ -133,7 +131,6 @@ async def _process_application_scoring(
                         "eligibility_match_score": eligibility_match_score,
                         "observed_match_score": round(observed_match_score, 4),
                         "required_skill_count": len(required_skills),
-                        "master_profile_skill_count": len(master_profile_skills),
                         "resume_skill_count": len(resume_skills),
                         "resume_data_available": resume_structured_data is not None,
                     },
@@ -143,6 +140,24 @@ async def _process_application_scoring(
                     event.application_id,
                     scoring_result=scoring_result,
                 )
+
+                application = await application_service.application_repo.get_by_id(event.application_id)
+                if application is not None:
+                    if observed_match_score < 0.5 and application.status != ApplicationStatus.REJECTED.value:
+                        await application_service.application_repo.update_status(
+                            application,
+                            status=ApplicationStatus.REJECTED,
+                            changed_by_role="SYSTEM",
+                            reason="Scoring result below minimum threshold",
+                        )
+                    elif observed_match_score >= 0.5 and application.status == ApplicationStatus.PENDING.value:
+                        await application_service.application_repo.update_status(
+                            application,
+                            status=ApplicationStatus.SCREENING,
+                            changed_by_role="SYSTEM",
+                            reason="Scoring completed successfully",
+                        )
+
                 await processing_repo.mark_completed(
                     record,
                     metadata={

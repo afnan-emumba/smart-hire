@@ -136,11 +136,8 @@ class ApplicationRepository:
         limit: int,
         offset: int,
     ) -> list[Application]:
-        stmt = (
-            self._base_query()
-            .join(Job, Job.id == Application.job_id)
-            .where(Job.recruiter_id == recruiter_id)
-        )
+        job_ids_stmt = select(Job.id).where(Job.recruiter_id == recruiter_id)
+        stmt = self._base_query().where(Application.job_id.in_(job_ids_stmt))
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(

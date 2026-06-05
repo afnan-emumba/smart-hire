@@ -25,6 +25,34 @@ class Settings(BaseSettings):
         default="candidate-application",
         alias="TEMPORAL_APPLICATION_TASK_QUEUE",
     )
+    temporal_job_workflow_execution_timeout_seconds: int = Field(
+        default=1800,
+        alias="TEMPORAL_JOB_WORKFLOW_EXECUTION_TIMEOUT_SECONDS",
+    )
+    temporal_application_workflow_execution_timeout_seconds: int = Field(
+        default=1800,
+        alias="TEMPORAL_APPLICATION_WORKFLOW_EXECUTION_TIMEOUT_SECONDS",
+    )
+    temporal_workflow_task_timeout_seconds: int = Field(
+        default=30,
+        alias="TEMPORAL_WORKFLOW_TASK_TIMEOUT_SECONDS",
+    )
+    temporal_worker_max_concurrent_workflow_tasks: int = Field(
+        default=200,
+        alias="TEMPORAL_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS",
+    )
+    temporal_worker_max_concurrent_activities: int = Field(
+        default=40,
+        alias="TEMPORAL_WORKER_MAX_CONCURRENT_ACTIVITIES",
+    )
+    temporal_worker_max_concurrent_workflow_task_polls: int = Field(
+        default=20,
+        alias="TEMPORAL_WORKER_MAX_CONCURRENT_WORKFLOW_TASK_POLLS",
+    )
+    temporal_worker_max_concurrent_activity_task_polls: int = Field(
+        default=8,
+        alias="TEMPORAL_WORKER_MAX_CONCURRENT_ACTIVITY_TASK_POLLS",
+    )
     kafka_bootstrap_servers: str = Field(alias="KAFKA_BOOTSTRAP_SERVERS")
     schema_registry_url: str = Field(alias="SCHEMA_REGISTRY_URL")
     kafka_job_published_topic: str = Field(
