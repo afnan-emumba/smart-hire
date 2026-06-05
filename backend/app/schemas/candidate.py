@@ -7,7 +7,8 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
 
 
-ProfileText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+ProfileText = Annotated[str, StringConstraints(
+    strip_whitespace=True, min_length=1, max_length=255)]
 
 
 class CandidateCreate(BaseModel):

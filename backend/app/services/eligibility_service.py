@@ -178,7 +178,8 @@ class EligibilityService:
                 match_score=0.0,
             )
 
-        resume_skills = self._normalize_skills(resume.structured_data.get("skills", []))
+        resume_skills = self._normalize_skills(
+            resume.structured_data.get("skills", []))
         required_skills = self._normalize_skills(job.required_skills or [])
 
         if not required_skills:

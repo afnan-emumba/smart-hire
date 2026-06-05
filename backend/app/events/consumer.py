@@ -80,7 +80,8 @@ class EventConsumer:
         headers = self._decode_headers(raw_headers)
         event_type = headers.get("event_type")
         if event_type is None:
-            raise RuntimeError(f"Kafka message on topic '{topic_name}' is missing event_type header")
+            raise RuntimeError(
+                f"Kafka message on topic '{topic_name}' is missing event_type header")
 
         tokens = bind_log_context(
             user_id=headers.get("user_id"),
@@ -107,7 +108,8 @@ class EventConsumer:
                     )
                 handler_names = EVENT_TASK_MAP.get(event_type, ())
                 if not handler_names:
-                    logger.info("No task handlers registered for event type", extra={"event_type": event_type})
+                    logger.info("No task handlers registered for event type", extra={
+                                "event_type": event_type})
                     return
 
                 async with SessionLocal() as session:

@@ -96,13 +96,15 @@ class AnalyticsRepository:
 
     async def count_job_publishing_failures(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(Job).where(Job.publishing_failed_at.is_not(None))
+            select(func.count()).select_from(Job).where(
+                Job.publishing_failed_at.is_not(None))
         )
         return int(result.scalar_one())
 
     async def count_application_workflow_failures(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(Application).where(Application.workflow_failed_at.is_not(None))
+            select(func.count()).select_from(Application).where(
+                Application.workflow_failed_at.is_not(None))
         )
         return int(result.scalar_one())
 
@@ -116,6 +118,7 @@ class AnalyticsRepository:
 
     async def count_outbox_publish_failures(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(OutboxEvent).where(OutboxEvent.publish_status == "failed")
+            select(func.count()).select_from(OutboxEvent).where(
+                OutboxEvent.publish_status == "failed")
         )
         return int(result.scalar_one())

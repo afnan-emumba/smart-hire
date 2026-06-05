@@ -52,7 +52,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_applications_status_valid", "applications", type_="check")
+    op.drop_constraint("ck_applications_status_valid",
+                       "applications", type_="check")
 
     op.execute(
         """

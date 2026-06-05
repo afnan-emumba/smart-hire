@@ -25,12 +25,15 @@ def upgrade() -> None:
         "outbox_events",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("aggregate_type", sa.String(length=64), nullable=False),
-        sa.Column("aggregate_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("aggregate_id", postgresql.UUID(
+            as_uuid=True), nullable=False),
         sa.Column("topic_name", sa.String(length=255), nullable=False),
         sa.Column("event_type", sa.String(length=128), nullable=False),
-        sa.Column("schema_version", sa.String(length=64), server_default=sa.text("'v1'"), nullable=False),
+        sa.Column("schema_version", sa.String(length=64),
+                  server_default=sa.text("'v1'"), nullable=False),
         sa.Column("idempotency_key", sa.String(length=255), nullable=True),
-        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("payload", postgresql.JSONB(
+            astext_type=sa.Text()), nullable=False),
         sa.Column(
             "headers",
             postgresql.JSONB(astext_type=sa.Text()),
@@ -49,11 +52,14 @@ def upgrade() -> None:
             server_default=sa.text("'pending'"),
             nullable=False,
         ),
-        sa.Column("retry_count", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("retry_count", sa.Integer(),
+                  server_default=sa.text("0"), nullable=False),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True),
+                  server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True),
+                  server_default=sa.text("now()"), nullable=False),
         sa.CheckConstraint(
             "publish_status IN ('pending', 'claimed', 'published', 'failed')",
             name="ck_outbox_events_publish_status_valid",
@@ -61,17 +67,27 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("idempotency_key"),
     )
-    op.create_index(op.f("ix_outbox_events_aggregate_id"), "outbox_events", ["aggregate_id"], unique=False)
-    op.create_index(op.f("ix_outbox_events_aggregate_type"), "outbox_events", ["aggregate_type"], unique=False)
-    op.create_index(op.f("ix_outbox_events_event_type"), "outbox_events", ["event_type"], unique=False)
-    op.create_index(op.f("ix_outbox_events_idempotency_key"), "outbox_events", ["idempotency_key"], unique=True)
-    op.create_index(op.f("ix_outbox_events_topic_name"), "outbox_events", ["topic_name"], unique=False)
+    op.create_index(op.f("ix_outbox_events_aggregate_id"),
+                    "outbox_events", ["aggregate_id"], unique=False)
+    op.create_index(op.f("ix_outbox_events_aggregate_type"),
+                    "outbox_events", ["aggregate_type"], unique=False)
+    op.create_index(op.f("ix_outbox_events_event_type"),
+                    "outbox_events", ["event_type"], unique=False)
+    op.create_index(op.f("ix_outbox_events_idempotency_key"),
+                    "outbox_events", ["idempotency_key"], unique=True)
+    op.create_index(op.f("ix_outbox_events_topic_name"),
+                    "outbox_events", ["topic_name"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_outbox_events_topic_name"), table_name="outbox_events")
-    op.drop_index(op.f("ix_outbox_events_idempotency_key"), table_name="outbox_events")
-    op.drop_index(op.f("ix_outbox_events_event_type"), table_name="outbox_events")
-    op.drop_index(op.f("ix_outbox_events_aggregate_type"), table_name="outbox_events")
-    op.drop_index(op.f("ix_outbox_events_aggregate_id"), table_name="outbox_events")
+    op.drop_index(op.f("ix_outbox_events_topic_name"),
+                  table_name="outbox_events")
+    op.drop_index(op.f("ix_outbox_events_idempotency_key"),
+                  table_name="outbox_events")
+    op.drop_index(op.f("ix_outbox_events_event_type"),
+                  table_name="outbox_events")
+    op.drop_index(op.f("ix_outbox_events_aggregate_type"),
+                  table_name="outbox_events")
+    op.drop_index(op.f("ix_outbox_events_aggregate_id"),
+                  table_name="outbox_events")
     op.drop_table("outbox_events")

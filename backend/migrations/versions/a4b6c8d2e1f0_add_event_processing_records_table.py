@@ -28,10 +28,14 @@ def upgrade() -> None:
         sa.Column("handler_name", sa.String(length=128), nullable=False),
         sa.Column("event_type", sa.String(length=128), nullable=False),
         sa.Column("topic_name", sa.String(length=255), nullable=False),
-        sa.Column("aggregate_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("schema_version", sa.String(length=64), server_default=sa.text("'v1'"), nullable=False),
-        sa.Column("status", sa.String(length=32), server_default=sa.text("'pending'"), nullable=False),
-        sa.Column("retry_count", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("aggregate_id", postgresql.UUID(
+            as_uuid=True), nullable=False),
+        sa.Column("schema_version", sa.String(length=64),
+                  server_default=sa.text("'v1'"), nullable=False),
+        sa.Column("status", sa.String(length=32),
+                  server_default=sa.text("'pending'"), nullable=False),
+        sa.Column("retry_count", sa.Integer(),
+                  server_default=sa.text("0"), nullable=False),
         sa.Column("claimed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_error", sa.Text(), nullable=True),
@@ -41,8 +45,10 @@ def upgrade() -> None:
             server_default=sa.text("'{}'::jsonb"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True),
+                  server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True),
+                  server_default=sa.text("now()"), nullable=False),
         sa.CheckConstraint(
             "status IN ('pending', 'queued', 'processing', 'completed', 'failed')",
             name="ck_event_processing_records_status_valid",
@@ -87,9 +93,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_event_processing_records_topic_name"), table_name="event_processing_records")
-    op.drop_index(op.f("ix_event_processing_records_handler_name"), table_name="event_processing_records")
-    op.drop_index(op.f("ix_event_processing_records_event_type"), table_name="event_processing_records")
-    op.drop_index(op.f("ix_event_processing_records_event_id"), table_name="event_processing_records")
-    op.drop_index(op.f("ix_event_processing_records_aggregate_id"), table_name="event_processing_records")
+    op.drop_index(op.f("ix_event_processing_records_topic_name"),
+                  table_name="event_processing_records")
+    op.drop_index(op.f("ix_event_processing_records_handler_name"),
+                  table_name="event_processing_records")
+    op.drop_index(op.f("ix_event_processing_records_event_type"),
+                  table_name="event_processing_records")
+    op.drop_index(op.f("ix_event_processing_records_event_id"),
+                  table_name="event_processing_records")
+    op.drop_index(op.f("ix_event_processing_records_aggregate_id"),
+                  table_name="event_processing_records")
     op.drop_table("event_processing_records")

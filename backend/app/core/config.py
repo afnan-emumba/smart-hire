@@ -15,8 +15,10 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")
     database_url: str = Field(alias="DATABASE_URL")
-    temporal_address: str = Field(default="localhost:7233", alias="TEMPORAL_ADDRESS")
-    temporal_namespace: str = Field(default="default", alias="TEMPORAL_NAMESPACE")
+    temporal_address: str = Field(
+        default="localhost:7233", alias="TEMPORAL_ADDRESS")
+    temporal_namespace: str = Field(
+        default="default", alias="TEMPORAL_NAMESPACE")
     temporal_job_task_queue: str = Field(
         default="job-publishing",
         alias="TEMPORAL_JOB_TASK_QUEUE",
@@ -75,7 +77,8 @@ class Settings(BaseSettings):
     log_json: bool = Field(default=True, alias="LOG_JSON")
     metrics_enabled: bool = Field(default=True, alias="METRICS_ENABLED")
     tracing_enabled: bool = Field(default=False, alias="TRACING_ENABLED")
-    otel_service_name: str = Field(default="smarthire-backend", alias="OTEL_SERVICE_NAME")
+    otel_service_name: str = Field(
+        default="smarthire-backend", alias="OTEL_SERVICE_NAME")
     otel_exporter_otlp_endpoint: str = Field(
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
     )
@@ -83,12 +86,14 @@ class Settings(BaseSettings):
         default=5.0,
         alias="HEALTHCHECK_TIMEOUT_SECONDS",
     )
-    event_relay_batch_size: int = Field(default=50, alias="EVENT_RELAY_BATCH_SIZE")
+    event_relay_batch_size: int = Field(
+        default=50, alias="EVENT_RELAY_BATCH_SIZE")
     event_relay_poll_interval_seconds: float = Field(
         default=2.0,
         alias="EVENT_RELAY_POLL_INTERVAL_SECONDS",
     )
-    event_relay_max_retries: int = Field(default=5, alias="EVENT_RELAY_MAX_RETRIES")
+    event_relay_max_retries: int = Field(
+        default=5, alias="EVENT_RELAY_MAX_RETRIES")
     event_relay_retry_backoff_seconds: float = Field(
         default=5.0,
         alias="EVENT_RELAY_RETRY_BACKOFF_SECONDS",
@@ -109,10 +114,14 @@ class Settings(BaseSettings):
         default=2,
         alias="CELERY_TASK_RETRY_BACKOFF",
     )
-    resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
-    max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
-    jd_upload_dir: str = Field(default="uploads/job_descriptions", alias="JD_UPLOAD_DIR")
-    max_jd_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_JD_SIZE_BYTES")
+    resume_upload_dir: str = Field(
+        default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
+    max_resume_size_bytes: int = Field(
+        default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
+    jd_upload_dir: str = Field(
+        default="uploads/job_descriptions", alias="JD_UPLOAD_DIR")
+    max_jd_size_bytes: int = Field(
+        default=10 * 1024 * 1024, alias="MAX_JD_SIZE_BYTES")
     max_applications_per_candidate: int = Field(
         default=5,
         alias="MAX_APPLICATIONS_PER_CANDIDATE",

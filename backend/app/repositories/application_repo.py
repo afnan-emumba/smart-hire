@@ -93,7 +93,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -109,7 +110,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -124,7 +126,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -141,7 +144,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 

@@ -118,7 +118,7 @@ class CandidateApplicationWorkflow:
                     start_to_close_timeout=timedelta(minutes=8),
                     retry_policy=retry_policy,
                 )
-                
+
                 result = await workflow.execute_activity(
                     check_application_eligibility_and_auto_reject,
                     input.application_id,
@@ -145,4 +145,3 @@ class CandidateApplicationWorkflow:
                 "resume_parsing_status": "failed" if input.parse_resume else "not_requested",
                 "error": str(exc),
             }
-

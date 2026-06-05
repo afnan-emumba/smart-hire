@@ -10,8 +10,10 @@ from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
 
 
 JobStatus = Literal["draft", "processing", "ready", "archived"]
-EmploymentType = Literal["full_time", "part_time", "contract", "temporary", "internship", "freelance"]
-SeniorityLevel = Literal["intern", "junior", "mid", "senior", "lead", "staff", "principal", "manager", "director"]
+EmploymentType = Literal["full_time", "part_time",
+                         "contract", "temporary", "internship", "freelance"]
+SeniorityLevel = Literal["intern", "junior", "mid", "senior",
+                         "lead", "staff", "principal", "manager", "director"]
 JobDescriptionSourceType = Literal["manual_text", "pdf_upload"]
 JobDescriptionParsingStatus = Literal[
     "pending",
@@ -27,7 +29,8 @@ class JobCreate(BaseModel):
     employment_type: EmploymentType | None = None
     seniority_level: SeniorityLevel | None = None
     department: str | None = Field(default=None, min_length=1, max_length=100)
-    job_category: str | None = Field(default=None, min_length=1, max_length=100)
+    job_category: str | None = Field(
+        default=None, min_length=1, max_length=100)
     location: JobLocation | None = None
     compensation: Compensation | None = None
     years_of_experience_required: int | None = Field(default=None, ge=0)
@@ -75,7 +78,8 @@ class JobUpdate(BaseModel):
     employment_type: EmploymentType | None = None
     seniority_level: SeniorityLevel | None = None
     department: str | None = Field(default=None, min_length=1, max_length=100)
-    job_category: str | None = Field(default=None, min_length=1, max_length=100)
+    job_category: str | None = Field(
+        default=None, min_length=1, max_length=100)
     location: JobLocation | None = None
     compensation: Compensation | None = None
     years_of_experience_required: int | None = Field(default=None, ge=0)

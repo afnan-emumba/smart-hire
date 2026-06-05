@@ -77,13 +77,16 @@ async def _run_application_service_operation(
 @activity.defn
 async def finalize_job_breakdown(job_id: str) -> dict[str, Any]:
     parsed_job_id = uuid.UUID(job_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.finalize_job_breakdown",
-            attributes={"smarthire.job_id": job_id, "smarthire.workflow_id": activity.info().workflow_id},
+            attributes={"smarthire.job_id": job_id,
+                        "smarthire.workflow_id": activity.info().workflow_id},
         ):
-            activity.logger.info("Finalizing job breakdown", extra={"job_id": job_id})
+            activity.logger.info("Finalizing job breakdown",
+                                 extra={"job_id": job_id})
             return await _run_job_service_operation(
                 lambda service: service.finalize_job_breakdown(parsed_job_id),
             )
@@ -91,11 +94,11 @@ async def finalize_job_breakdown(job_id: str) -> dict[str, Any]:
         reset_log_context(tokens)
 
 
-
 @activity.defn
 async def mark_job_ready(job_id: str) -> dict[str, Any]:
     parsed_job_id = uuid.UUID(job_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
 
     async def _mark_ready(service: JobService) -> dict[str, Any]:
         job = await service.update_job_status(parsed_job_id, JobStatus.READY)
@@ -108,7 +111,8 @@ async def mark_job_ready(job_id: str) -> dict[str, Any]:
     try:
         with start_trace_span(
             "temporal.activity.mark_job_ready",
-            attributes={"smarthire.job_id": job_id, "smarthire.workflow_id": activity.info().workflow_id},
+            attributes={"smarthire.job_id": job_id,
+                        "smarthire.workflow_id": activity.info().workflow_id},
         ):
             activity.logger.info("Marking job ready", extra={"job_id": job_id})
             return await _run_job_service_operation(_mark_ready)
@@ -119,7 +123,8 @@ async def mark_job_ready(job_id: str) -> dict[str, Any]:
 @activity.defn
 async def initialize_application_processing(application_id: str) -> dict[str, Any]:
     parsed_application_id = uuid.UUID(application_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.initialize_application_processing",
@@ -133,7 +138,8 @@ async def initialize_application_processing(application_id: str) -> dict[str, An
                 extra={"application_id": application_id},
             )
             return await _run_application_service_operation(
-                lambda service: service.initialize_application_workflow_state(parsed_application_id),
+                lambda service: service.initialize_application_workflow_state(
+                    parsed_application_id),
             )
     finally:
         reset_log_context(tokens)
@@ -142,7 +148,8 @@ async def initialize_application_processing(application_id: str) -> dict[str, An
 @activity.defn
 async def parse_application_resume(application_id: str) -> dict[str, Any]:
     parsed_application_id = uuid.UUID(application_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.parse_application_resume",
@@ -156,7 +163,8 @@ async def parse_application_resume(application_id: str) -> dict[str, Any]:
                 extra={"application_id": application_id},
             )
             return await _run_application_service_operation(
-                lambda service: service.process_uploaded_resume(parsed_application_id),
+                lambda service: service.process_uploaded_resume(
+                    parsed_application_id),
             )
     finally:
         reset_log_context(tokens)
@@ -166,7 +174,8 @@ async def parse_application_resume(application_id: str) -> dict[str, Any]:
 async def check_application_eligibility_and_auto_reject(application_id: str) -> dict[str, Any]:
     """Check eligibility after resume parsing. Auto-reject if score < 50%."""
     parsed_application_id = uuid.UUID(application_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.check_application_eligibility_and_auto_reject",
@@ -180,7 +189,8 @@ async def check_application_eligibility_and_auto_reject(application_id: str) -> 
                 extra={"application_id": application_id},
             )
             return await _run_application_service_operation(
-                lambda service: service.check_eligibility_and_auto_reject(parsed_application_id),
+                lambda service: service.check_eligibility_and_auto_reject(
+                    parsed_application_id),
             )
     finally:
         reset_log_context(tokens)
@@ -189,7 +199,8 @@ async def check_application_eligibility_and_auto_reject(application_id: str) -> 
 @activity.defn
 async def mark_job_publishing_failed(job_id: str, error_message: str) -> dict[str, Any]:
     parsed_job_id = uuid.UUID(job_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.mark_job_publishing_failed",
@@ -225,7 +236,8 @@ async def mark_job_publishing_failed(job_id: str, error_message: str) -> dict[st
 @activity.defn
 async def mark_application_workflow_failed(application_id: str, error_message: str) -> dict[str, Any]:
     parsed_application_id = uuid.UUID(application_id)
-    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    tokens = bind_log_context(workflow_id=activity.info(
+    ).workflow_id, correlation_id=activity.info().workflow_id)
     try:
         with start_trace_span(
             "temporal.activity.mark_application_workflow_failed",

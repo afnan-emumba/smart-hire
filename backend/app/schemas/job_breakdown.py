@@ -7,9 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 SkillProficiency = Literal["entry", "intermediate", "expert"]
 SkillCategory = Literal["technology", "domain", "soft"]
-TechnologyCategory = Literal["language", "framework", "database", "cloud", "tool", "platform", "other"]
+TechnologyCategory = Literal["language", "framework",
+                             "database", "cloud", "tool", "platform", "other"]
 RemotePolicy = Literal["remote", "hybrid", "on_site", "unknown"]
-CompensationInterval = Literal["hourly", "monthly", "annual", "contract", "unknown"]
+CompensationInterval = Literal["hourly",
+                               "monthly", "annual", "contract", "unknown"]
 
 
 class Skill(BaseModel):
@@ -70,8 +72,10 @@ class JobBreakdown(BaseModel):
     overview: str | None = None
     skills: list[Skill] = Field(default_factory=list)
     technologies: list[Technology] = Field(default_factory=list)
-    education_requirements: list[EducationRequirement] = Field(default_factory=list)
-    requirements: RequirementsBreakdown = Field(default_factory=RequirementsBreakdown)
+    education_requirements: list[EducationRequirement] = Field(
+        default_factory=list)
+    requirements: RequirementsBreakdown = Field(
+        default_factory=RequirementsBreakdown)
     responsibilities: list[str] = Field(default_factory=list)
     location: JobLocation | None = None
     compensation: Compensation | None = None

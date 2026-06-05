@@ -21,14 +21,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("jobs", sa.Column("employment_type", sa.String(length=32), nullable=True))
-    op.add_column("jobs", sa.Column("seniority_level", sa.String(length=32), nullable=True))
-    op.add_column("jobs", sa.Column("department", sa.String(length=100), nullable=True))
-    op.add_column("jobs", sa.Column("job_category", sa.String(length=100), nullable=True))
-    op.add_column("jobs", sa.Column("location", postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.add_column("jobs", sa.Column("compensation", postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.add_column("jobs", sa.Column("years_of_experience_required", sa.Integer(), nullable=True))
-    op.add_column("jobs", sa.Column("application_deadline", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("jobs", sa.Column("employment_type",
+                  sa.String(length=32), nullable=True))
+    op.add_column("jobs", sa.Column("seniority_level",
+                  sa.String(length=32), nullable=True))
+    op.add_column("jobs", sa.Column(
+        "department", sa.String(length=100), nullable=True))
+    op.add_column("jobs", sa.Column("job_category",
+                  sa.String(length=100), nullable=True))
+    op.add_column("jobs", sa.Column("location", postgresql.JSONB(
+        astext_type=sa.Text()), nullable=True))
+    op.add_column("jobs", sa.Column("compensation", postgresql.JSONB(
+        astext_type=sa.Text()), nullable=True))
+    op.add_column("jobs", sa.Column(
+        "years_of_experience_required", sa.Integer(), nullable=True))
+    op.add_column("jobs", sa.Column("application_deadline",
+                  sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:

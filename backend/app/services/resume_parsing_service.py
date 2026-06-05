@@ -22,7 +22,8 @@ class ResumeParsingService:
         "contact": ("contact",),
         "links": ("links",),
     }
-    _EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+    _EMAIL_PATTERN = re.compile(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
     _PHONE_PATTERN = re.compile(
         r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3}[\s.-]?\d{3,4}"
     )
@@ -46,7 +47,8 @@ class ResumeParsingService:
 
     @classmethod
     def _collect_sections(cls, markdown: str) -> dict[str, list[str]]:
-        sections: dict[str, list[str]] = {key: [] for key in cls._SECTION_ALIASES}
+        sections: dict[str, list[str]] = {key: []
+                                          for key in cls._SECTION_ALIASES}
         current_section = "summary"
 
         for raw_line in markdown.splitlines():
@@ -121,10 +123,12 @@ class ResumeParsingService:
 
     @classmethod
     def _extract_links(cls, sections: dict[str, list[str]], markdown: str) -> dict[str, Any]:
-        sources = [*sections.get("links", []), *sections.get("contact", []), markdown]
+        sources = [*sections.get("links", []), *
+                   sections.get("contact", []), markdown]
         urls: list[str] = []
         for source in sources:
-            urls.extend(match.group(0) for match in cls._URL_PATTERN.finditer(source))
+            urls.extend(match.group(0)
+                        for match in cls._URL_PATTERN.finditer(source))
 
         links = {
             "linkedin": None,

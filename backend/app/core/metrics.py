@@ -154,7 +154,8 @@ class _DeferredMetric:
 
 @event.listens_for(Session, "after_commit")
 def _flush_pending_metrics(session: Session) -> None:
-    callbacks: list[_DeferredMetric] = session.info.pop(_PENDING_METRICS_KEY, [])
+    callbacks: list[_DeferredMetric] = session.info.pop(
+        _PENDING_METRICS_KEY, [])
     for deferred_metric in callbacks:
         try:
             deferred_metric.callback()
@@ -168,7 +169,8 @@ def _clear_pending_metrics(session: Session) -> None:
 
 
 def queue_post_commit_metric(session: AsyncSession, callback: Callable[[], None]) -> None:
-    pending_callbacks = session.sync_session.info.setdefault(_PENDING_METRICS_KEY, [])
+    pending_callbacks = session.sync_session.info.setdefault(
+        _PENDING_METRICS_KEY, [])
     pending_callbacks.append(_DeferredMetric(callback=callback))
 
 
@@ -207,7 +209,8 @@ def record_task_execution(*, task_name: str, status: str) -> None:
 
 
 async def refresh_domain_metrics() -> None:
-    failure_window_start = datetime.now(timezone.utc) - timedelta(seconds=FAILURE_METRIC_WINDOW_SECONDS)
+    failure_window_start = datetime.now(
+        timezone.utc) - timedelta(seconds=FAILURE_METRIC_WINDOW_SECONDS)
     async with SessionLocal() as session:
         published_jobs_result = await session.execute(
             select(func.count()).select_from(Job).where(
@@ -241,10 +244,12 @@ async def refresh_domain_metrics() -> None:
             )
         )
         job_publishing_failures_result = await session.execute(
-            select(func.count()).select_from(Job).where(Job.publishing_failed_at >= failure_window_start)
+            select(func.count()).select_from(Job).where(
+                Job.publishing_failed_at >= failure_window_start)
         )
         application_workflow_failures_result = await session.execute(
-            select(func.count()).select_from(Application).where(Application.workflow_failed_at >= failure_window_start)
+            select(func.count()).select_from(Application).where(
+                Application.workflow_failed_at >= failure_window_start)
         )
         resume_processing_result = await session.execute(
             select(CandidateResume.parsing_status, func.count())
@@ -259,15 +264,19 @@ async def refresh_domain_metrics() -> None:
         dependency_results = await collect_dependency_results(session)
 
     JOBS_PUBLISHED_TOTAL.set(float(published_jobs_result.scalar_one()))
-    APPLICATIONS_RECEIVED_TOTAL.set(float(applications_received_result.scalar_one()))
-    JOB_PUBLISHING_FAILURES_TOTAL.set(float(job_publishing_failures_result.scalar_one()))
-    APPLICATION_WORKFLOW_FAILURES_TOTAL.set(float(application_workflow_failures_result.scalar_one()))
+    APPLICATIONS_RECEIVED_TOTAL.set(
+        float(applications_received_result.scalar_one()))
+    JOB_PUBLISHING_FAILURES_TOTAL.set(
+        float(job_publishing_failures_result.scalar_one()))
+    APPLICATION_WORKFLOW_FAILURES_TOTAL.set(
+        float(application_workflow_failures_result.scalar_one()))
     WORKFLOW_AVERAGE_DURATION_SECONDS.labels(
         workflow_name=get_workflow_display_name("job_publishing"),
         status="success",
     ).set(float(job_publishing_avg_result.scalar_one() or 0.0))
     WORKFLOW_AVERAGE_DURATION_SECONDS.labels(
-        workflow_name=get_workflow_display_name("candidate_application_initialization"),
+        workflow_name=get_workflow_display_name(
+            "candidate_application_initialization"),
         status="success",
     ).set(float(application_initialization_avg_result.scalar_one() or 0.0))
     TASK_OUTCOMES_TOTAL.clear()
@@ -289,7 +298,8 @@ async def refresh_domain_metrics() -> None:
     DEPENDENCY_HEALTH_STATUS.clear()
     for dependency_name, result in dependency_results.items():
         DEPENDENCY_HEALTH_STATUS.labels(
-            dependency=DEPENDENCY_DISPLAY_NAMES.get(dependency_name, dependency_name.replace("_", " ").title()),
+            dependency=DEPENDENCY_DISPLAY_NAMES.get(
+                dependency_name, dependency_name.replace("_", " ").title()),
         ).set(1.0 if result["status"] == "up" else 0.0)
 
 
@@ -297,7 +307,8 @@ async def build_metrics_response() -> Response:
     try:
         await refresh_domain_metrics()
     except SQLAlchemyError:
-        logger.exception("Failed to refresh domain metrics; returning last known metric values")
+        logger.exception(
+            "Failed to refresh domain metrics; returning last known metric values")
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 

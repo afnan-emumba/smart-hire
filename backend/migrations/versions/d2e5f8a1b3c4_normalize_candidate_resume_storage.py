@@ -39,13 +39,16 @@ def upgrade() -> None:
     op.create_table(
         "candidate_resumes",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("candidate_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("source_application_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("candidate_id", postgresql.UUID(
+            as_uuid=True), nullable=False),
+        sa.Column("source_application_id", postgresql.UUID(
+            as_uuid=True), nullable=True),
         sa.Column("file_name", sa.String(length=255), nullable=True),
         sa.Column("content_type", sa.String(length=255), nullable=True),
         sa.Column("storage_path", sa.String(length=1024), nullable=True),
         sa.Column("uploaded_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("parsing_status", sa.String(length=32), nullable=False, server_default="pending"),
+        sa.Column("parsing_status", sa.String(length=32),
+                  nullable=False, server_default="pending"),
         sa.Column("parsing_error", sa.Text(), nullable=True),
         sa.Column("parsed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("parser_version", sa.String(length=64), nullable=True),
@@ -56,20 +59,26 @@ def upgrade() -> None:
             server_default="resume_profile.v1",
         ),
         sa.Column("raw_markdown", sa.Text(), nullable=True),
-        sa.Column("structured_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("structured_data", postgresql.JSONB(
+            astext_type=sa.Text()), nullable=True),
         sa.Column(
             "extraction_metadata",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(["candidate_id"], ["candidates.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["source_application_id"], ["applications.id"], ondelete="SET NULL"),
+        sa.Column("created_at", sa.DateTime(timezone=True),
+                  nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True),
+                  nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(
+            ["candidate_id"], ["candidates.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["source_application_id"], [
+                                "applications.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_candidate_resumes_candidate_id"), "candidate_resumes", ["candidate_id"], unique=False)
+    op.create_index(op.f("ix_candidate_resumes_candidate_id"),
+                    "candidate_resumes", ["candidate_id"], unique=False)
     op.create_index(
         op.f("ix_candidate_resumes_source_application_id"),
         "candidate_resumes",
@@ -77,8 +86,10 @@ def upgrade() -> None:
         unique=False,
     )
 
-    op.add_column("applications", sa.Column("resume_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.create_index(op.f("ix_applications_resume_id"), "applications", ["resume_id"], unique=False)
+    op.add_column("applications", sa.Column(
+        "resume_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.create_index(op.f("ix_applications_resume_id"),
+                    "applications", ["resume_id"], unique=False)
     op.create_foreign_key(
         "applications_resume_id_fkey",
         "applications",
@@ -116,7 +127,8 @@ def upgrade() -> None:
         sa.column("schema_version", sa.String(length=64)),
         sa.column("raw_markdown", sa.Text()),
         sa.column("structured_data", postgresql.JSONB(astext_type=sa.Text())),
-        sa.column("extraction_metadata", postgresql.JSONB(astext_type=sa.Text())),
+        sa.column("extraction_metadata",
+                  postgresql.JSONB(astext_type=sa.Text())),
     )
 
     existing_rows = connection.execute(
@@ -143,10 +155,13 @@ def upgrade() -> None:
     for row in existing_rows:
         resume_id = uuid.uuid4()
         metadata = row["metadata"] if isinstance(row["metadata"], dict) else {}
-        resume_parsing = metadata.get("resume_parsing", {}) if isinstance(metadata, dict) else {}
-        structured_data = row["resume_data"] if isinstance(row["resume_data"], dict) else None
+        resume_parsing = metadata.get(
+            "resume_parsing", {}) if isinstance(metadata, dict) else {}
+        structured_data = row["resume_data"] if isinstance(
+            row["resume_data"], dict) else None
         parsed_at = _parse_resume_timestamp(resume_parsing.get("parsed_at"))
-        parsing_status = resume_parsing.get("status") or ("parsed" if structured_data else "pending")
+        parsing_status = resume_parsing.get("status") or (
+            "parsed" if structured_data else "pending")
         parsing_error = resume_parsing.get("error")
 
         connection.execute(
@@ -163,7 +178,8 @@ def upgrade() -> None:
                 parsed_at=parsed_at,
                 parser_version=None,
                 schema_version="resume_profile.v1",
-                raw_markdown=structured_data.get("markdown") if structured_data else None,
+                raw_markdown=structured_data.get(
+                    "markdown") if structured_data else None,
                 structured_data=structured_data,
                 extraction_metadata={
                     "source": "application_migration",
@@ -186,13 +202,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.add_column("applications", sa.Column("resume_file_name", sa.String(length=255), nullable=True))
-    op.add_column("applications", sa.Column("resume_content_type", sa.String(length=255), nullable=True))
-    op.add_column("applications", sa.Column("resume_storage_path", sa.String(length=1024), nullable=True))
-    op.add_column("applications", sa.Column("resume_uploaded_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_file_name", sa.String(length=255), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_content_type", sa.String(length=255), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_storage_path", sa.String(length=1024), nullable=True))
+    op.add_column("applications", sa.Column("resume_uploaded_at",
+                  sa.DateTime(timezone=True), nullable=True))
     op.add_column(
         "applications",
-        sa.Column("resume_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("resume_data", postgresql.JSONB(
+            astext_type=sa.Text()), nullable=True),
     )
 
     connection = op.get_bind()
@@ -228,12 +249,14 @@ def downgrade() -> None:
             candidate_resumes.c.raw_markdown,
             candidate_resumes.c.structured_data,
         ).select_from(
-            applications.join(candidate_resumes, applications.c.resume_id == candidate_resumes.c.id)
+            applications.join(
+                candidate_resumes, applications.c.resume_id == candidate_resumes.c.id)
         )
     ).mappings().all()
 
     for row in joined_rows:
-        structured_data = row["structured_data"] if isinstance(row["structured_data"], dict) else None
+        structured_data = row["structured_data"] if isinstance(
+            row["structured_data"], dict) else None
         if structured_data is None and row["raw_markdown"]:
             structured_data = {"markdown": row["raw_markdown"]}
 
@@ -249,9 +272,12 @@ def downgrade() -> None:
             )
         )
 
-    op.drop_constraint("applications_resume_id_fkey", "applications", type_="foreignkey")
+    op.drop_constraint("applications_resume_id_fkey",
+                       "applications", type_="foreignkey")
     op.drop_index(op.f("ix_applications_resume_id"), table_name="applications")
     op.drop_column("applications", "resume_id")
-    op.drop_index(op.f("ix_candidate_resumes_source_application_id"), table_name="candidate_resumes")
-    op.drop_index(op.f("ix_candidate_resumes_candidate_id"), table_name="candidate_resumes")
+    op.drop_index(op.f("ix_candidate_resumes_source_application_id"),
+                  table_name="candidate_resumes")
+    op.drop_index(op.f("ix_candidate_resumes_candidate_id"),
+                  table_name="candidate_resumes")
     op.drop_table("candidate_resumes")

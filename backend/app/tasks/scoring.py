@@ -37,7 +37,8 @@ def process_application_scoring(
         )
     )
     if result.get("status") == "pending_resume":
-        raise self.retry(countdown=5, exc=RuntimeError("Resume not parsed yet"))
+        raise self.retry(countdown=5, exc=RuntimeError(
+            "Resume not parsed yet"))
     return result
 
 
@@ -77,14 +78,16 @@ async def _process_application_scoring(
                 )
 
             if record is None or not claimed:
-                record_task_execution(task_name=APPLICATION_SCORING_TASK, status="skipped")
+                record_task_execution(
+                    task_name=APPLICATION_SCORING_TASK, status="skipped")
                 await session.commit()
                 return {"application_id": str(event.application_id), "status": "skipped"}
 
             try:
                 application_service = build_application_service(session)
                 context = await application_service.get_background_task_context(event.application_id)
-                resume_parsing = dict(context["application_metadata"].get("resume_parsing", {}))
+                resume_parsing = dict(
+                    context["application_metadata"].get("resume_parsing", {}))
 
                 if resume_parsing.get("status") != "parsed":
                     pending_result = {
@@ -106,21 +109,25 @@ async def _process_application_scoring(
                         "status": "pending_resume",
                     }
                     await session.flush()
-                    record_task_execution(task_name=APPLICATION_SCORING_TASK, status="pending_resume")
+                    record_task_execution(
+                        task_name=APPLICATION_SCORING_TASK, status="pending_resume")
                     await session.commit()
                     return {
                         "application_id": str(event.application_id),
                         "status": "pending_resume",
                     }
 
-                required_skills = normalize_skills(context["job_required_skills"])
+                required_skills = normalize_skills(
+                    context["job_required_skills"])
                 resume_structured_data = context["resume_structured_data"]
                 resume_skills = normalize_skills(
-                    resume_structured_data.get("skills", []) if isinstance(resume_structured_data, dict) else []
+                    resume_structured_data.get("skills", []) if isinstance(
+                        resume_structured_data, dict) else []
                 )
                 matched_skills = sorted(resume_skills & required_skills)
                 missing_skills = sorted(required_skills - resume_skills)
-                observed_match_score = 1.0 if not required_skills else len(matched_skills) / len(required_skills)
+                observed_match_score = 1.0 if not required_skills else len(
+                    matched_skills) / len(required_skills)
                 final_score = round(observed_match_score, 4)
 
                 scoring_result = {
@@ -169,7 +176,8 @@ async def _process_application_scoring(
                         "score": final_score,
                     },
                 )
-                record_task_execution(task_name=APPLICATION_SCORING_TASK, status="success")
+                record_task_execution(
+                    task_name=APPLICATION_SCORING_TASK, status="success")
                 await session.commit()
                 return {
                     "application_id": str(event.application_id),
@@ -185,7 +193,8 @@ async def _process_application_scoring(
                         "failed_at": datetime.now(timezone.utc).isoformat(),
                     },
                 )
-                record_task_execution(task_name=APPLICATION_SCORING_TASK, status="failure")
+                record_task_execution(
+                    task_name=APPLICATION_SCORING_TASK, status="failure")
                 await session.commit()
                 raise
     finally:

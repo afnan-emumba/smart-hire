@@ -56,7 +56,8 @@ async def observability_middleware(request: Request, call_next):
     tokens = bind_log_context(
         user_id=request.headers.get("X-User-ID"),
         workflow_id=request.headers.get("X-Workflow-ID"),
-        correlation_id=request.headers.get("X-Correlation-ID") or request.headers.get("X-Request-ID"),
+        correlation_id=request.headers.get(
+            "X-Correlation-ID") or request.headers.get("X-Request-ID"),
     )
     try:
         if settings.metrics_enabled:

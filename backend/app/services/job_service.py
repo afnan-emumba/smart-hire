@@ -64,7 +64,8 @@ class JobService:
         try:
             recruiter_id = uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid recruiter UUID") from exc
 
         recruiter = await self.recruiter_repo.get_by_id(recruiter_id)
         if recruiter is None:
@@ -167,10 +168,12 @@ class JobService:
             raise ForbiddenError("Not authorized to update this job")
 
         updates = job_update.model_dump(exclude_unset=True)
-        needs_rebuild = "description" in updates or ("title" in updates and existing_job.description is not None)
+        needs_rebuild = "description" in updates or (
+            "title" in updates and existing_job.description is not None)
         if needs_rebuild:
             effective_title = updates.get("title", existing_job.title)
-            effective_description = updates.get("description", existing_job.description)
+            effective_description = updates.get(
+                "description", existing_job.description)
             effective_required_skills = (
                 updates["required_skills"]
                 if "required_skills" in updates and updates["required_skills"] is not None
@@ -233,7 +236,8 @@ class JobService:
         owner_id = self._require_recruiter_user_id(current_user)
 
         if len(file_bytes) > self.settings.max_jd_size_bytes:
-            raise PayloadTooLargeError("Job description file exceeds the configured size limit")
+            raise PayloadTooLargeError(
+                "Job description file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Job description file is empty")
@@ -246,10 +250,12 @@ class JobService:
             raise ForbiddenError("Not authorized to modify this job")
 
         if job.status != JobStatus.DRAFT.value:
-            raise BadRequestError("Job description files can only be uploaded while the job is in draft")
+            raise BadRequestError(
+                "Job description files can only be uploaded while the job is in draft")
 
         if content_type != "application/pdf":
-            raise BadRequestError("Job description files must be uploaded as PDFs")
+            raise BadRequestError(
+                "Job description files must be uploaded as PDFs")
 
         upload_dir = Path(self.settings.jd_upload_dir)
         await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
@@ -257,7 +263,8 @@ class JobService:
         sanitized_name = Path(file_name).name
         suffix = Path(sanitized_name).suffix.lower()
         if suffix != ".pdf":
-            raise BadRequestError("Job description file must use a .pdf extension")
+            raise BadRequestError(
+                "Job description file must use a .pdf extension")
 
         stored_file_name = f"{job.id}{suffix}"
         file_path = upload_dir / stored_file_name
@@ -338,7 +345,8 @@ class JobService:
                 execution_timeout=timedelta(
                     seconds=self.settings.temporal_job_workflow_execution_timeout_seconds,
                 ),
-                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
+                task_timeout=timedelta(
+                    seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
@@ -360,7 +368,8 @@ class JobService:
             job = await self._finalize_pdf_breakdown(job)
         elif job.description_breakdown is None:
             if not job.description:
-                raise BadRequestError("Job has no description content to publish")
+                raise BadRequestError(
+                    "Job has no description content to publish")
 
             extracted_profile = await JobBreakdownService.extract_job_profile(
                 title=job.title,
@@ -377,7 +386,8 @@ class JobService:
                 ),
                 parsing_status="parsed",
                 parsing_error=None,
-                structured_updates=self._build_structured_updates(extracted_profile),
+                structured_updates=self._build_structured_updates(
+                    extracted_profile),
             )
 
         if job.description_breakdown is None:
@@ -416,7 +426,8 @@ class JobService:
         if job is None:
             raise NotFoundError("Job not found")
         if job.status != JobStatus.READY.value:
-            raise BadRequestError("JobPublished can only be emitted for ready jobs")
+            raise BadRequestError(
+                "JobPublished can only be emitted for ready jobs")
 
         event = JobPublishedEvent(
             aggregate_id=job.id,
@@ -446,7 +457,8 @@ class JobService:
                 self.job_repo.session,
                 workflow_name="job_publishing",
                 status="success",
-                duration_seconds=max((job.ready_at - job.processing_started_at).total_seconds(), 0.0),
+                duration_seconds=max(
+                    (job.ready_at - job.processing_started_at).total_seconds(), 0.0),
             )
 
     @staticmethod
@@ -457,7 +469,8 @@ class JobService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid recruiter UUID") from exc
 
     @staticmethod
     def _build_publish_workflow_id(job_id: uuid.UUID) -> str:
@@ -484,16 +497,19 @@ class JobService:
             raise BadRequestError("Job is not in a publishable state")
         if job.jd_source_type == "pdf_upload":
             if not job.jd_storage_path:
-                raise BadRequestError("Uploaded job description file is missing")
+                raise BadRequestError(
+                    "Uploaded job description file is missing")
             return
         if job.description or job.description_breakdown:
             return
-        raise BadRequestError("Job must have a manual description or uploaded PDF before publishing")
+        raise BadRequestError(
+            "Job must have a manual description or uploaded PDF before publishing")
 
     async def _finalize_pdf_breakdown(self, job: Any):
         try:
             file_bytes = await asyncio.to_thread(Path(job.jd_storage_path).read_bytes)
-            description = JobDescriptionPdfConverter.convert_pdf_to_markdown(file_bytes)
+            description = JobDescriptionPdfConverter.convert_pdf_to_markdown(
+                file_bytes)
             extracted_profile = await JobBreakdownService.extract_job_profile(
                 title=job.title,
                 description=description,
@@ -516,7 +532,8 @@ class JobService:
                     "publishing_error": str(exc),
                 },
             )
-            raise BadRequestError(f"Failed to finalize job description breakdown: {exc}") from exc
+            raise BadRequestError(
+                f"Failed to finalize job description breakdown: {exc}") from exc
 
         return await self.job_repo.set_job_description_parsing_result(
             job,
@@ -528,7 +545,8 @@ class JobService:
             ),
             parsing_status="parsed",
             parsing_error=None,
-            structured_updates=self._build_structured_updates(extracted_profile),
+            structured_updates=self._build_structured_updates(
+                extracted_profile),
         )
 
     async def _build_breakdown_fields(
@@ -540,7 +558,8 @@ class JobService:
         overrides: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         override_values = dict(overrides or {})
-        normalized_required_skills = self._merge_required_skills(required_skills, [])
+        normalized_required_skills = self._merge_required_skills(
+            required_skills, [])
         if not description:
             return {
                 **self._empty_structured_updates(),

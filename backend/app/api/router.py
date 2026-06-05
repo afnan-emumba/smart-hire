@@ -12,8 +12,12 @@ from app.api.routers.recruiters import router as recruiters_router
 
 api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])
-api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
-api_router.include_router(recruiters_router, prefix="/recruiters", tags=["recruiters"])
-api_router.include_router(candidates_router, prefix="/candidates", tags=["candidates"])
+api_router.include_router(
+    analytics_router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(
+    recruiters_router, prefix="/recruiters", tags=["recruiters"])
+api_router.include_router(
+    candidates_router, prefix="/candidates", tags=["candidates"])
 api_router.include_router(jobs_router, prefix="/jobs", tags=["jobs"])
-api_router.include_router(applications_router, prefix="/applications", tags=["applications"])
+api_router.include_router(
+    applications_router, prefix="/applications", tags=["applications"])

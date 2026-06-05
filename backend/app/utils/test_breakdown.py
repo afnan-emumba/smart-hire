@@ -17,7 +17,8 @@ SAMPLES_DIR = Path(__file__).resolve().parents[3] / "samples"
 
 async def main() -> None:
     for pdf_path in sorted(SAMPLES_DIR.glob("JD *.pdf")):
-        markdown = JobDescriptionPdfConverter.convert_pdf_to_markdown(pdf_path.read_bytes())
+        markdown = JobDescriptionPdfConverter.convert_pdf_to_markdown(
+            pdf_path.read_bytes())
         title_hint = _extract_title_hint(markdown) or pdf_path.stem
         profile = await JobBreakdownService.extract_job_profile(title=title_hint, description=markdown)
         print(f"=== {pdf_path.name} ===")
@@ -52,7 +53,6 @@ def _extract_title_hint(markdown: str) -> str | None:
         return title or None
 
     return None
-
 
 
 if __name__ == "__main__":

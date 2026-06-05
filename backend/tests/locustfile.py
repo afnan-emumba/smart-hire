@@ -68,8 +68,10 @@ class SmartHireLoadTest(HttpUser):
     _setup_state: SetupState | None = None
     _setup_error: str | None = None
 
-    _job_ready_timeout_seconds = _env_int("SMARTHIRE_LOCUST_JOB_READY_TIMEOUT_SECONDS", 180)
-    _job_ready_poll_interval_seconds = _env_float("SMARTHIRE_LOCUST_JOB_READY_POLL_SECONDS", 2.0)
+    _job_ready_timeout_seconds = _env_int(
+        "SMARTHIRE_LOCUST_JOB_READY_TIMEOUT_SECONDS", 180)
+    _job_ready_poll_interval_seconds = _env_float(
+        "SMARTHIRE_LOCUST_JOB_READY_POLL_SECONDS", 2.0)
 
     _cv_files: list[tuple[str, bytes]] = []
     _jd_bytes: bytes | None = None
@@ -219,7 +221,8 @@ class SmartHireLoadTest(HttpUser):
         with self.client.post(
             f"/jobs/{job_id}/description-file",
             headers=headers,
-            files={"description_file": (cls._jd_name, io.BytesIO(cls._jd_bytes), "application/pdf")},
+            files={"description_file": (cls._jd_name, io.BytesIO(
+                cls._jd_bytes), "application/pdf")},
             name="setup::upload_job_description",
             catch_response=True,
         ) as response:
@@ -227,7 +230,8 @@ class SmartHireLoadTest(HttpUser):
                 return False
 
             if response.status_code not in {200, 201, 202}:
-                response.failure(f"Failed to upload JD for job {job_id}: {response.status_code}")
+                response.failure(
+                    f"Failed to upload JD for job {job_id}: {response.status_code}")
                 return False
 
             response.success()
@@ -239,7 +243,8 @@ class SmartHireLoadTest(HttpUser):
         if setup_state is None:
             return
 
-        candidate_create_headers = build_headers(str(uuid.uuid4()), "CANDIDATE")
+        candidate_create_headers = build_headers(
+            str(uuid.uuid4()), "CANDIDATE")
         candidate_payload = {
             "email": random_email("candidate"),
             "name": "Load Candidate",
@@ -287,14 +292,16 @@ class SmartHireLoadTest(HttpUser):
         with self.client.post(
             f"/applications/{application_id}/resume",
             headers=headers,
-            files={"resume": (cv_name, io.BytesIO(cv_bytes), "application/pdf")},
+            files={"resume": (cv_name, io.BytesIO(
+                cv_bytes), "application/pdf")},
             name="application::upload_resume",
             catch_response=True,
         ) as response:
             if response.status_code == 0:
                 return False
             if response.status_code not in {200, 201, 202}:
-                response.failure(f"Failed to upload Resume: {response.status_code}")
+                response.failure(
+                    f"Failed to upload Resume: {response.status_code}")
                 return False
             response.success()
             return True
@@ -309,7 +316,8 @@ class SmartHireLoadTest(HttpUser):
             if response.status_code == 0:
                 return
             if response.status_code not in {200, 202}:
-                response.failure(f"Failed to submit application: {response.status_code}")
+                response.failure(
+                    f"Failed to submit application: {response.status_code}")
                 return
             response.success()
 

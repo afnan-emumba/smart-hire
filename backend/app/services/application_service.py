@@ -72,7 +72,8 @@ class ApplicationService:
         try:
             candidate_id = uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid candidate UUID") from exc
 
         submission_eligibility = await self.eligibility_service.check_submission_eligibility(
             candidate_id,
@@ -81,7 +82,8 @@ class ApplicationService:
         if not submission_eligibility.is_eligible:
             if submission_eligibility.reason == "You have already applied to this job":
                 raise ConflictError(submission_eligibility.reason)
-            raise BadRequestError(f"Not eligible: {submission_eligibility.reason}")
+            raise BadRequestError(
+                f"Not eligible: {submission_eligibility.reason}")
 
         application = await self.application_repo.create(
             application_create,
@@ -115,15 +117,18 @@ class ApplicationService:
         if application.candidate_id != candidate_id:
             raise ForbiddenError("Not authorized to submit this application")
         if application.resume_id is None:
-            raise BadRequestError("Upload a resume before submitting the application")
+            raise BadRequestError(
+                "Upload a resume before submitting the application")
 
         existing_workflow_id = application.workflow_id
-        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        submission_metadata = dict(
+            application.application_metadata.get("submission", {}))
         already_submitted = self._is_application_submitted(application)
 
         if not already_submitted:
             submitted_at = datetime.now(timezone.utc)
-            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(
+                application.id)
 
             application = await self.application_repo.set_workflow_tracking(
                 application,
@@ -143,18 +148,21 @@ class ApplicationService:
                 current_user=current_user,
                 workflow_id=workflow_id,
             )
-            queue_applications_received_increment(self.application_repo.session)
+            queue_applications_received_increment(
+                self.application_repo.session)
             parse_resume = application.resume_id is not None
             await self._start_application_workflow(application.id, parse_resume=parse_resume)
         else:
-            workflow_id = existing_workflow_id or self._build_application_workflow_id(application.id)
+            workflow_id = existing_workflow_id or self._build_application_workflow_id(
+                application.id)
             if existing_workflow_id is None:
                 application = await self.application_repo.set_workflow_tracking(
                     application,
                     workflow_id=workflow_id,
                 )
 
-        refreshed_submission_metadata = dict(application.application_metadata.get("submission", {}))
+        refreshed_submission_metadata = dict(
+            application.application_metadata.get("submission", {}))
         submitted_at_raw = refreshed_submission_metadata.get("submitted_at")
         submitted_at: datetime | None = None
         if isinstance(submitted_at_raw, str):
@@ -201,17 +209,20 @@ class ApplicationService:
         else:
             recruiter_id = self._require_recruiter_user_id(current_user)
             if candidate_id is not None and job_id is None:
-                raise BadRequestError("Recruiters must provide job_id when filtering by candidate_id")
+                raise BadRequestError(
+                    "Recruiters must provide job_id when filtering by candidate_id")
             if job_id is not None:
                 job = await self.job_repo.get_by_id(job_id)
                 if job is None:
                     raise NotFoundError("Job not found")
                 if job.recruiter_id != recruiter_id:
-                    raise ForbiddenError("Not authorized to view applications for this job")
+                    raise ForbiddenError(
+                        "Not authorized to view applications for this job")
 
         if candidate_id is not None and job_id is not None:
             application = await self.application_repo.get_by_job_and_candidate(job_id, candidate_id)
-            applications = self._filter_single_application(application, status_filter)
+            applications = self._filter_single_application(
+                application, status_filter)
         elif candidate_id is not None:
             applications = await self.application_repo.list_by_candidate(
                 candidate_id,
@@ -257,7 +268,8 @@ class ApplicationService:
         if job is None:
             raise NotFoundError("Job not found")
         if job.recruiter_id != recruiter_id:
-            raise ForbiddenError("Not authorized to view applications for this job")
+            raise ForbiddenError(
+                "Not authorized to view applications for this job")
         applications = await self.application_repo.list_by_job(
             job_id,
             status_filter=None,
@@ -290,7 +302,8 @@ class ApplicationService:
             if current_status == new_status:
                 return ApplicationResponse.model_validate(application)
             if not self._is_application_submitted(application):
-                raise BadRequestError("Application must be submitted before recruiters can change its status")
+                raise BadRequestError(
+                    "Application must be submitted before recruiters can change its status")
             if not is_valid_app_transition(current_status, new_status):
                 raise InvalidStateTransition(
                     f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
@@ -341,7 +354,8 @@ class ApplicationService:
                 workflow_name="candidate_application_initialization",
                 status="success",
                 duration_seconds=max(
-                    (updated_application.workflow_initialized_at - updated_application.created_at).total_seconds(),
+                    (updated_application.workflow_initialized_at -
+                     updated_application.created_at).total_seconds(),
                     0.0,
                 ),
             )
@@ -355,7 +369,8 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        resume_metadata = dict(application.application_metadata.get("resume_parsing", {}))
+        resume_metadata = dict(
+            application.application_metadata.get("resume_parsing", {}))
         resume = application.resume
 
         if resume is None:
@@ -520,7 +535,8 @@ class ApplicationService:
         candidate_id = self._require_candidate_user_id(current_user)
 
         if len(file_bytes) > self.settings.max_resume_size_bytes:
-            raise PayloadTooLargeError("Resume file exceeds the configured size limit")
+            raise PayloadTooLargeError(
+                "Resume file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Resume file is empty")
@@ -579,11 +595,11 @@ class ApplicationService:
             updated_application,
             section_name="resume_parsing",
             section_value={
-            "status": "pending",
-            "error": None,
-            "uploaded_at": uploaded_at.isoformat(),
-            "resume_id": str(resume.id),
-        },
+                "status": "pending",
+                "error": None,
+                "uploaded_at": uploaded_at.isoformat(),
+                "resume_id": str(resume.id),
+            },
         )
 
         return ApplicationResponse.model_validate(updated_application)
@@ -646,7 +662,8 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        notifications = dict(application.application_metadata.get("notifications", {}))
+        notifications = dict(
+            application.application_metadata.get("notifications", {}))
         notifications[notification_name] = notification_result
         updated_application = await self.application_repo.update_metadata_section(
             application,
@@ -683,7 +700,8 @@ class ApplicationService:
         structured_data: dict[str, Any] | None,
     ) -> CandidateResume:
         extraction_metadata = dict(resume.extraction_metadata)
-        extraction_metadata["last_processed_at"] = datetime.now(timezone.utc).isoformat()
+        extraction_metadata["last_processed_at"] = datetime.now(
+            timezone.utc).isoformat()
         extraction_metadata["parser_version"] = self._RESUME_PARSER_VERSION
         extraction_metadata["schema_version"] = self._RESUME_SCHEMA_VERSION
         return await self.candidate_resume_repo.update_parsing_result(
@@ -749,7 +767,8 @@ class ApplicationService:
         from app.celery_app import celery_app
         from app.tasks import APPLICATION_SCORING_TASK
 
-        workflow_id = application.workflow_id or self._build_application_workflow_id(application.id)
+        workflow_id = application.workflow_id or self._build_application_workflow_id(
+            application.id)
         event = ApplicationReceivedEvent(
             aggregate_id=application.id,
             application_id=application.id,
@@ -799,19 +818,19 @@ class ApplicationService:
                 execution_timeout=timedelta(
                     seconds=self.settings.temporal_application_workflow_execution_timeout_seconds,
                 ),
-                task_timeout=timedelta(seconds=self.settings.temporal_workflow_task_timeout_seconds),
+                task_timeout=timedelta(
+                    seconds=self.settings.temporal_workflow_task_timeout_seconds),
             )
         except WorkflowAlreadyStartedError:
             pass
         except Exception as exc:
-            logger.exception("Failed to start application workflow", extra={"application_id": str(application_id)})
+            logger.exception("Failed to start application workflow", extra={
+                             "application_id": str(application_id)})
             await self.application_repo.set_workflow_tracking(
                 application,
                 workflow_failed_at=datetime.now(timezone.utc),
                 workflow_error=f"Failed to start workflow: {exc}",
             )
-
-
 
     @staticmethod
     def _build_application_workflow_id(application_id: uuid.UUID) -> str:
@@ -836,7 +855,8 @@ class ApplicationService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid candidate UUID") from exc
 
     @staticmethod
     def _require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:
@@ -846,11 +866,13 @@ class ApplicationService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid recruiter UUID") from exc
 
     @staticmethod
     def _is_application_submitted(application: Application) -> bool:
-        submission_metadata = dict(application.application_metadata.get("submission", {}))
+        submission_metadata = dict(
+            application.application_metadata.get("submission", {}))
         return bool(submission_metadata.get("submitted", False) or application.workflow_id)
 
     async def check_eligibility_and_auto_reject(self, application_id: uuid.UUID) -> dict[str, Any]:
@@ -880,8 +902,10 @@ class ApplicationService:
         if job is None:
             raise NotFoundError("Job not found")
 
-        resume_skills = self.eligibility_service._normalize_skills(resume.structured_data.get("skills", []))
-        required_skills = self.eligibility_service._normalize_skills(job.required_skills or [])
+        resume_skills = self.eligibility_service._normalize_skills(
+            resume.structured_data.get("skills", []))
+        required_skills = self.eligibility_service._normalize_skills(
+            job.required_skills or [])
 
         if not required_skills:
             eligibility_result = EligibilityResult(

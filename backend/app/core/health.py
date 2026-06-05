@@ -36,7 +36,8 @@ async def check_tcp_dependency(host: str, port: int, *, dependency_name: str) ->
         await writer.wait_closed()
         return {"status": "up"}
     except Exception as exc:
-        logger.warning("%s health check failed", dependency_name, extra={"error": str(exc)})
+        logger.warning("%s health check failed",
+                       dependency_name, extra={"error": str(exc)})
         return {"status": "down", "error": str(exc)}
 
 
@@ -57,7 +58,8 @@ async def check_schema_registry() -> dict[str, str]:
         await asyncio.to_thread(perform_http_healthcheck, schema_request)
         return {"status": "up"}
     except Exception as exc:
-        logger.warning("Schema registry health check failed", extra={"error": str(exc)})
+        logger.warning("Schema registry health check failed",
+                       extra={"error": str(exc)})
         return {"status": "down", "error": str(exc)}
 
 
@@ -89,8 +91,10 @@ async def collect_dependency_results(session: AsyncSession) -> dict[str, dict[st
         settings.kafka_bootstrap_servers.split(",", maxsplit=1)[0],
         default_port=9092,
     )
-    rabbitmq_host, rabbitmq_port = parse_host_port(settings.rabbitmq_url, default_port=5672)
-    temporal_host, temporal_port = parse_host_port(settings.temporal_address, default_port=7233)
+    rabbitmq_host, rabbitmq_port = parse_host_port(
+        settings.rabbitmq_url, default_port=5672)
+    temporal_host, temporal_port = parse_host_port(
+        settings.temporal_address, default_port=7233)
 
     return {
         "database": await check_database(session),

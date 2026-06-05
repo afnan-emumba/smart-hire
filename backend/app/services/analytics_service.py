@@ -53,9 +53,11 @@ class AnalyticsService:
             application_to_interview_rate=application_to_interview_rate,
             average_time_to_hire_seconds=average_time_to_hire_seconds,
             average_time_to_hire_days=(
-                average_time_to_hire_seconds / 86400 if average_time_to_hire_seconds is not None else None
+                average_time_to_hire_seconds /
+                86400 if average_time_to_hire_seconds is not None else None
             ),
-            most_applied_jobs=[AnalyticsMostAppliedJob(**row) for row in most_applied_job_rows],
+            most_applied_jobs=[AnalyticsMostAppliedJob(
+                **row) for row in most_applied_job_rows],
             average_applications_per_candidate=average_applications_per_candidate,
             failed_workflows_system_errors=AnalyticsFailureSummary(
                 total_failed_workflows_system_errors=failure_total,

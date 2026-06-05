@@ -31,14 +31,18 @@ def upgrade() -> None:
         ),
     )
 
-    op.execute("ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_recruiter_id_fkey")
-    op.drop_index(op.f("ix_applications_recruiter_id"), table_name="applications")
+    op.execute(
+        "ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_recruiter_id_fkey")
+    op.drop_index(op.f("ix_applications_recruiter_id"),
+                  table_name="applications")
     op.drop_column("applications", "recruiter_id")
 
 
 def downgrade() -> None:
-    op.add_column("applications", sa.Column("recruiter_id", sa.UUID(), nullable=True))
-    op.create_index(op.f("ix_applications_recruiter_id"), "applications", ["recruiter_id"], unique=False)
+    op.add_column("applications", sa.Column(
+        "recruiter_id", sa.UUID(), nullable=True))
+    op.create_index(op.f("ix_applications_recruiter_id"),
+                    "applications", ["recruiter_id"], unique=False)
     op.create_foreign_key(
         "applications_recruiter_id_fkey",
         "applications",

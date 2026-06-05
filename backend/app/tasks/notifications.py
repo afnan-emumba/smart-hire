@@ -77,7 +77,8 @@ async def _send_application_received_notification(
                 )
 
             if record is None or not claimed:
-                record_task_execution(task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="skipped")
+                record_task_execution(
+                    task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="skipped")
                 await session.commit()
                 return {"application_id": str(event.application_id), "status": "skipped"}
 
@@ -104,7 +105,8 @@ async def _send_application_received_notification(
                         "headers": headers,
                     },
                 )
-                record_task_execution(task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="success")
+                record_task_execution(
+                    task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="success")
                 await session.commit()
                 return {
                     "application_id": str(event.application_id),
@@ -120,7 +122,8 @@ async def _send_application_received_notification(
                         "failed_at": datetime.now(timezone.utc).isoformat(),
                     },
                 )
-                record_task_execution(task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="failure")
+                record_task_execution(
+                    task_name=APPLICATION_RECEIVED_NOTIFICATION_TASK, status="failure")
                 await session.commit()
                 raise
     finally:

@@ -23,13 +23,18 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.drop_column("candidates", "resume_data")
 
-    op.add_column("applications", sa.Column("resume_file_name", sa.String(length=255), nullable=True))
-    op.add_column("applications", sa.Column("resume_content_type", sa.String(length=255), nullable=True))
-    op.add_column("applications", sa.Column("resume_storage_path", sa.String(length=1024), nullable=True))
-    op.add_column("applications", sa.Column("resume_uploaded_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_file_name", sa.String(length=255), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_content_type", sa.String(length=255), nullable=True))
+    op.add_column("applications", sa.Column(
+        "resume_storage_path", sa.String(length=1024), nullable=True))
+    op.add_column("applications", sa.Column("resume_uploaded_at",
+                  sa.DateTime(timezone=True), nullable=True))
     op.add_column(
         "applications",
-        sa.Column("resume_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("resume_data", postgresql.JSONB(
+            astext_type=sa.Text()), nullable=True),
     )
 
 
@@ -42,5 +47,6 @@ def downgrade() -> None:
 
     op.add_column(
         "candidates",
-        sa.Column("resume_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("resume_data", postgresql.JSONB(
+            astext_type=sa.Text()), nullable=True),
     )

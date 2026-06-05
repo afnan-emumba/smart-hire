@@ -101,7 +101,8 @@ async def _process_application_analytics(
                 )
 
             if record is None or not claimed:
-                record_task_execution(task_name=APPLICATION_ANALYTICS_TASK, status="skipped")
+                record_task_execution(
+                    task_name=APPLICATION_ANALYTICS_TASK, status="skipped")
                 await session.commit()
                 return {"application_id": str(event.application_id), "status": "skipped"}
 
@@ -129,7 +130,8 @@ async def _process_application_analytics(
                         "status": event.status,
                     },
                 )
-                record_task_execution(task_name=APPLICATION_ANALYTICS_TASK, status="success")
+                record_task_execution(
+                    task_name=APPLICATION_ANALYTICS_TASK, status="success")
                 await session.commit()
                 return {
                     "application_id": str(event.application_id),
@@ -145,7 +147,8 @@ async def _process_application_analytics(
                         "failed_at": datetime.now(timezone.utc).isoformat(),
                     },
                 )
-                record_task_execution(task_name=APPLICATION_ANALYTICS_TASK, status="failure")
+                record_task_execution(
+                    task_name=APPLICATION_ANALYTICS_TASK, status="failure")
                 await session.commit()
                 raise
     finally:
@@ -188,7 +191,8 @@ async def _process_job_published_analytics(
                 )
 
             if record is None or not claimed:
-                record_task_execution(task_name=JOB_ANALYTICS_TASK, status="skipped")
+                record_task_execution(
+                    task_name=JOB_ANALYTICS_TASK, status="skipped")
                 await session.commit()
                 return {"job_id": str(event.job_id), "status": "skipped"}
 
@@ -217,7 +221,8 @@ async def _process_job_published_analytics(
                         "updated_at": analytics_result["updated_at"],
                     },
                 )
-                record_task_execution(task_name=JOB_ANALYTICS_TASK, status="success")
+                record_task_execution(
+                    task_name=JOB_ANALYTICS_TASK, status="success")
                 await session.commit()
                 return {
                     "job_id": str(event.job_id),
@@ -233,7 +238,8 @@ async def _process_job_published_analytics(
                         "failed_at": datetime.now(timezone.utc).isoformat(),
                     },
                 )
-                record_task_execution(task_name=JOB_ANALYTICS_TASK, status="failure")
+                record_task_execution(
+                    task_name=JOB_ANALYTICS_TASK, status="failure")
                 await session.commit()
                 raise
     finally:

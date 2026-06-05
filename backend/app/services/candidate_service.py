@@ -80,4 +80,5 @@ class CandidateService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid candidate UUID") from exc

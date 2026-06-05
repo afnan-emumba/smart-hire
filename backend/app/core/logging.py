@@ -11,18 +11,24 @@ from app.core.config import Settings
 
 _logging_configured = False
 _user_id_var: ContextVar[str | None] = ContextVar("user_id", default=None)
-_workflow_id_var: ContextVar[str | None] = ContextVar("workflow_id", default=None)
-_correlation_id_var: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+_workflow_id_var: ContextVar[str | None] = ContextVar(
+    "workflow_id", default=None)
+_correlation_id_var: ContextVar[str | None] = ContextVar(
+    "correlation_id", default=None)
 
 
 class _StructuredContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         span_context = trace.get_current_span().get_span_context()
-        record.trace_id = format(span_context.trace_id, "032x") if span_context.is_valid else None
-        record.span_id = format(span_context.span_id, "016x") if span_context.is_valid else None
+        record.trace_id = format(
+            span_context.trace_id, "032x") if span_context.is_valid else None
+        record.span_id = format(span_context.span_id,
+                                "016x") if span_context.is_valid else None
         record.user_id = getattr(record, "user_id", _user_id_var.get())
-        record.workflow_id = getattr(record, "workflow_id", _workflow_id_var.get())
-        record.correlation_id = getattr(record, "correlation_id", _correlation_id_var.get())
+        record.workflow_id = getattr(
+            record, "workflow_id", _workflow_id_var.get())
+        record.correlation_id = getattr(
+            record, "correlation_id", _correlation_id_var.get())
         record.component = getattr(record, "component", record.name)
         return True
 

@@ -17,9 +17,6 @@ class Base(DeclarativeBase):
     pass
 
 
-
-
-
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -37,8 +34,10 @@ class TimestampMixin:
 class Recruiter(TimestampMixin, Base):
     __tablename__ = "recruiters"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(
+        String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="recruiter")
@@ -47,12 +46,16 @@ class Recruiter(TimestampMixin, Base):
 class Candidate(TimestampMixin, Base):
     __tablename__ = "candidates"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(
+        String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    applications: Mapped[list[Application]] = relationship(back_populates="candidate")
-    resumes: Mapped[list[CandidateResume]] = relationship(back_populates="candidate")
+    applications: Mapped[list[Application]] = relationship(
+        back_populates="candidate")
+    resumes: Mapped[list[CandidateResume]] = relationship(
+        back_populates="candidate")
 
 
 class CandidateResume(TimestampMixin, Base):
@@ -64,7 +67,8 @@ class CandidateResume(TimestampMixin, Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     candidate_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("candidates.id", ondelete="CASCADE"),
@@ -78,9 +82,12 @@ class CandidateResume(TimestampMixin, Base):
         index=True,
     )
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(
+        String(255), nullable=True)
+    storage_path: Mapped[str | None] = mapped_column(
+        String(1024), nullable=True)
+    uploaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     parsing_status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -88,8 +95,10 @@ class CandidateResume(TimestampMixin, Base):
         server_default="pending",
     )
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    parser_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(
+        String(64), nullable=True)
     schema_version: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
@@ -97,7 +106,8 @@ class CandidateResume(TimestampMixin, Base):
         server_default="resume_profile.v1",
     )
     raw_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
-    structured_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    structured_data: Mapped[dict[str, Any] |
+                            None] = mapped_column(JSONB, nullable=True)
     extraction_metadata: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
@@ -125,7 +135,8 @@ class Job(TimestampMixin, Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recruiter_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("recruiters.id", ondelete="RESTRICT"),
@@ -134,15 +145,23 @@ class Job(TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    employment_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    seniority_level: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    employment_type: Mapped[str | None] = mapped_column(
+        String(32), nullable=True)
+    seniority_level: Mapped[str | None] = mapped_column(
+        String(32), nullable=True)
     department: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    job_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    location: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    compensation: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    years_of_experience_required: Mapped[int | None] = mapped_column(nullable=True)
-    application_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    description_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    job_category: Mapped[str | None] = mapped_column(
+        String(100), nullable=True)
+    location: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, nullable=True)
+    compensation: Mapped[dict[str, Any] |
+                         None] = mapped_column(JSONB, nullable=True)
+    years_of_experience_required: Mapped[int |
+                                         None] = mapped_column(nullable=True)
+    application_deadline: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    description_breakdown: Mapped[dict[str, Any]
+                                  | None] = mapped_column(JSONB, nullable=True)
     analytics_metadata: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
@@ -155,7 +174,8 @@ class Job(TimestampMixin, Base):
         default=list,
         server_default=text("'[]'::jsonb"),
     )
-    jd_source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    jd_source_type: Mapped[str | None] = mapped_column(
+        String(32), nullable=True)
     jd_parsing_status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -163,15 +183,24 @@ class Job(TimestampMixin, Base):
         server_default="pending",
     )
     jd_parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    jd_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    jd_content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    jd_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    jd_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    publishing_workflow_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    publishing_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    jd_file_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True)
+    jd_content_type: Mapped[str | None] = mapped_column(
+        String(255), nullable=True)
+    jd_storage_path: Mapped[str | None] = mapped_column(
+        String(1024), nullable=True)
+    jd_uploaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    ready_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    publishing_workflow_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True)
+    publishing_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     publishing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(32),
@@ -181,7 +210,8 @@ class Job(TimestampMixin, Base):
     )
 
     recruiter: Mapped[Recruiter] = relationship(back_populates="jobs")
-    applications: Mapped[list[Application]] = relationship(back_populates="job")
+    applications: Mapped[list[Application]
+                         ] = relationship(back_populates="job")
     status_history: Mapped[list[JobStatusHistory]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
@@ -192,14 +222,16 @@ class Job(TimestampMixin, Base):
 class Application(TimestampMixin, Base):
     __tablename__ = "applications"
     __table_args__ = (
-        UniqueConstraint("job_id", "candidate_id", name="uq_applications_job_candidate"),
+        UniqueConstraint("job_id", "candidate_id",
+                         name="uq_applications_job_candidate"),
         CheckConstraint(
             "status IN ('pending', 'screening', 'interview', 'offer', 'rejected', 'accepted')",
             name="ck_applications_status_valid",
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("jobs.id", ondelete="CASCADE"),
@@ -218,16 +250,25 @@ class Application(TimestampMixin, Base):
         default=ApplicationStatus.PENDING.value,
         server_default=ApplicationStatus.PENDING.value,
     )
-    workflow_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    workflow_initialized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    workflow_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    workflow_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True)
+    workflow_initialized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    workflow_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     workflow_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    eligibility_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    screening_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    interview_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    offered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    eligibility_result: Mapped[dict[str, Any] |
+                               None] = mapped_column(JSONB, nullable=True)
+    screening_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    interview_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    offered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     application_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata",
         JSONB,
@@ -258,7 +299,8 @@ class Application(TimestampMixin, Base):
 class JobStatusHistory(Base):
     __tablename__ = "job_status_history"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("jobs.id", ondelete="CASCADE"),
@@ -267,8 +309,10 @@ class JobStatusHistory(Base):
     )
     from_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     to_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    changed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    changed_by_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    changed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True)
+    changed_by_role: Mapped[str | None] = mapped_column(
+        String(32), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
@@ -283,7 +327,8 @@ class JobStatusHistory(Base):
 class ApplicationStatusHistory(Base):
     __tablename__ = "application_status_history"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     application_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("applications.id", ondelete="CASCADE"),
@@ -292,8 +337,10 @@ class ApplicationStatusHistory(Base):
     )
     from_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     to_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    changed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    changed_by_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    changed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True)
+    changed_by_role: Mapped[str | None] = mapped_column(
+        String(32), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
@@ -302,7 +349,8 @@ class ApplicationStatusHistory(Base):
         nullable=False,
     )
 
-    application: Mapped[Application] = relationship(back_populates="status_history")
+    application: Mapped[Application] = relationship(
+        back_populates="status_history")
 
 
 class OutboxEvent(TimestampMixin, Base):
@@ -314,18 +362,24 @@ class OutboxEvent(TimestampMixin, Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    aggregate_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    aggregate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    topic_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    aggregate_type: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True)
+    topic_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(
+        String(128), nullable=False, index=True)
     schema_version: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
         default="v1",
         server_default="v1",
     )
-    idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True, index=True)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     headers: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
@@ -351,7 +405,8 @@ class OutboxEvent(TimestampMixin, Base):
         default=0,
         server_default="0",
     )
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
@@ -362,15 +417,22 @@ class EventProcessingRecord(TimestampMixin, Base):
             "status IN ('pending', 'queued', 'processing', 'completed', 'failed')",
             name="ck_event_processing_records_status_valid",
         ),
-        UniqueConstraint("event_id", "handler_name", name="uq_event_processing_records_event_handler"),
+        UniqueConstraint("event_id", "handler_name",
+                         name="uq_event_processing_records_event_handler"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    handler_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    topic_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    aggregate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True)
+    handler_name: Mapped[str] = mapped_column(
+        String(128), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(
+        String(128), nullable=False, index=True)
+    topic_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True)
     schema_version: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
@@ -389,8 +451,10 @@ class EventProcessingRecord(TimestampMixin, Base):
         default=0,
         server_default="0",
     )
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     processing_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata",

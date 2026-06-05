@@ -35,11 +35,13 @@ class SkillExtractor:
         "Google Analytics": ("google analytics",),
     }
 
-    _EXPERT_KEYWORDS = re.compile(r"\b(expert|advanced|senior|lead|deep expertise|highly proficient)\b")
+    _EXPERT_KEYWORDS = re.compile(
+        r"\b(expert|advanced|senior|lead|deep expertise|highly proficient)\b")
     _INTERMEDIATE_KEYWORDS = re.compile(
         r"\b(intermediate|proficient|strong|solid|hands[- ]on|practical experience)\b"
     )
-    _ENTRY_KEYWORDS = re.compile(r"\b(entry|junior|basic|familiar|working knowledge)\b")
+    _ENTRY_KEYWORDS = re.compile(
+        r"\b(entry|junior|basic|familiar|working knowledge)\b")
     _YEARS_PATTERN = re.compile(r"(?P<years>\d+)\+?\s*(?:years?|yrs?)")
 
     @classmethod
@@ -73,7 +75,8 @@ class SkillExtractor:
                 continue
 
             for keyword in keywords:
-                pattern = re.compile(rf"(?<!\w){re.escape(keyword.lower())}(?!\w)")
+                pattern = re.compile(
+                    rf"(?<!\w){re.escape(keyword.lower())}(?!\w)")
                 if pattern.search(line):
                     matching_lines.append(line)
                     break

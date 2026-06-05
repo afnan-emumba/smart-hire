@@ -36,7 +36,8 @@ class ResumePdfConverter:
 
         normalized_lines = cls._normalize_lines(raw_text)
         if not normalized_lines:
-            raise ValueError("Uploaded PDF does not contain readable resume text")
+            raise ValueError(
+                "Uploaded PDF does not contain readable resume text")
 
         return "\n".join(normalized_lines)
 

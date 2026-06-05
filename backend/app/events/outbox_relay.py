@@ -76,13 +76,15 @@ class OutboxRelay:
                         await repository.mark_failed(event, error_message=str(exc))
                         logger.exception(
                             "Outbox publish permanently failed",
-                            extra={"event_id": str(event.id), "topic_name": event.topic_name},
+                            extra={"event_id": str(
+                                event.id), "topic_name": event.topic_name},
                         )
                     else:
                         await repository.reset_claim(event, error_message=str(exc))
                         logger.warning(
                             "Outbox publish failed; event returned to pending",
-                            extra={"event_id": str(event.id), "topic_name": event.topic_name},
+                            extra={"event_id": str(
+                                event.id), "topic_name": event.topic_name},
                         )
                         await session.commit()
                         await asyncio.sleep(self.settings.event_relay_retry_backoff_seconds)

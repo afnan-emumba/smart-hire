@@ -26,7 +26,8 @@ def upgrade() -> None:
         existing_type=sa.Text(),
         nullable=True,
     )
-    op.add_column("jobs", sa.Column("jd_source_type", sa.String(length=32), nullable=True))
+    op.add_column("jobs", sa.Column("jd_source_type",
+                  sa.String(length=32), nullable=True))
     op.add_column(
         "jobs",
         sa.Column(
@@ -36,11 +37,16 @@ def upgrade() -> None:
             server_default="not_started",
         ),
     )
-    op.add_column("jobs", sa.Column("jd_parsing_error", sa.Text(), nullable=True))
-    op.add_column("jobs", sa.Column("jd_file_name", sa.String(length=255), nullable=True))
-    op.add_column("jobs", sa.Column("jd_content_type", sa.String(length=255), nullable=True))
-    op.add_column("jobs", sa.Column("jd_storage_path", sa.String(length=1024), nullable=True))
-    op.add_column("jobs", sa.Column("jd_uploaded_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("jobs", sa.Column(
+        "jd_parsing_error", sa.Text(), nullable=True))
+    op.add_column("jobs", sa.Column("jd_file_name",
+                  sa.String(length=255), nullable=True))
+    op.add_column("jobs", sa.Column("jd_content_type",
+                  sa.String(length=255), nullable=True))
+    op.add_column("jobs", sa.Column("jd_storage_path",
+                  sa.String(length=1024), nullable=True))
+    op.add_column("jobs", sa.Column("jd_uploaded_at",
+                  sa.DateTime(timezone=True), nullable=True))
 
     op.execute(
         """

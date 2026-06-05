@@ -54,7 +54,8 @@ class SchemaRegistryClient:
                 f"Schema registry request failed for subject '{subject}': {exc.code} {body}"
             ) from exc
         except error.URLError as exc:
-            raise RuntimeError(f"Schema registry is unavailable: {exc.reason}") from exc
+            raise RuntimeError(
+                f"Schema registry is unavailable: {exc.reason}") from exc
 
 
 class KafkaEventPublisher:
@@ -78,7 +79,8 @@ class KafkaEventPublisher:
                     sort_keys=True,
                     separators=(",", ":"),
                 ).encode("utf-8"),
-                key_serializer=lambda key: key.encode("utf-8") if key is not None else None,
+                key_serializer=lambda key: key.encode(
+                    "utf-8") if key is not None else None,
             )
             await self._producer.start()
             await self.ensure_registered_contracts()

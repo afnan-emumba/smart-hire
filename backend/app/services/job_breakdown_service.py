@@ -112,21 +112,30 @@ class JobBreakdownService:
         (re.compile(r"\bremote\b", re.IGNORECASE), "remote"),
     )
     _CATEGORY_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
-        (re.compile(r"\bbackend\b", re.IGNORECASE), "Engineering", "Backend Engineering"),
-        (re.compile(r"\bfrontend\b", re.IGNORECASE), "Engineering", "Frontend Engineering"),
-        (re.compile(r"\bfull[- ]?stack\b", re.IGNORECASE), "Engineering", "Full-Stack Engineering"),
-        (re.compile(r"\bdevops\b|\bsre\b|\bplatform\b", re.IGNORECASE), "Engineering", "Platform Engineering"),
-        (re.compile(r"\bdata engineer\b|\bdata scientist\b|\banalyst\b", re.IGNORECASE), "Data", "Data"),
-        (re.compile(r"\bproduct manager\b|\bproduct owner\b", re.IGNORECASE), "Product", "Product Management"),
+        (re.compile(r"\bbackend\b", re.IGNORECASE),
+         "Engineering", "Backend Engineering"),
+        (re.compile(r"\bfrontend\b", re.IGNORECASE),
+         "Engineering", "Frontend Engineering"),
+        (re.compile(r"\bfull[- ]?stack\b", re.IGNORECASE),
+         "Engineering", "Full-Stack Engineering"),
+        (re.compile(r"\bdevops\b|\bsre\b|\bplatform\b", re.IGNORECASE),
+         "Engineering", "Platform Engineering"),
+        (re.compile(r"\bdata engineer\b|\bdata scientist\b|\banalyst\b",
+         re.IGNORECASE), "Data", "Data"),
+        (re.compile(r"\bproduct manager\b|\bproduct owner\b",
+         re.IGNORECASE), "Product", "Product Management"),
         (re.compile(r"\bdesigner\b|\bux\b|\bui\b", re.IGNORECASE), "Design", "Design"),
-        (re.compile(r"\brecruit\b|\btalent\b|\bhr\b", re.IGNORECASE), "People", "People Operations"),
+        (re.compile(r"\brecruit\b|\btalent\b|\bhr\b",
+         re.IGNORECASE), "People", "People Operations"),
     )
-    _YEARS_REQUIRED_PATTERN = re.compile(r"(?P<years>\d+)(?:\s*-\s*\d+)?\+?\s+(?:years?|yrs?)\s+of\s+experience", re.IGNORECASE)
+    _YEARS_REQUIRED_PATTERN = re.compile(
+        r"(?P<years>\d+)(?:\s*-\s*\d+)?\+?\s+(?:years?|yrs?)\s+of\s+experience", re.IGNORECASE)
     _CURRENCY_PATTERN = re.compile(
         r"(?P<currency>USD|EUR|GBP|AED|SAR|PKR|INR|\$|€|£)\s*(?P<min>[\d,]+)(?:\s*[-–to]{1,3}\s*(?P<max>[\d,]+))?",
         re.IGNORECASE,
     )
-    _DEADLINE_PATTERNS: tuple[str, ...] = ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y")
+    _DEADLINE_PATTERNS: tuple[str, ...] = (
+        "%Y-%m-%d", "%B %d, %Y", "%b %d, %Y")
 
     @classmethod
     async def breakdown_job_description(cls, description: str) -> JobBreakdown:
@@ -145,10 +154,13 @@ class JobBreakdownService:
         responsibilities = cls._extract_responsibilities(sections)
         benefits = cls._extract_benefits(sections)
         overview = cls._extract_overview(sections)
-        years_of_experience_required = cls._extract_years_of_experience_required(sections)
+        years_of_experience_required = cls._extract_years_of_experience_required(
+            sections)
         employment_type = cls._extract_employment_type(sections)
-        seniority_level = cls._extract_seniority_level(title, normalized_description)
-        department, job_category = cls._extract_department_and_category(title, sections)
+        seniority_level = cls._extract_seniority_level(
+            title, normalized_description)
+        department, job_category = cls._extract_department_and_category(
+            title, sections)
         application_deadline = cls._extract_application_deadline(sections)
 
         return {
@@ -295,7 +307,8 @@ class JobBreakdownService:
                 continue
 
             fields_of_study = cls._extract_fields_of_study(line)
-            dedupe_key = (level, tuple(field.casefold() for field in fields_of_study))
+            dedupe_key = (level, tuple(field.casefold()
+                          for field in fields_of_study))
             if dedupe_key in seen:
                 continue
             seen.add(dedupe_key)
@@ -327,11 +340,13 @@ class JobBreakdownService:
         if parenthetical_match is not None:
             location_text = parenthetical_match.group("location")
         else:
-            location_text = re.sub(r"\b(on[- ]?site|hybrid|remote)\b", "", raw_text, flags=re.IGNORECASE).strip(" ,-")
+            location_text = re.sub(
+                r"\b(on[- ]?site|hybrid|remote)\b", "", raw_text, flags=re.IGNORECASE).strip(" ,-")
 
         city = state = country = None
         if location_text:
-            parts = [part.strip() for part in location_text.split(",") if part.strip()]
+            parts = [part.strip()
+                     for part in location_text.split(",") if part.strip()]
             if len(parts) >= 1:
                 city = parts[0]
             if len(parts) >= 2:
@@ -365,7 +380,8 @@ class JobBreakdownService:
             if match is not None:
                 currency = cls._normalize_currency(match.group("currency"))
                 min_amount = cls._parse_amount(match.group("min"))
-                max_amount = cls._parse_amount(match.group("max")) if match.group("max") else None
+                max_amount = cls._parse_amount(match.group(
+                    "max")) if match.group("max") else None
 
             lowered = raw_text.casefold()
             if "hour" in lowered:
@@ -504,7 +520,8 @@ class JobBreakdownService:
     def _match_section_heading(cls, line: str) -> tuple[str | None, str | None]:
         for section_name, aliases in cls._SECTION_ALIASES.items():
             for alias in aliases:
-                pattern = re.compile(rf"^(?:#+\s*)?{re.escape(alias)}\s*:?\s*(.*)$", re.IGNORECASE)
+                pattern = re.compile(
+                    rf"^(?:#+\s*)?{re.escape(alias)}\s*:?\s*(.*)$", re.IGNORECASE)
                 match = pattern.match(line)
                 if match is None:
                     continue
@@ -561,7 +578,8 @@ class JobBreakdownService:
             return []
 
         cleaned = match.group(1).strip().rstrip(".")
-        cleaned = re.sub(r"\bor a related (?:field|eld)\b", "", cleaned, flags=re.IGNORECASE).strip(" ,")
+        cleaned = re.sub(r"\bor a related (?:field|eld)\b", "",
+                         cleaned, flags=re.IGNORECASE).strip(" ,")
         if not cleaned:
             return []
 

@@ -37,9 +37,11 @@ def configure_tracing(
         return
 
     if not _provider_configured:
-        resource = Resource.create({"service.name": settings.otel_service_name})
+        resource = Resource.create(
+            {"service.name": settings.otel_service_name})
         tracer_provider = TracerProvider(resource=resource)
-        span_exporter = OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint, insecure=True)
+        span_exporter = OTLPSpanExporter(
+            endpoint=settings.otel_exporter_otlp_endpoint, insecure=True)
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
         trace.set_tracer_provider(tracer_provider)
         _provider_configured = True

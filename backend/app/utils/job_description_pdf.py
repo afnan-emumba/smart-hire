@@ -45,7 +45,8 @@ class JobDescriptionPdfConverter:
 
         normalized_lines = cls._normalize_lines(raw_text)
         if not normalized_lines:
-            raise ValueError("Uploaded PDF does not contain readable job description text")
+            raise ValueError(
+                "Uploaded PDF does not contain readable job description text")
 
         return "\n".join(normalized_lines)
 

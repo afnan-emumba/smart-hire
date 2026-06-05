@@ -30,7 +30,8 @@ class BaseEvent(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     event_id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    occurred_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     schema_version: str = "v1"
     aggregate_id: uuid.UUID
     workflow_id: str | None = None
