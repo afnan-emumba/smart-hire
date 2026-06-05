@@ -163,6 +163,30 @@ async def parse_application_resume(application_id: str) -> dict[str, Any]:
 
 
 @activity.defn
+async def check_application_eligibility_and_auto_reject(application_id: str) -> dict[str, Any]:
+    """Check eligibility after resume parsing. Auto-reject if score < 50%."""
+    parsed_application_id = uuid.UUID(application_id)
+    tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)
+    try:
+        with start_trace_span(
+            "temporal.activity.check_application_eligibility_and_auto_reject",
+            attributes={
+                "smarthire.application_id": application_id,
+                "smarthire.workflow_id": activity.info().workflow_id,
+            },
+        ):
+            activity.logger.info(
+                "Checking application eligibility after resume parsing",
+                extra={"application_id": application_id},
+            )
+            return await _run_application_service_operation(
+                lambda service: service.check_eligibility_and_auto_reject(parsed_application_id),
+            )
+    finally:
+        reset_log_context(tokens)
+
+
+@activity.defn
 async def mark_job_publishing_failed(job_id: str, error_message: str) -> dict[str, Any]:
     parsed_job_id = uuid.UUID(job_id)
     tokens = bind_log_context(workflow_id=activity.info().workflow_id, correlation_id=activity.info().workflow_id)

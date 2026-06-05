@@ -34,7 +34,6 @@ flowchart LR
 - Create and fetch candidate records.
 - Update and delete the authenticated candidate's own profile.
 - Prevent duplicate candidate emails during create and update flows.
-- Persist `master_profile_data` as the candidate-level aggregate profile with a strict schema: `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
 - Keep candidate profiles independent from application-specific resume variants.
 
 ### JobService
@@ -74,9 +73,9 @@ flowchart LR
 
 - Confirms that the target job exists and is in `ready` status.
 - Rejects duplicate applications before create.
-- Compares candidate skills from `master_profile_data.skills` against `jobs.required_skills`.
-- Enforces the threshold of at least 50 percent skills overlap.
-- Returns a structured eligibility result that is persisted on the created application.
+- Evaluates candidate eligibility based on resume parsing at scoring time.
+- Application scoring uses resume skills only (parsed from the uploaded resume file).
+- Applications with resume match score ≤ 0.5 are automatically rejected; scores > 0.5 proceed to screening.
 
 ## Event and Worker Responsibilities
 

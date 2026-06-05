@@ -8,6 +8,7 @@ from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     from app.temporal.activities import (
+        check_application_eligibility_and_auto_reject,
         finalize_job_breakdown,
         initialize_application_processing,
         mark_application_workflow_failed,
@@ -115,6 +116,13 @@ class CandidateApplicationWorkflow:
                     parse_application_resume,
                     input.application_id,
                     start_to_close_timeout=timedelta(minutes=8),
+                    retry_policy=retry_policy,
+                )
+                
+                result = await workflow.execute_activity(
+                    check_application_eligibility_and_auto_reject,
+                    input.application_id,
+                    start_to_close_timeout=timedelta(minutes=3),
                     retry_policy=retry_policy,
                 )
 

@@ -91,11 +91,12 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - `jobs.description` represents canonical markdown content, whether provided manually or produced later by the parser
 - JD files are stored locally in `uploads/job_descriptions/` during development; internal storage paths stay out of API responses
 
-### Structured Candidate Profiles
+### Application Scoring & Resume-Based Matching
 
-- Candidate-level `master_profile_data` is stored as structured JSONB
-- Canonical profile sections are `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`
-- Uploaded resume files and parser output live in candidate-owned resume snapshots; applications only reference the specific resume used for that submission
+- Application scoring is based solely on resume parsing; each resume is evaluated independently
+- Candidates must attach a resume before submitting an application
+- Applications with resume score ≤ 0.5 are automatically rejected; scores > 0.5 move to screening status
+- Uploaded resume files and parser output live in candidate-owned resume snapshots; applications reference the specific resume used for that submission
 
 ---
 
@@ -290,7 +291,7 @@ SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes five co
 | Table                 | Purpose                    | Key Fields                                                                                                                                                        |
 | --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **recruiters**        | Hiring team members        | id (UUID), email, name, timestamps                                                                                                                                |
-| **candidates**        | Job seekers                | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                                                   |
+| **candidates**        | Job seekers                | id (UUID), email, name, timestamps                                                                                                                                |
 | **jobs**              | Job postings               | id (UUID), recruiter_id (FK), title, description, description_breakdown (JSONB), status, required_skills (JSONB), timestamps                                      |
 | **candidate_resumes** | Candidate resume snapshots | id (UUID), candidate_id (FK), source_application_id (FK), file_name, content_type, storage_path, uploaded_at, parsing_status, structured_data (JSONB), timestamps |
 | **applications**      | Candidate submissions      | id (UUID), job_id (FK), candidate_id (FK), resume_id (FK), status, metadata (JSONB), timestamps                                                                   |

@@ -20,7 +20,7 @@ from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
 from app.repositories.outbox_repo import OutboxRepository
 from app.events.schemas import ApplicationReceivedEvent
-from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationSubmitResponse
+from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationSubmitResponse, EligibilityResult
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.services.exceptions import (
@@ -116,19 +116,6 @@ class ApplicationService:
             raise ForbiddenError("Not authorized to submit this application")
         if application.resume_id is None:
             raise BadRequestError("Upload a resume before submitting the application")
-
-        resume_eligibility = await self.eligibility_service.check_submission_resume_eligibility(
-            candidate_id,
-            application.job_id,
-            application.resume_id,
-        )
-        if not resume_eligibility.is_eligible:
-            raise BadRequestError(f"Cannot submit: {resume_eligibility.reason}")
-
-        application = await self.application_repo.update_eligibility_result(
-            application,
-            eligibility_result=resume_eligibility.model_dump(),
-        )
 
         existing_workflow_id = application.workflow_id
         submission_metadata = dict(application.application_metadata.get("submission", {}))
@@ -600,7 +587,6 @@ class ApplicationService:
             "eligibility_result": dict(application.eligibility_result or {}),
             "application_metadata": dict(application.application_metadata),
             "job_required_skills": list(job.required_skills or []),
-            "candidate_master_profile": dict(candidate.master_profile_data or {}),
             "resume_structured_data": (
                 dict(latest_resume.structured_data)
                 if latest_resume is not None and latest_resume.structured_data is not None
@@ -842,3 +828,89 @@ class ApplicationService:
     def _is_application_submitted(application: Application) -> bool:
         submission_metadata = dict(application.application_metadata.get("submission", {}))
         return bool(submission_metadata.get("submitted", False) or application.workflow_id)
+
+    async def check_eligibility_and_auto_reject(self, application_id: uuid.UUID) -> dict[str, Any]:
+        """Update parsed-resume eligibility after resume parsing and early-reject clear misses."""
+        application = await self.application_repo.get_by_id(application_id)
+        if application is None:
+            raise NotFoundError("Application not found")
+
+        if application.resume_id is None:
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 0.0,
+                "auto_rejected": False,
+            }
+
+        resume = await self.candidate_resume_repo.get_by_id(application.resume_id)
+        if resume is None or resume.structured_data is None:
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 0.0,
+                "auto_rejected": False,
+            }
+
+        job = await self.job_repo.get_by_id(application.job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+
+        resume_skills = self.eligibility_service._normalize_skills(resume.structured_data.get("skills", []))
+        required_skills = self.eligibility_service._normalize_skills(job.required_skills or [])
+
+        if not required_skills:
+            eligibility_result = EligibilityResult(
+                is_eligible=True,
+                reason="Job has no required skills configured",
+                missing_skills=[],
+                match_score=1.0,
+            )
+            await self.application_repo.update_eligibility_result(
+                application,
+                eligibility_result=eligibility_result.model_dump(),
+            )
+            return {
+                "application_id": str(application.id),
+                "status": application.status,
+                "match_score": 1.0,
+                "auto_rejected": False,
+            }
+
+        matched_skills = resume_skills & required_skills
+        match_score = len(matched_skills) / len(required_skills)
+
+        eligibility_result = EligibilityResult(
+            is_eligible=match_score >= 0.5,
+            reason="Auto-evaluated based on parsed resume",
+            missing_skills=sorted(required_skills - resume_skills),
+            match_score=match_score,
+        )
+
+        application = await self.application_repo.update_eligibility_result(
+            application,
+            eligibility_result=eligibility_result.model_dump(),
+        )
+
+        if not eligibility_result.is_eligible:
+            await self.application_repo.update_status(
+                application,
+                status=ApplicationStatus.REJECTED,
+                changed_by_user_id=None,
+                changed_by_role="SYSTEM",
+                reason="Parsed resume did not meet minimum skill threshold",
+            )
+            return {
+                "application_id": str(application.id),
+                "status": ApplicationStatus.REJECTED.value,
+                "reason": eligibility_result.reason,
+                "match_score": match_score,
+                "auto_rejected": True,
+            }
+
+        return {
+            "application_id": str(application.id),
+            "status": application.status,
+            "match_score": match_score,
+            "auto_rejected": False,
+        }

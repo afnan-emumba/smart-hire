@@ -104,7 +104,7 @@ class SmartHireLoadTest(HttpUser):
                 cls._setup_error = f"Failed to read sample JD file: {e}"
                 return
 
-            cv_names = ["CV 1.pdf", "CV 2.pdf", "CV 3.pdf"]
+            cv_names = ["CV 2.pdf", "CV 2.pdf", "CV 2.pdf"]
             cls._cv_files = []
             for name in cv_names:
                 cv_path = samples_dir / name
@@ -243,10 +243,6 @@ class SmartHireLoadTest(HttpUser):
         candidate_payload = {
             "email": random_email("candidate"),
             "name": "Load Candidate",
-            "master_profile_data": {
-                "summary": "Backend engineer experienced with event-driven systems",
-                "skills": ["Python", "FastAPI", "PostgreSQL"],
-            },
         }
         candidate_response = self._post_json(
             "/candidates",

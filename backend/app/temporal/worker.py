@@ -10,6 +10,7 @@ from app.core.logging import configure_logging
 from app.core.tracing import configure_tracing
 from app.db.session import engine
 from app.temporal.activities import (
+    check_application_eligibility_and_auto_reject,
     finalize_job_breakdown,
     initialize_application_processing,
     mark_application_workflow_failed,
@@ -44,7 +45,12 @@ async def start_worker() -> None:
         client,
         task_queue=settings.temporal_application_task_queue,
         workflows=[CandidateApplicationWorkflow],
-        activities=[initialize_application_processing, parse_application_resume, mark_application_workflow_failed],
+        activities=[
+            initialize_application_processing,
+            parse_application_resume,
+            check_application_eligibility_and_auto_reject,
+            mark_application_workflow_failed,
+        ],
         max_concurrent_workflow_tasks=settings.temporal_worker_max_concurrent_workflow_tasks,
         max_concurrent_activities=settings.temporal_worker_max_concurrent_activities,
         max_concurrent_workflow_task_polls=settings.temporal_worker_max_concurrent_workflow_task_polls,

@@ -97,7 +97,7 @@ class EligibilityService:
                 match_score=0.0,
             )
 
-        candidate_skills = await self._resolve_candidate_skills(candidate_id, candidate.master_profile_data)
+        candidate_skills = await self._resolve_candidate_skills(candidate_id)
         required_skills = self._normalize_skills(job.required_skills or [])
 
         if not required_skills:
@@ -139,15 +139,10 @@ class EligibilityService:
     async def _resolve_candidate_skills(
         self,
         candidate_id: uuid.UUID,
-        master_profile_data: dict,
     ) -> set[str]:
-        canonical_skills = self._normalize_skills(master_profile_data.get("skills", []))
-        if canonical_skills:
-            return canonical_skills
-
         latest_resume = await self.candidate_resume_repo.get_latest_parsed_for_candidate(candidate_id)
         if latest_resume is None or latest_resume.structured_data is None:
-            return canonical_skills
+            return set()
 
         return self._normalize_skills(latest_resume.structured_data.get("skills", []))
 
