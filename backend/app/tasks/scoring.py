@@ -108,7 +108,6 @@ async def _process_application_scoring(
                         "status": "pending_resume",
                     }
 
-                eligibility_result = dict(context["eligibility_result"])
                 required_skills = normalize_skills(context["job_required_skills"])
                 resume_structured_data = context["resume_structured_data"]
                 resume_skills = normalize_skills(
@@ -117,8 +116,7 @@ async def _process_application_scoring(
                 matched_skills = sorted(resume_skills & required_skills)
                 missing_skills = sorted(required_skills - resume_skills)
                 observed_match_score = 1.0 if not required_skills else len(matched_skills) / len(required_skills)
-                eligibility_match_score = float(eligibility_result.get("match_score") or 0.0)
-                final_score = round(((eligibility_match_score * 0.6) + (observed_match_score * 0.4)), 4)
+                final_score = round(observed_match_score, 4)
 
                 scoring_result = {
                     "status": "completed",
@@ -128,8 +126,7 @@ async def _process_application_scoring(
                     "matched_skills": matched_skills,
                     "missing_skills": missing_skills,
                     "inputs": {
-                        "eligibility_match_score": eligibility_match_score,
-                        "observed_match_score": round(observed_match_score, 4),
+                        "observed_match_score": final_score,
                         "required_skill_count": len(required_skills),
                         "resume_skill_count": len(resume_skills),
                         "resume_data_available": resume_structured_data is not None,
