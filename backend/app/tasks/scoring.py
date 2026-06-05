@@ -29,13 +29,16 @@ def process_application_scoring(
     payload: dict[str, Any],
     headers: dict[str, str],
 ) -> dict[str, Any]:
-    return run_async_task(
+    result = run_async_task(
         _process_application_scoring(
             payload=payload,
             headers=headers,
             celery_task_id=self.request.id,
         )
     )
+    if result.get("status") == "pending_resume":
+        raise self.retry(countdown=5, exc=RuntimeError("Resume not parsed yet"))
+    return result
 
 
 async def _process_application_scoring(
@@ -92,15 +95,17 @@ async def _process_application_scoring(
                         event.application_id,
                         scoring_result=pending_result,
                     )
-                    await processing_repo.mark_completed(
-                        record,
-                        metadata={
-                            "celery_task_id": celery_task_id,
-                            "event_type": event.event_type(),
-                            "headers": headers,
-                            "status": "pending_resume",
-                        },
-                    )
+                    record.status = "pending"
+                    record.completed_at = None
+                    record.last_error = None
+                    record.processing_metadata = {
+                        **record.processing_metadata,
+                        "celery_task_id": celery_task_id,
+                        "event_type": event.event_type(),
+                        "headers": headers,
+                        "status": "pending_resume",
+                    }
+                    await session.flush()
                     record_task_execution(task_name=APPLICATION_SCORING_TASK, status="pending_resume")
                     await session.commit()
                     return {
