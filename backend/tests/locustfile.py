@@ -91,7 +91,7 @@ class SmartHireLoadTest(HttpUser):
             if cls._cv_files and cls._jd_bytes is not None:
                 return
 
-            samples_dir = Path(__file__).resolve().parents[2] / "samples"
+            samples_dir = Path(__file__).resolve().parent / "samples"
             jd_path = samples_dir / cls._jd_name
 
             if not jd_path.exists():
@@ -104,7 +104,7 @@ class SmartHireLoadTest(HttpUser):
                 cls._setup_error = f"Failed to read sample JD file: {e}"
                 return
 
-            cv_names = ["CV 2.pdf", "CV 2.pdf", "CV 2.pdf"]
+            cv_names = ["CV 1.pdf", "CV 2.pdf", "CV 3.pdf"]
             cls._cv_files = []
             for name in cv_names:
                 cv_path = samples_dir / name
