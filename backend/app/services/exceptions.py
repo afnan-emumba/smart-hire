@@ -25,8 +25,12 @@ class PayloadTooLargeError(ServiceError):
     pass
 
 
-class InvalidStateTransition(ServiceError):
+class InvalidStateTransitionError(ServiceError):
     pass
 
 
-InvalidStateTransitionError = InvalidStateTransition
+InvalidStateTransition = InvalidStateTransitionError
+
+
+class ServiceUnavailableError(ServiceError):
+    pass

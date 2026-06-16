@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import logging
 import uuid
+
+from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import CurrentUser
 from app.repositories.candidate_repo import CandidateRepository
 from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from app.services.exceptions import BadRequestError, ConflictError, ForbiddenError, NotFoundError
+from app.utils.db_errors import is_unique_violation
+
+
+logger = logging.getLogger(__name__)
 
 
 class CandidateService:
@@ -17,7 +24,21 @@ class CandidateService:
         if existing_candidate is not None:
             raise ConflictError("Candidate with this email already exists")
 
-        candidate = await self.candidate_repo.create(candidate_create)
+        try:
+            candidate = await self.candidate_repo.create(candidate_create)
+        except IntegrityError as exc:
+            if is_unique_violation(exc):
+                logger.info(
+                    "Candidate creation conflicted with a concurrent request",
+                    extra={"email": candidate_create.email},
+                )
+                raise ConflictError("Candidate with this email already exists") from exc
+            logger.exception(
+                "Failed to create candidate",
+                extra={"email": candidate_create.email},
+            )
+            raise
+
         return CandidateResponse.model_validate(candidate)
 
     async def get_candidate(self, candidate_id: uuid.UUID) -> CandidateResponse:
@@ -50,10 +71,24 @@ class CandidateService:
             if existing_candidate is not None and existing_candidate.id != candidate_id:
                 raise ConflictError("Candidate with this email already exists")
 
-        updated_candidate = await self.candidate_repo.update(
-            candidate_id,
-            candidate_update.model_dump(mode="json", exclude_unset=True),
-        )
+        try:
+            updated_candidate = await self.candidate_repo.update(
+                candidate_id,
+                candidate_update.model_dump(mode="json", exclude_unset=True),
+            )
+        except IntegrityError as exc:
+            if is_unique_violation(exc):
+                logger.info(
+                    "Candidate update conflicted with a concurrent request",
+                    extra={"candidate_id": str(candidate_id), "email": candidate_update.email},
+                )
+                raise ConflictError("Candidate with this email already exists") from exc
+            logger.exception(
+                "Failed to update candidate",
+                extra={"candidate_id": str(candidate_id)},
+            )
+            raise
+
         if updated_candidate is None:
             raise NotFoundError("Candidate not found")
 

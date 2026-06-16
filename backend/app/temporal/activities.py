@@ -20,8 +20,8 @@ from app.services.job_service import JobService
 
 
 async def _run_job_service_operation(
-    operation: Callable[[JobService], Awaitable[dict[str, Any]]],
-) -> dict[str, Any]:
+    operation: Callable[[JobService], Awaitable[Any]],
+) -> Any:
     async with SessionLocal() as session:
         service = JobService(
             job_repo=JobRepository(session),
@@ -31,15 +31,15 @@ async def _run_job_service_operation(
         try:
             result = await operation(service)
             await session.commit()
-            return result
+            return _serialize_result(result)
         except Exception:
             await session.rollback()
             raise
 
 
 async def _run_application_service_operation(
-    operation: Callable[[ApplicationService], Awaitable[dict[str, Any]]],
-) -> dict[str, Any]:
+    operation: Callable[[ApplicationService], Awaitable[Any]],
+) -> Any:
     async with SessionLocal() as session:
         application_repo = ApplicationRepository(session)
         candidate_repo = CandidateRepository(session)
@@ -62,7 +62,7 @@ async def _run_application_service_operation(
         try:
             result = await operation(service)
             await session.commit()
-            return result
+            return _serialize_result(result)
         except Exception:
             await session.rollback()
             raise
@@ -114,3 +114,9 @@ async def parse_application_resume(application_id: str) -> dict[str, Any]:
     return await _run_application_service_operation(
         lambda service: service.process_uploaded_resume(parsed_application_id),
     )
+
+
+def _serialize_result(result: Any) -> Any:
+    if hasattr(result, "model_dump"):
+        return result.model_dump(mode="json")
+    return result

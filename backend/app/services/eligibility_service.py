@@ -8,7 +8,7 @@ from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
-from app.schemas.application import EligibilityResult
+from app.schemas.application import EligibilityReasonCode, EligibilityResult
 from app.services.exceptions import NotFoundError
 
 
@@ -43,6 +43,7 @@ class EligibilityService:
         if job.status != JobStatus.READY.value:
             return EligibilityResult(
                 is_eligible=False,
+                reason_code=EligibilityReasonCode.JOB_NOT_READY,
                 reason="Job is not yet published",
                 match_score=0.0,
             )
@@ -54,6 +55,7 @@ class EligibilityService:
         if existing_application is not None:
             return EligibilityResult(
                 is_eligible=False,
+                reason_code=EligibilityReasonCode.DUPLICATE_APPLICATION,
                 reason="You have already applied to this job",
                 match_score=0.0,
             )
@@ -64,6 +66,7 @@ class EligibilityService:
         if active_application_count >= self.settings.max_applications_per_candidate:
             return EligibilityResult(
                 is_eligible=False,
+                reason_code=EligibilityReasonCode.MAX_ACTIVE_APPLICATIONS,
                 reason=(
                     "You have reached the maximum of "
                     f"{self.settings.max_applications_per_candidate} active applications"
@@ -77,6 +80,7 @@ class EligibilityService:
         if not required_skills:
             return EligibilityResult(
                 is_eligible=True,
+                reason_code=EligibilityReasonCode.NO_REQUIRED_SKILLS,
                 reason="Job has no required skills configured",
                 match_score=1.0,
             )
@@ -88,6 +92,7 @@ class EligibilityService:
         if match_score < 0.5:
             return EligibilityResult(
                 is_eligible=False,
+                reason_code=EligibilityReasonCode.INSUFFICIENT_SKILLS,
                 reason="You don't have enough required skills",
                 missing_skills=missing_skills,
                 match_score=match_score,
@@ -95,6 +100,7 @@ class EligibilityService:
 
         return EligibilityResult(
             is_eligible=True,
+            reason_code=EligibilityReasonCode.ELIGIBLE,
             reason="You meet the job requirements",
             missing_skills=missing_skills,
             match_score=match_score,
