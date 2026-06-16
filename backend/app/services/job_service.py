@@ -1,43 +1,45 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import timedelta
 from typing import Any
+
+from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from app.core.auth import CurrentUser
 from app.core.config import Settings
+from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
 from app.core.enums import JobStatus
 from app.core.state_machine import StateMachine
 from app.repositories.job_repo import JobRepository
 from app.repositories.recruiter_repo import RecruiterRepository
-from app.schemas.job import JobCreate, JobResponse, JobUpdate, PublishJobResponse
-from app.temporal.client import TemporalClient
-from app.utils.job_description_pdf import JobDescriptionPdfConverter
-from app.services.job_breakdown_service import JobBreakdownService
+from app.schemas.job import (
+    JobBreakdownFields,
+    JobBreakdownValidationResponse,
+    JobCreate,
+    JobCreatePayload,
+    JobResponse,
+    JobUpdate,
+    PublishJobResponse,
+)
 from app.services.exceptions import (
     BadRequestError,
     ForbiddenError,
     InvalidStateTransitionError,
     NotFoundError,
     PayloadTooLargeError,
+    ServiceUnavailableError,
 )
-from temporalio.exceptions import WorkflowAlreadyStartedError
+from app.services.job_breakdown_service import JobBreakdownService
+from app.temporal.client import TemporalClient
+from app.utils.job_description_pdf import JobDescriptionPdfConverter
 
 
-STRUCTURED_JOB_METADATA_FIELDS = {
-    "employment_type",
-    "seniority_level",
-    "department",
-    "job_category",
-    "location",
-    "compensation",
-    "years_of_experience_required",
-    "application_deadline",
-}
+logger = logging.getLogger(__name__)
 
 
 class JobService:
@@ -73,26 +75,15 @@ class JobService:
                 exclude_none=True,
             ),
         )
-        job_data = {
-            "title": job_create.title,
-            "description": job_create.description,
-            "employment_type": breakdown_fields["employment_type"],
-            "seniority_level": breakdown_fields["seniority_level"],
-            "department": breakdown_fields["department"],
-            "job_category": breakdown_fields["job_category"],
-            "location": breakdown_fields["location"],
-            "compensation": breakdown_fields["compensation"],
-            "years_of_experience_required": breakdown_fields["years_of_experience_required"],
-            "application_deadline": breakdown_fields["application_deadline"],
-            "required_skills": breakdown_fields["required_skills"],
-            "jd_source_type": "manual_text" if job_create.description else None,
-            "jd_parsing_status": breakdown_fields["jd_parsing_status"],
-            "jd_parsing_error": breakdown_fields["jd_parsing_error"],
-            "description_breakdown": breakdown_fields["description_breakdown"],
-            "status": breakdown_fields["status"],
-        }
+        job_data = JobCreatePayload.model_validate(
+            {
+                **job_create.model_dump(mode="json"),
+                **breakdown_fields.model_dump(mode="json"),
+                "jd_source_type": "manual_text" if job_create.description else None,
+            }
+        )
         job = await self.job_repo.create(
-            job_data,
+            job_data.model_dump(mode="json"),
             recruiter_id=recruiter_id,
             changed_by_role=current_user.role,
         )
@@ -164,20 +155,32 @@ class JobService:
             )
             if "description" in updates and updates["description"] is not None:
                 updates["jd_source_type"] = "manual_text"
-            updates["jd_parsing_status"] = breakdown_fields["jd_parsing_status"]
-            updates["jd_parsing_error"] = breakdown_fields["jd_parsing_error"]
-            updates["description_breakdown"] = breakdown_fields["description_breakdown"]
-            updates["employment_type"] = breakdown_fields["employment_type"]
-            updates["seniority_level"] = breakdown_fields["seniority_level"]
-            updates["department"] = breakdown_fields["department"]
-            updates["job_category"] = breakdown_fields["job_category"]
-            updates["location"] = breakdown_fields["location"]
-            updates["compensation"] = breakdown_fields["compensation"]
-            updates["years_of_experience_required"] = breakdown_fields["years_of_experience_required"]
-            updates["application_deadline"] = breakdown_fields["application_deadline"]
-            updates["required_skills"] = breakdown_fields["required_skills"]
+            updates["jd_parsing_status"] = breakdown_fields.jd_parsing_status
+            updates["jd_parsing_error"] = breakdown_fields.jd_parsing_error
+            updates["description_breakdown"] = (
+                breakdown_fields.description_breakdown.model_dump(mode="json")
+                if breakdown_fields.description_breakdown is not None
+                else None
+            )
+            updates["employment_type"] = breakdown_fields.employment_type
+            updates["seniority_level"] = breakdown_fields.seniority_level
+            updates["department"] = breakdown_fields.department
+            updates["job_category"] = breakdown_fields.job_category
+            updates["location"] = (
+                breakdown_fields.location.model_dump(mode="json")
+                if breakdown_fields.location is not None
+                else None
+            )
+            updates["compensation"] = (
+                breakdown_fields.compensation.model_dump(mode="json")
+                if breakdown_fields.compensation is not None
+                else None
+            )
+            updates["years_of_experience_required"] = breakdown_fields.years_of_experience_required
+            updates["application_deadline"] = breakdown_fields.application_deadline
+            updates["required_skills"] = breakdown_fields.required_skills
             if existing_job.status == JobStatus.DRAFT.value:
-                updates["status"] = breakdown_fields["status"]
+                updates["status"] = breakdown_fields.status
 
         if "status" in updates:
             try:
@@ -302,10 +305,10 @@ class JobService:
             workflow_id=workflow_id,
         )
 
-        client = await TemporalClient.get_client()
-        from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
-
         try:
+            client = await TemporalClient.get_client()
+            from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
+
             await client.start_workflow(
                 JobPublishingWorkflow.run,
                 JobPublishingInput(job_id=str(job_id)),
@@ -314,7 +317,16 @@ class JobService:
                 execution_timeout=timedelta(minutes=5),
             )
         except WorkflowAlreadyStartedError:
-            pass
+            logger.info(
+                "Job publishing workflow already started",
+                extra={"job_id": str(job_id), "workflow_id": workflow_id},
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to start job publishing workflow",
+                extra={"job_id": str(job_id), "workflow_id": workflow_id},
+            )
+            raise ServiceUnavailableError("Temporal workflow service is unavailable") from exc
 
         return PublishJobResponse(
             job_id=job_id,
@@ -322,7 +334,7 @@ class JobService:
             status=updated_job.status,
         )
 
-    async def finalize_job_breakdown(self, job_id: uuid.UUID) -> dict[str, Any]:
+    async def finalize_job_breakdown(self, job_id: uuid.UUID) -> JobBreakdownValidationResponse:
         job = await self.job_repo.get_by_id(job_id)
         if job is None:
             raise NotFoundError("Job not found")
@@ -343,7 +355,7 @@ class JobService:
             job = await self.job_repo.set_job_description_parsing_result(
                 job,
                 description=job.description,
-                description_breakdown=breakdown.model_dump(),
+                description_breakdown=breakdown.model_dump(mode="json"),
                 required_skills=self._merge_required_skills(
                     job.required_skills,
                     [skill.name for skill in breakdown.skills],
@@ -354,13 +366,17 @@ class JobService:
             )
 
         if job.description_breakdown is None:
-            raise BadRequestError("Job breakdown is not available")
+            return JobBreakdownValidationResponse(
+                job_id=job.id,
+                breakdown_validated=False,
+                jd_parsing_status=job.jd_parsing_status,
+            )
 
-        return {
-            "job_id": str(job.id),
-            "breakdown_validated": self._is_breakdown_complete(job.description_breakdown),
-            "jd_parsing_status": job.jd_parsing_status,
-        }
+        return JobBreakdownValidationResponse(
+            job_id=job.id,
+            breakdown_validated=self._is_breakdown_complete(job.description_breakdown),
+            jd_parsing_status=job.jd_parsing_status,
+        )
 
     async def update_job_status(self, job_id: uuid.UUID, target_status: JobStatus) -> JobResponse:
         job = await self.job_repo.get_by_id(job_id)
@@ -435,7 +451,11 @@ class JobService:
             )
             breakdown = extracted_profile["breakdown"]
         except Exception as exc:
-            await self.job_repo.set_job_description_parsing_result(
+            logger.exception(
+                "Failed to finalize job description breakdown",
+                extra={"job_id": str(job.id)},
+            )
+            failed_job = await self.job_repo.set_job_description_parsing_result(
                 job,
                 description=None,
                 description_breakdown=None,
@@ -451,12 +471,12 @@ class JobService:
                     "publishing_error": str(exc),
                 },
             )
-            raise BadRequestError(f"Failed to finalize job description breakdown: {exc}") from exc
+            return failed_job
 
         return await self.job_repo.set_job_description_parsing_result(
             job,
             description=description,
-            description_breakdown=breakdown.model_dump(),
+            description_breakdown=breakdown.model_dump(mode="json"),
             required_skills=self._merge_required_skills(
                 job.required_skills,
                 [skill.name for skill in breakdown.skills],
@@ -473,19 +493,21 @@ class JobService:
         description: str | None,
         required_skills: list[str],
         overrides: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> JobBreakdownFields:
         override_values = dict(overrides or {})
         normalized_required_skills = self._merge_required_skills(required_skills, [])
         if not description:
-            return {
-                **self._empty_structured_updates(),
-                **override_values,
-                "description_breakdown": None,
-                "required_skills": normalized_required_skills,
-                "jd_parsing_status": "pending",
-                "jd_parsing_error": None,
-                "status": JobStatus.DRAFT.value,
-            }
+            return JobBreakdownFields.model_validate(
+                {
+                    **self._empty_structured_updates(),
+                    **override_values,
+                    "description_breakdown": None,
+                    "required_skills": normalized_required_skills,
+                    "jd_parsing_status": "pending",
+                    "jd_parsing_error": None,
+                    "status": JobStatus.DRAFT.value,
+                }
+            )
 
         try:
             extracted_profile = await JobBreakdownService.extract_job_profile(
@@ -494,26 +516,30 @@ class JobService:
             )
             breakdown = extracted_profile["breakdown"]
         except Exception as exc:
-            return {
-                **self._empty_structured_updates(),
-                **override_values,
-                "description_breakdown": None,
-                "required_skills": normalized_required_skills,
-                "jd_parsing_status": "failed",
-                "jd_parsing_error": str(exc),
-                "status": JobStatus.DRAFT.value,
-            }
+            return JobBreakdownFields.model_validate(
+                {
+                    **self._empty_structured_updates(),
+                    **override_values,
+                    "description_breakdown": None,
+                    "required_skills": normalized_required_skills,
+                    "jd_parsing_status": "failed",
+                    "jd_parsing_error": str(exc),
+                    "status": JobStatus.DRAFT.value,
+                }
+            )
 
         extracted_skills = [skill.name for skill in breakdown.skills]
-        return {
-            **self._build_structured_updates(extracted_profile),
-            **override_values,
-            "description_breakdown": breakdown.model_dump(),
-            "required_skills": self._merge_required_skills(required_skills, extracted_skills),
-            "jd_parsing_status": "parsed",
-            "jd_parsing_error": None,
-            "status": JobStatus.DRAFT.value,
-        }
+        return JobBreakdownFields.model_validate(
+            {
+                **self._build_structured_updates(extracted_profile),
+                **override_values,
+                "description_breakdown": breakdown.model_dump(mode="json"),
+                "required_skills": self._merge_required_skills(required_skills, extracted_skills),
+                "jd_parsing_status": "parsed",
+                "jd_parsing_error": None,
+                "status": JobStatus.DRAFT.value,
+            }
+        )
 
     @staticmethod
     def _merge_required_skills(base_skills: list[str], extracted_skills: list[str]) -> list[str]:
@@ -536,16 +562,7 @@ class JobService:
 
     @staticmethod
     def _empty_structured_updates() -> dict[str, Any]:
-        return {
-            "employment_type": None,
-            "seniority_level": None,
-            "department": None,
-            "job_category": None,
-            "location": None,
-            "compensation": None,
-            "years_of_experience_required": None,
-            "application_deadline": None,
-        }
+        return {field_name: None for field_name in STRUCTURED_JOB_METADATA_FIELDS}
 
     @classmethod
     def _build_structured_updates(cls, extracted_profile: dict[str, Any]) -> dict[str, Any]:
@@ -565,5 +582,5 @@ class JobService:
         if value is None:
             return None
         if hasattr(value, "model_dump"):
-            return value.model_dump()
+            return value.model_dump(mode="json")
         return value

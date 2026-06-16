@@ -13,9 +13,10 @@ from app.services.exceptions import (
     BadRequestError,
     ConflictError,
     ForbiddenError,
-    InvalidStateTransition,
+    InvalidStateTransitionError,
     NotFoundError,
     PayloadTooLargeError,
+    ServiceUnavailableError,
 )
 from app.temporal.client import TemporalClient
 
@@ -79,12 +80,21 @@ async def handle_payload_too_large(_: object, exc: PayloadTooLargeError) -> JSON
     return _json_error(413, str(exc))
 
 
-@app.exception_handler(InvalidStateTransition)
+@app.exception_handler(InvalidStateTransitionError)
 async def handle_invalid_state_transition(
     _: object,
-    exc: InvalidStateTransition,
+    exc: InvalidStateTransitionError,
 ) -> JSONResponse:
     return _json_error(400, str(exc))
+
+
+@app.exception_handler(ServiceUnavailableError)
+async def handle_service_unavailable(_: object, exc: ServiceUnavailableError) -> JSONResponse:
+    logger.error(
+        "Service unavailable",
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    return _json_error(503, str(exc))
 
 
 @app.exception_handler(Exception)

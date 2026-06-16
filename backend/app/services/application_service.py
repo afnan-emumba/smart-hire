@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
-from datetime import datetime, timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy.exc import IntegrityError
+from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from app.core.auth import CurrentUser
 from app.core.application_states import ApplicationStatus, is_valid_app_transition
@@ -15,20 +18,30 @@ from app.repositories.application_repo import ApplicationRepository
 from app.repositories.candidate_repo import CandidateRepository
 from app.repositories.candidate_resume_repo import CandidateResumeRepository
 from app.repositories.job_repo import JobRepository
-from app.schemas.application import ApplicationCreate, ApplicationResponse
+from app.schemas.application import (
+    ApplicationCreate,
+    ApplicationResponse,
+    ApplicationWorkflowStateResponse,
+    EligibilityReasonCode,
+    ResumeProcessingResponse,
+)
 from app.services.eligibility_service import EligibilityService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.services.exceptions import (
     BadRequestError,
     ConflictError,
     ForbiddenError,
-    InvalidStateTransition,
+    InvalidStateTransitionError,
     NotFoundError,
     PayloadTooLargeError,
+    ServiceUnavailableError,
 )
 from app.temporal.client import TemporalClient
+from app.utils.db_errors import is_unique_violation
 from app.utils.resume_pdf import ResumePdfConverter
-from temporalio.exceptions import WorkflowAlreadyStartedError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationService:
@@ -62,23 +75,45 @@ class ApplicationService:
         try:
             candidate_id = uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid candidate UUID") from exc
 
         eligibility = await self.eligibility_service.check_eligibility(
             candidate_id,
             application_create.job_id,
         )
         if not eligibility.is_eligible:
-            if eligibility.reason == "You have already applied to this job":
+            if eligibility.reason_code == EligibilityReasonCode.DUPLICATE_APPLICATION:
                 raise ConflictError(eligibility.reason)
             raise BadRequestError(f"Not eligible: {eligibility.reason}")
 
-        application = await self.application_repo.create(
-            application_create,
-            candidate_id=candidate_id,
-            status=ApplicationStatus.PENDING,
-            eligibility_result=eligibility.model_dump(),
-        )
+        try:
+            application = await self.application_repo.create(
+                application_create,
+                candidate_id=candidate_id,
+                status=ApplicationStatus.PENDING,
+                eligibility_result=eligibility.model_dump(mode="json"),
+            )
+        except IntegrityError as exc:
+            if is_unique_violation(exc):
+                logger.info(
+                    "Application creation conflicted with a concurrent request",
+                    extra={
+                        "candidate_id": str(candidate_id),
+                        "job_id": str(application_create.job_id),
+                    },
+                )
+                raise ConflictError(
+                    "You have already applied to this job") from exc
+
+            logger.exception(
+                "Failed to create application",
+                extra={
+                    "candidate_id": str(candidate_id),
+                    "job_id": str(application_create.job_id),
+                },
+            )
+            raise
 
         await self._start_application_workflow(application.id)
         return ApplicationResponse.model_validate(application)
@@ -114,17 +149,20 @@ class ApplicationService:
         else:
             recruiter_id = self._require_recruiter_user_id(current_user)
             if candidate_id is not None and job_id is None:
-                raise BadRequestError("Recruiters must provide job_id when filtering by candidate_id")
+                raise BadRequestError(
+                    "Recruiters must provide job_id when filtering by candidate_id")
             if job_id is not None:
                 job = await self.job_repo.get_by_id(job_id)
                 if job is None:
                     raise NotFoundError("Job not found")
                 if job.recruiter_id != recruiter_id:
-                    raise ForbiddenError("Not authorized to view applications for this job")
+                    raise ForbiddenError(
+                        "Not authorized to view applications for this job")
 
         if candidate_id is not None and job_id is not None:
             application = await self.application_repo.get_by_job_and_candidate(job_id, candidate_id)
-            applications = self._filter_single_application(application, status_filter)
+            applications = self._filter_single_application(
+                application, status_filter)
         elif candidate_id is not None:
             applications = await self.application_repo.list_by_candidate(
                 candidate_id,
@@ -176,7 +214,7 @@ class ApplicationService:
         if current_status == new_status:
             return ApplicationResponse.model_validate(application)
         if not is_valid_app_transition(current_status, new_status):
-            raise InvalidStateTransition(
+            raise InvalidStateTransitionError(
                 f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
             )
 
@@ -188,7 +226,10 @@ class ApplicationService:
         )
         return ApplicationResponse.model_validate(updated_application)
 
-    async def initialize_application_workflow_state(self, application_id: uuid.UUID) -> dict[str, Any]:
+    async def initialize_application_workflow_state(
+        self,
+        application_id: uuid.UUID,
+    ) -> ApplicationWorkflowStateResponse:
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
             raise NotFoundError("Application not found")
@@ -213,12 +254,12 @@ class ApplicationService:
             application,
             metadata=workflow_metadata,
         )
-        return {
-            "application_id": str(updated_application.id),
-            "status": updated_application.status,
-        }
+        return ApplicationWorkflowStateResponse(
+            application_id=updated_application.id,
+            status=updated_application.status,
+        )
 
-    async def process_uploaded_resume(self, application_id: uuid.UUID) -> dict[str, Any]:
+    async def process_uploaded_resume(self, application_id: uuid.UUID) -> ResumeProcessingResponse:
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
             raise NotFoundError("Application not found")
@@ -228,25 +269,29 @@ class ApplicationService:
         resume = application.resume
 
         if resume is None:
-            resume_metadata.update({
-                "status": "pending_upload",
-                "error": None,
-            })
+            resume_metadata.update(
+                {
+                    "status": "pending_upload",
+                    "error": None,
+                }
+            )
             workflow_metadata["resume_parsing"] = resume_metadata
             await self.application_repo.update_resume_parsing(
                 application,
                 metadata=workflow_metadata,
             )
-            return {
-                "application_id": str(application.id),
-                "resume_parsing_status": resume_metadata["status"],
-            }
+            return ResumeProcessingResponse(
+                application_id=application.id,
+                resume_parsing_status=resume_metadata["status"],
+            )
 
         if resume.content_type != "application/pdf":
-            resume_metadata.update({
-                "status": "unsupported",
-                "error": "Resume parsing currently supports PDF uploads only",
-            })
+            resume_metadata.update(
+                {
+                    "status": "unsupported",
+                    "error": "Resume parsing currently supports PDF uploads only",
+                }
+            )
             workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
@@ -260,15 +305,17 @@ class ApplicationService:
                 application,
                 metadata=workflow_metadata,
             )
-            return {
-                "application_id": str(application.id),
-                "resume_parsing_status": resume_metadata["status"],
-            }
+            return ResumeProcessingResponse(
+                application_id=application.id,
+                resume_parsing_status=resume_metadata["status"],
+            )
 
-        resume_metadata.update({
-            "status": "processing",
-            "error": None,
-        })
+        resume_metadata.update(
+            {
+                "status": "processing",
+                "error": None,
+            }
+        )
         workflow_metadata["resume_parsing"] = resume_metadata
         await self.application_repo.update_resume_parsing(
             application,
@@ -276,10 +323,12 @@ class ApplicationService:
         )
 
         if resume.storage_path is None:
-            resume_metadata.update({
-                "status": "failed",
-                "error": "Resume storage path is missing",
-            })
+            resume_metadata.update(
+                {
+                    "status": "failed",
+                    "error": "Resume storage path is missing",
+                }
+            )
             workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
@@ -293,17 +342,19 @@ class ApplicationService:
                 application,
                 metadata=workflow_metadata,
             )
-            return {
-                "application_id": str(application.id),
-                "resume_parsing_status": resume_metadata["status"],
-            }
+            return ResumeProcessingResponse(
+                application_id=application.id,
+                resume_parsing_status=resume_metadata["status"],
+            )
 
         resume_path = Path(resume.storage_path)
         if not resume_path.exists():
-            resume_metadata.update({
-                "status": "failed",
-                "error": "Uploaded resume file is no longer available",
-            })
+            resume_metadata.update(
+                {
+                    "status": "failed",
+                    "error": "Uploaded resume file is no longer available",
+                }
+            )
             workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
@@ -317,20 +368,22 @@ class ApplicationService:
                 application,
                 metadata=workflow_metadata,
             )
-            return {
-                "application_id": str(application.id),
-                "resume_parsing_status": resume_metadata["status"],
-            }
+            return ResumeProcessingResponse(
+                application_id=application.id,
+                resume_parsing_status=resume_metadata["status"],
+            )
 
         try:
             file_bytes = await asyncio.to_thread(resume_path.read_bytes)
             markdown = await asyncio.to_thread(ResumePdfConverter.convert_pdf_to_markdown, file_bytes)
             parsed_resume = await ResumeParsingService.extract_resume_profile(markdown)
         except ValueError as exc:
-            resume_metadata.update({
-                "status": "failed",
-                "error": str(exc),
-            })
+            resume_metadata.update(
+                {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            )
             workflow_metadata["resume_parsing"] = resume_metadata
             await self._update_resume_record(
                 resume,
@@ -344,17 +397,19 @@ class ApplicationService:
                 application,
                 metadata=workflow_metadata,
             )
-            return {
-                "application_id": str(application.id),
-                "resume_parsing_status": resume_metadata["status"],
-            }
+            return ResumeProcessingResponse(
+                application_id=application.id,
+                resume_parsing_status=resume_metadata["status"],
+            )
 
         parsed_at = datetime.now(timezone.utc)
-        resume_metadata.update({
-            "status": "parsed",
-            "error": None,
-            "parsed_at": parsed_at.isoformat(),
-        })
+        resume_metadata.update(
+            {
+                "status": "parsed",
+                "error": None,
+                "parsed_at": parsed_at.isoformat(),
+            }
+        )
         workflow_metadata["resume_parsing"] = resume_metadata
         await self._update_resume_record(
             resume,
@@ -368,10 +423,10 @@ class ApplicationService:
             application,
             metadata=workflow_metadata,
         )
-        return {
-            "application_id": str(updated_application.id),
-            "resume_parsing_status": resume_metadata["status"],
-        }
+        return ResumeProcessingResponse(
+            application_id=updated_application.id,
+            resume_parsing_status=resume_metadata["status"],
+        )
 
     async def upload_resume(
         self,
@@ -388,7 +443,8 @@ class ApplicationService:
         candidate_id = self._require_candidate_user_id(current_user)
 
         if len(file_bytes) > self.settings.max_resume_size_bytes:
-            raise PayloadTooLargeError("Resume file exceeds the configured size limit")
+            raise PayloadTooLargeError(
+                "Resume file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Resume file is empty")
@@ -470,7 +526,8 @@ class ApplicationService:
         structured_data: dict[str, Any] | None,
     ) -> CandidateResume:
         extraction_metadata = dict(resume.extraction_metadata)
-        extraction_metadata["last_processed_at"] = datetime.now(timezone.utc).isoformat()
+        extraction_metadata["last_processed_at"] = datetime.now(
+            timezone.utc).isoformat()
         extraction_metadata["parser_version"] = self._RESUME_PARSER_VERSION
         extraction_metadata["schema_version"] = self._RESUME_SCHEMA_VERSION
         return await self.candidate_resume_repo.update_parsing_result(
@@ -512,47 +569,74 @@ class ApplicationService:
             workflow_id=workflow_id,
         )
 
-        client = await TemporalClient.get_client()
-        from app.temporal.workflows import (
-            CandidateApplicationWorkflow,
-            CandidateApplicationWorkflowInput,
-        )
-
         try:
+            client = await TemporalClient.get_client()
+            from app.temporal.workflows import (
+                CandidateApplicationWorkflow,
+                CandidateApplicationWorkflowInput,
+            )
+
             await client.start_workflow(
                 CandidateApplicationWorkflow.run,
-                CandidateApplicationWorkflowInput(application_id=str(application_id)),
+                CandidateApplicationWorkflowInput(
+                    application_id=str(application_id)),
                 id=workflow_id,
                 task_queue=self.settings.temporal_application_task_queue,
                 execution_timeout=timedelta(minutes=5),
             )
         except WorkflowAlreadyStartedError:
-            pass
+            logger.info(
+                "Application workflow already started",
+                extra={"application_id": str(
+                    application_id), "workflow_id": workflow_id},
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to start application workflow",
+                extra={"application_id": str(
+                    application_id), "workflow_id": workflow_id},
+            )
+            raise ServiceUnavailableError(
+                "Temporal workflow service is unavailable") from exc
 
     async def _start_resume_processing_workflow(
         self,
         application_id: uuid.UUID,
         uploaded_at: datetime,
     ) -> None:
-        client = await TemporalClient.get_client()
-        from app.temporal.workflows import (
-            CandidateApplicationWorkflow,
-            CandidateApplicationWorkflowInput,
-        )
-
+        workflow_id = self._build_resume_workflow_id(
+            application_id, uploaded_at)
         try:
+            client = await TemporalClient.get_client()
+            from app.temporal.workflows import (
+                CandidateApplicationWorkflow,
+                CandidateApplicationWorkflowInput,
+            )
+
             await client.start_workflow(
                 CandidateApplicationWorkflow.run,
                 CandidateApplicationWorkflowInput(
                     application_id=str(application_id),
                     parse_resume=True,
                 ),
-                id=self._build_resume_workflow_id(application_id, uploaded_at),
+                id=workflow_id,
                 task_queue=self.settings.temporal_application_task_queue,
                 execution_timeout=timedelta(minutes=5),
             )
         except WorkflowAlreadyStartedError:
-            pass
+            logger.info(
+                "Application resume workflow already started",
+                extra={"application_id": str(
+                    application_id), "workflow_id": workflow_id},
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to start application resume workflow",
+                extra={"application_id": str(
+                    application_id), "workflow_id": workflow_id},
+            )
+            raise ServiceUnavailableError(
+                "Temporal workflow service is unavailable") from exc
 
     @staticmethod
     def _build_application_workflow_id(application_id: uuid.UUID) -> str:
@@ -581,7 +665,8 @@ class ApplicationService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid candidate UUID") from exc
 
     @staticmethod
     def _require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:
@@ -591,4 +676,5 @@ class ApplicationService:
         try:
             return uuid.UUID(current_user.id)
         except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+            raise BadRequestError(
+                "X-User-ID must be a valid recruiter UUID") from exc

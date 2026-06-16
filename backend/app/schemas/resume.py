@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class ResumeParsingStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PARSED = "parsed"
+    FAILED = "failed"
+    UNSUPPORTED = "unsupported"
 
 
 class ResumeResponse(BaseModel):
@@ -16,7 +25,7 @@ class ResumeResponse(BaseModel):
     file_name: str | None = None
     content_type: str | None = None
     uploaded_at: datetime | None = None
-    parsing_status: str
+    parsing_status: ResumeParsingStatus
     parsing_error: str | None = None
     parsed_at: datetime | None = None
     parser_version: str | None = None
