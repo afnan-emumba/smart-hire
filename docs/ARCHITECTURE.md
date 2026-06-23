@@ -121,17 +121,17 @@ flowchart TB
 ### Persistence Layer
 
 - Primary store: PostgreSQL
-- **Flexible fields:** JSONB for application resume data, parsed job content, and application metadata
+- **Flexible fields:** JSONB for candidate master profiles, candidate resume parsing output, parsed job content, and application metadata
 - **Schema control:** Alembic migrations committed to git
 - **Transaction management:** Session commit/rollback is handled by the `get_db_session()` dependency. Repositories use `flush()` to get IDs without committing; the session commits only after the route handler completes successfully.
-- **Resume storage:** Internal `resume_storage_path` is stored in the database for internal use only; API responses **do not** include this path (security best practice)
+- **Resume storage:** Resume files and parsed output live in candidate-owned resume snapshots; internal `storage_path` is stored for internal use only and API responses expose a nested resume object without that path
 - **JD storage:** Internal `jd_storage_path` is stored in the database for internal use only; API responses **do not** include this path
 
 ### Manual Validation Surface
 
 - Swagger UI and Postman are the primary clients for the current backend-only scope.
 - Resume files are uploaded per application and stored locally in development.
-- Job description PDFs are uploaded per job and stored locally until the Week 2 parser workflow is added.
+- Job description PDFs are uploaded per job and processed through the Week 2 Temporal publishing workflow.
 
 ### Async Processing
 
@@ -148,7 +148,7 @@ sequenceDiagram
     participant Service as JobService
     participant Repo as JobRepository
     participant DB as PostgreSQL
-    participant Temporal as Future Temporal Workflow
+    participant Temporal as Temporal Workflow
 
     Recruiter->>API: POST /jobs (X-User-ID, X-User-Role=RECRUITER)
     API->>Service: create_job(payload, current_user)
@@ -164,17 +164,18 @@ sequenceDiagram
     API->>Service: upload_job_description(job_id, file_bytes, current_user)
     Service->>Service: verify owner, draft status, and PDF content type
     Service->>Repo: attach_job_description_file(...)
-    Repo->>DB: UPDATE jobs SET jd_parsing_status='uploaded', jd_source_type='pdf_upload'
-    Service-->>API: job response (jd_parsing_status='uploaded')
+    Repo->>DB: UPDATE jobs SET jd_parsing_status='pending', jd_source_type='pdf_upload'
+    Service-->>API: job response (jd_parsing_status='pending')
     API-->>Recruiter: 202 Accepted
 
-    Recruiter->>API: PATCH /jobs/{id} (status='published')
-    API->>Service: update_job(job_id, {status=published}, current_user)
-    Service->>Service: Verify current_user.role=RECRUITER, owns the job, and description is ready
-    Service->>Repo: update(job_id, {status='published'})
-    Repo->>DB: UPDATE jobs SET status='published' WHERE id=?
-    Service-->>API: job response (status='published')
-    API-->>Recruiter: 200 OK
+    Recruiter->>API: POST /jobs/{id}/publish
+    API->>Service: publish_job(job_id, current_user)
+    Service->>Service: Verify current_user.role=RECRUITER, owns the job, and source content is publishable
+    Service->>Repo: update(job_id, {status='processing'})
+    Service->>Temporal: start job publishing workflow
+    Temporal-->>Service: workflow persists breakdown and marks job ready
+    Service-->>API: publish response (status='processing')
+    API-->>Recruiter: 202 Accepted
 ```
 
 **Key points:**
@@ -182,8 +183,16 @@ sequenceDiagram
 - `recruiter_id` is bound to `X-User-ID` on creation; clients cannot override it
 - `status` defaults to `draft` and cannot be set in the create request
 - JD ingestion is a separate upload operation that tracks parsing state independently from publication state
-- Publishing is a separate `PATCH` operation with authorization scoping
-  - JD parsing and breakdown extraction will be implemented in Week 2
+- Publishing is a separate `POST /jobs/{id}/publish` operation with authorization scoping
+- The publish workflow persists normalized metadata into top-level job fields and a richer `description_breakdown` JSONB payload
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> processing: publish requested
+    processing --> ready: workflow completed
+    ready --> archived: future lifecycle transition
+```
 
 ```mermaid
 sequenceDiagram
@@ -194,7 +203,6 @@ sequenceDiagram
     participant CandidateRepo as CandidateRepository
     participant AppRepo as ApplicationRepository
     participant DB as PostgreSQL
-    participant Kafka as Kafka
     participant Temporal as Temporal Workflow
 
     Candidate->>API: POST /applications (X-User-ID, X-User-Role=CANDIDATE)
@@ -202,14 +210,14 @@ sequenceDiagram
     Service->>Service: Extract candidate_id from X-User-ID
     Service->>JobRepo: get_by_id(job_id)
     JobRepo->>DB: SELECT job
-    Service->>Service: Verify job.status='published'
+    Service->>Service: Verify job.status='ready'
     Service->>CandidateRepo: get_by_id(candidate_id)
     CandidateRepo->>DB: SELECT candidate
+    Service->>Service: Run eligibility check against required skills
     Service->>AppRepo: get_by_job_and_candidate (check duplicate)
     Service->>AppRepo: create(job_id, candidate_id=extracted_id)
     AppRepo->>DB: INSERT application (unique constraint checked)
     DB-->>AppRepo: application row
-    Service->>Kafka: emit ApplicationReceived
     Service->>Temporal: start application workflow
     Service-->>API: application response
     API-->>Candidate: 201 Created
@@ -218,9 +226,23 @@ sequenceDiagram
 **Key points:**
 
 - `candidate_id` is bound to `X-User-ID`; clients cannot override it
-- Job must be in `published` status; applications to draft/closed jobs are rejected
+- Job must be in `ready` status; applications to draft/processing/archived jobs are rejected
 - Unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
 - Duplicate applications return `409 Conflict`
+- Resume upload is a separate `POST /applications/{id}/resume` operation
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> screening
+    pending --> rejected
+    screening --> interview
+    screening --> rejected
+    interview --> offer
+    interview --> rejected
+    offer --> accepted
+    offer --> rejected
+```
 
 ## Deployment View
 

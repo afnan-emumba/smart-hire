@@ -2,16 +2,52 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from enum import Enum
+from typing import Any
+from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-
-ApplicationStatus = Literal["submitted", "reviewed", "rejected", "accepted"]
+from app.core.application_states import ApplicationStatus
+from app.schemas.resume import ResumeResponse
 
 
 class ApplicationCreate(BaseModel):
     job_id: uuid.UUID
+
+
+class EligibilityReasonCode(str, Enum):
+    ELIGIBLE = "eligible"
+    JOB_NOT_READY = "job_not_ready"
+    DUPLICATE_APPLICATION = "duplicate_application"
+    MAX_ACTIVE_APPLICATIONS = "max_active_applications"
+    INSUFFICIENT_SKILLS = "insufficient_skills"
+    NO_REQUIRED_SKILLS = "no_required_skills"
+
+
+class EligibilityResult(BaseModel):
+    is_eligible: bool
+    reason_code: EligibilityReasonCode
+    reason: str
+    missing_skills: list[str] = Field(default_factory=list)
+    match_score: float
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: ApplicationStatus
+
+
+class ApplicationWorkflowStateResponse(BaseModel):
+    application_id: uuid.UUID
+    status: ApplicationStatus
+
+
+ResumeProcessingStatus = Literal["pending_upload", "unsupported", "processing", "failed", "parsed"]
+
+
+class ResumeProcessingResponse(BaseModel):
+    application_id: uuid.UUID
+    resume_parsing_status: ResumeProcessingStatus
 
 
 class ApplicationResponse(BaseModel):
@@ -25,9 +61,7 @@ class ApplicationResponse(BaseModel):
         default_factory=dict,
         validation_alias=AliasChoices("application_metadata", "metadata"),
     )
-    resume_file_name: str | None = None
-    resume_content_type: str | None = None
-    resume_uploaded_at: datetime | None = None
-    resume_data: dict[str, Any] | None = None
+    resume_id: uuid.UUID | None = None
+    resume: ResumeResponse | None = None
     created_at: datetime
     updated_at: datetime

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from app.api.dependencies import get_job_service
 from app.core.auth import CurrentUser, get_current_user, require_role
 from app.core.config import get_settings
-from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate
+from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate, PublishJobResponse
 from app.services.job_service import JobService
 
 
@@ -98,6 +98,15 @@ async def upload_job_description_file(
         file_bytes=file_bytes,
         current_user=current_user,
     )
+
+
+@router.post("/{job_id}/publish", response_model=PublishJobResponse, status_code=status.HTTP_202_ACCEPTED)
+async def publish_job(
+    job_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: JobService = Depends(get_job_service),
+) -> PublishJobResponse:
+    return await service.publish_job(job_id, current_user)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

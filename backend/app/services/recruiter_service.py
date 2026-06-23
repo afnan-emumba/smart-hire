@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import logging
 import uuid
+
+from sqlalchemy.exc import IntegrityError
 
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.services.exceptions import ConflictError, NotFoundError
 from app.schemas.recruiter import RecruiterCreate, RecruiterResponse
+from app.utils.db_errors import is_unique_violation
+
+
+logger = logging.getLogger(__name__)
 
 
 class RecruiterService:
@@ -16,7 +23,21 @@ class RecruiterService:
         if existing_recruiter is not None:
             raise ConflictError("Recruiter with this email already exists")
 
-        recruiter = await self.recruiter_repo.create(recruiter_create)
+        try:
+            recruiter = await self.recruiter_repo.create(recruiter_create)
+        except IntegrityError as exc:
+            if is_unique_violation(exc):
+                logger.info(
+                    "Recruiter creation conflicted with a concurrent request",
+                    extra={"email": recruiter_create.email},
+                )
+                raise ConflictError("Recruiter with this email already exists") from exc
+            logger.exception(
+                "Failed to create recruiter",
+                extra={"email": recruiter_create.email},
+            )
+            raise
+
         return RecruiterResponse.model_validate(recruiter)
 
     async def get_recruiter(self, recruiter_id: uuid.UUID) -> RecruiterResponse:

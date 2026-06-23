@@ -44,9 +44,11 @@ dist/
 .DS_Store
 Thumbs.db
 .github/
+.claude/
 uploads/
 backend/uploads/
 *.md
+samples/
 !README.md
 !docs/
 !docs/*.md

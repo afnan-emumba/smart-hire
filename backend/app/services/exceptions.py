@@ -23,3 +23,14 @@ class ConflictError(ServiceError):
 
 class PayloadTooLargeError(ServiceError):
     pass
+
+
+class InvalidStateTransitionError(ServiceError):
+    pass
+
+
+InvalidStateTransition = InvalidStateTransitionError
+
+
+class ServiceUnavailableError(ServiceError):
+    pass

@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 
 from app.api.dependencies import get_application_service
 from app.core.auth import CurrentUser, get_current_user, require_role
+from app.core.application_states import ApplicationStatus
 from app.core.config import get_settings
-from app.schemas.application import ApplicationCreate, ApplicationResponse
+from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationStatusUpdate
 from app.services.application_service import ApplicationService
 
 
@@ -53,6 +54,7 @@ async def get_application(
 
 @router.get("", response_model=list[ApplicationResponse])
 async def list_applications(
+    status: ApplicationStatus | None = Query(default=None),
     candidate_id: uuid.UUID | None = None,
     job_id: uuid.UUID | None = None,
     limit: int = Query(default=20, ge=1, le=100),
@@ -61,11 +63,26 @@ async def list_applications(
     service: ApplicationService = Depends(get_application_service),
 ) -> list[ApplicationResponse]:
     return await service.list_applications(
+        status=status,
         candidate_id=candidate_id,
         job_id=job_id,
         current_user=current_user,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.patch("/{application_id}/status", response_model=ApplicationResponse)
+async def update_application_status(
+    application_id: uuid.UUID,
+    status_update: ApplicationStatusUpdate,
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: ApplicationService = Depends(get_application_service),
+) -> ApplicationResponse:
+    return await service.update_application_status(
+        application_id,
+        status_update.status,
+        current_user,
     )
 
 
