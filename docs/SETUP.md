@@ -44,10 +44,12 @@ alembic upgrade head
 
 ## Backend Local Run
 
+Venv lives at the repo root (`.venv/`), shared across `backend/` and the `services/*/` packages.
+
 ```bash
-cd backend
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
+cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -247,7 +249,7 @@ curl -X POST http://localhost:8000/applications \
 
 ### Alembic import fails
 
-- Activate `backend/.venv`.
+- Activate the root `.venv`.
 - Install dependencies from `backend/requirements.txt`.
 - Keep `backend/alembic.ini` free of real connection strings; runtime settings are loaded from environment.
 
