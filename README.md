@@ -82,14 +82,15 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - Maximum file size enforced by config (`MAX_RESUME_SIZE_BYTES`, default 10 MB)
 - Supported types: PDF, DOC, DOCX
 - Internal storage path is **not** exposed in API responses (security best practice)
-- Files are stored locally in `uploads/resumes/` (git-ignored) during development
+- Files are stored on resume-service's local filesystem under `RESUME_UPLOAD_DIR` (no volume mount, so uploads don't survive a container recreate — acceptable for local validation)
+- Resumes are uploaded independently of any application (`POST /resumes`) and only referenced by `resume_id` from applications, not owned by them
 
 ### Job Description Ingestion
 
 - Recruiters can upload JD PDFs through `POST /jobs/{id}/description-file`
 - Job description parsing state is tracked separately from recruiter-facing publication status
 - `jobs.description` now represents canonical markdown content, whether provided manually for Week 1 fallback or produced later by the parser
-- JD files are stored locally in `uploads/job_descriptions/` during development; internal storage paths stay out of API responses
+- JD files are stored on job-service's local filesystem under `JD_UPLOAD_DIR`; internal storage paths stay out of API responses
 
 ### Structured Candidate Profiles
 
@@ -104,39 +105,39 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 ```
 smart-hire/
 ├── README.md                          # Repository overview
+├── CLAUDE.md                          # Coding conventions and architectural guidelines
+├── MIGRATION.md                       # Week 2 monolith → microservices migration tracker
 ├── docs/
 │   ├── ARCHITECTURE.md                # System design and Mermaid diagrams
 │   ├── DATABASE.md                    # Schema and ER diagrams
 │   ├── SETUP.md                       # Installation guide
-│   └── SERVICES.md                    # Service layer patterns
-├── docker-compose.yml                 # Local dev stack
-├── .env.example                       # Root env template
+│   ├── SERVICES.md                    # Service layer patterns
+│   └── PRD.md                         # Product requirements and traceability
+├── docker-compose.yml                 # Local dev stack — postgres, temporal, nginx, all services
+├── .env.example                       # Root env template (single source for the whole stack)
+├── postman/                           # Postman collection for API validation
 │
-├── backend/
-│   ├── requirements.txt               # Python dependencies
-│   ├── .env.example                   # Backend env template
-│   ├── .env.docker.example            # Backend container-runtime env template
-│   ├── alembic.ini                    # Migration config
-│   ├── migrations/                    # Alembic migration files
-│   ├── infra/
-│   │   └── docker/                    # Dev/prod Dockerfiles and production compose
-│   └── app/
-│       ├── main.py                    # FastAPI entry point
-│       ├── core/
-│       │   ├── config.py              # Settings management
-│       │   └── auth.py                # Mock auth
-│       ├── db/
-│       │   ├── models.py              # SQLAlchemy ORM
-│       │   └── session.py             # DB connection
-│       ├── schemas/                   # Pydantic validation
-│       ├── repositories/              # Data access layer
-│       ├── services/                  # Business logic
-│       └── api/
-│           ├── router.py              # Main router
-│           └── routers/               # Endpoint groups
-├── backend/postman/                   # Postman collection for API validation
-└── backend/uploads/                   # Local dev resume + JD storage (git-ignored)
+├── infra/
+│   ├── nginx/                         # API gateway: nginx.conf routes /api/v1/<resource> per service
+│   └── postgres/                      # init.sql — creates the six logical databases
+│
+├── shared/                            # Code shared across services (mounted read-only at /shared)
+│   ├── auth/                          # Header-based mock auth (X-User-ID, X-User-Role)
+│   ├── config/                        # Base Pydantic Settings class
+│   ├── db/                            # DeclarativeBase + db error helpers
+│   ├── exceptions/                    # Domain exceptions → HTTP status mapping
+│   └── temporal/                      # Shared Temporal client singleton
+│
+└── services/
+    ├── recruiter/                     # Recruiter CRUD (port 8001, recruiter_db)
+    ├── candidate/                     # Candidate CRUD (port 8002, candidate_db)
+    ├── job/                           # Job CRUD + JobPublishingWorkflow (port 8003, job_db)
+    ├── resume/                        # Resume upload + ResumeParsingWorkflow (port 8004, resume_db)
+    ├── application/                   # Application workflow, HTTP calls to other services (port 8005, application_db)
+    └── notification/                  # Week 3 stub — health endpoint only (port 8006)
 ```
+
+Each service under `services/<name>/` follows the same internal layout: `app/api/routers/` → `app/services/` → `app/repositories/` → `app/db/models.py`, plus its own `alembic.ini`, `migrations/`, `requirements.txt`, and `Dockerfile`. `job/` and `resume/` additionally have `app/temporal/` (workflows, activities, worker entrypoint).
 
 ---
 
@@ -145,118 +146,117 @@ smart-hire/
 ### Prerequisites
 
 - **Docker & Docker Compose** (for containerized development)
-- **Python 3.11+** (for local backend development without Docker)
+- **Python 3.11+** (for running a single service locally without Docker)
 - **Git** (for version control)
 
 ### Environment Setup
 
-SmartHire uses environment variables for configuration. Three templates are tracked:
-
-**1. Root `.env` (Docker Compose):**
+A single tracked template covers the whole stack:
 
 ```bash
 cp .env.example .env
-# Contains: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST_PORT, BACKEND_PORT, APP_ENV, and upload limits
+# Contains: Postgres credentials, NGINX_PORT, TEMPORAL_UI_PORT, per-service DATABASE_URLs,
+# upload directories/limits, and MAX_APPLICATIONS_PER_CANDIDATE
 ```
 
-**2. Backend `.env` (App Runtime):**
-
-```bash
-cp backend/.env.example backend/.env
-# Contains: DATABASE_URL, APP_ENV, APP_HOST, APP_PORT, resume/JD storage settings
-```
-
-**3. Backend `.env.docker` (Container Runtime, optional but recommended):**
-
-```bash
-cp backend/.env.docker.example backend/.env.docker
-# Mirrors the backend runtime settings with the Compose/Postgres hostname
-```
-
-⚠️ **Important:** `.env` files are **never committed**. Use `.env.example` as templates.
+⚠️ **Important:** `.env` is **never committed**. Use `.env.example` as the template.
 
 ### Docker Setup (Recommended)
 
 ```bash
-# Start the full stack (PostgreSQL + FastAPI)
+# Start the full stack (postgres, temporal, nginx gateway, and all 6 services + their workers)
 docker compose up -d --build
 
-# View logs
-docker compose logs -f backend
+# View logs for a specific service
+docker compose logs -f job-service
+docker compose logs -f job-service-worker
 
-# Verify health
-curl http://localhost:8000/health
-# Expected: {"status":"ok","database":"up"}
+# Verify the gateway and a service are healthy
+curl http://localhost/health
+curl http://localhost/api/v1/health/recruiter
 
 # Stop the stack
 docker compose down
 ```
 
-The local development compose entrypoint remains [docker-compose.yml](docker-compose.yml), while the canonical backend Docker assets now live under `backend/infra/docker/` with separate `Dockerfile.dev` and `Dockerfile.prod` variants.
+Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicorn`, so `docker compose up --build` alone is enough — no manual migration step is required.
 
 **Services:**
 
-- **Backend:** http://localhost:8000 (FastAPI)
-- **Database:** localhost:5432 (PostgreSQL)
-- **API Docs:** http://localhost:8000/docs (Swagger UI)
+- **Gateway:** http://localhost/api/v1 (nginx — the only externally reachable API surface)
+- **Database:** localhost:5432 (PostgreSQL, six logical databases)
+- **Temporal UI:** http://localhost:8080
+
+Individual services (`recruiter-service`, `job-service`, etc.) do **not** publish ports to the host — they're reachable only through the gateway or the Docker network.
 
 ### Local Development (Without Docker)
 
 ```bash
-# Set up Python environment
-cd backend
+# Set up a shared Python environment at the repo root
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
+pip install -r services/<name>/requirements.txt
 
-# Configure database
-cp .env.example .env
-# Edit .env with your local database credentials
-
-# Run migrations
+cd services/<name>
 alembic upgrade head
-
-# Start the server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port <service-port>
 ```
 
-For detailed setup including database migrations, see [docs/SETUP.md](docs/SETUP.md).
+For detailed setup, port mappings, and the full manual validation walkthrough, see [docs/SETUP.md](docs/SETUP.md).
 
 ---
 
 ## 📡 API & Endpoints
 
-SmartHire exposes RESTful endpoints for managing recruiters, candidates, jobs, and applications.
+All endpoints are served behind the nginx gateway under `http://localhost/api/v1`, which routes each `/api/v1/<resource>/*` prefix to the owning service. Individual services are not reachable directly from the host.
 
-**Available Endpoints:**
+**Health:**
 
-- `GET /health` — System health check
-- `POST /recruiters` — Create recruiter
-- `GET /recruiters/{id}` — Retrieve recruiter
-- `GET /recruiters` — List recruiters with pagination
-- `POST /candidates` — Register candidate
-- `GET /candidates/{id}` — Retrieve candidate profile
-- `GET /candidates` — List candidates with pagination
-- `PATCH /candidates/{id}` — Update candidate profile
-- `DELETE /candidates/{id}` — Delete candidate profile
-- `POST /jobs` — Create a draft job shell
-- `GET /jobs/{id}` — Retrieve job details
-- `GET /jobs` — List jobs (with filters)
-- `PATCH /jobs/{id}` — Update job details
-- `POST /jobs/{id}/description-file` — Upload a PDF job description for future parsing
-- `DELETE /jobs/{id}` — Delete job
-- `POST /applications` — Submit application
-- `GET /applications/{id}` — Retrieve application
-- `GET /applications` — List applications with filters
-- `POST /applications/{id}/resume` — Upload a resume file for a specific application
-- `GET /docs` — Interactive Swagger UI
-- `GET /redoc` — Alternate API documentation
+- `GET /health` — gateway liveness check (nginx only, no backend dependency)
+- `GET /api/v1/health/{recruiter,candidate,job,resume,application,notification}` — per-service deep health check (DB connectivity)
+
+**Recruiters** (recruiter-service):
+
+- `POST /api/v1/recruiters` — Create recruiter
+- `GET /api/v1/recruiters/{id}` — Retrieve recruiter
+- `GET /api/v1/recruiters` — List recruiters with pagination
+
+**Candidates** (candidate-service):
+
+- `POST /api/v1/candidates` — Register candidate
+- `GET /api/v1/candidates/{id}` — Retrieve candidate profile
+- `GET /api/v1/candidates` — List candidates with pagination
+- `PATCH /api/v1/candidates/{id}` — Update candidate profile
+- `DELETE /api/v1/candidates/{id}` — Delete candidate profile
+
+**Jobs** (job-service):
+
+- `POST /api/v1/jobs` — Create a draft job shell
+- `GET /api/v1/jobs/{id}` — Retrieve job details
+- `GET /api/v1/jobs` — List jobs (with filters)
+- `PATCH /api/v1/jobs/{id}` — Update job details
+- `POST /api/v1/jobs/{id}/description-file` — Upload a PDF job description for parsing
+- `POST /api/v1/jobs/{id}/publish` — Publish the job (starts `JobPublishingWorkflow` in Temporal)
+- `DELETE /api/v1/jobs/{id}` — Delete job
+
+**Resumes** (resume-service):
+
+- `POST /api/v1/resumes` — Upload a resume, independent of any application (starts `ResumeParsingWorkflow`)
+- `GET /api/v1/resumes/{id}` — Retrieve a resume and its parsed data
+- `GET /api/v1/resumes` — List a candidate's resumes
+
+**Applications** (application-service):
+
+- `POST /api/v1/applications` — Submit application (runs eligibility checks against job/candidate/resume services)
+- `GET /api/v1/applications/{id}` — Retrieve application
+- `GET /api/v1/applications` — List applications with filters
+- `PATCH /api/v1/applications/{id}/status` — Recruiter transitions application status
 
 **Manual API Testing:**
 
-- Use Swagger UI at `/docs` for quick request/response inspection.
-- Use Postman for the full Week 1 validation flow. A starter collection lives in `backend/postman/`.
-- For local development, resume and JD uploads are stored on disk under `backend/uploads/` and should remain untracked.
+- Use the Postman collection at `postman/SmartHire.postman_collection.json` for the full validation flow through the gateway.
+- Per-service Swagger UI (`/docs`) is not reachable through the gateway since individual services don't publish host ports — Postman is the primary manual testing surface.
+- Resume and JD uploads are stored on each owning service's local filesystem (not shared with `docker compose down`/recreate) and should remain untracked in git.
 
 **Authentication:**
 
@@ -268,17 +268,17 @@ Mock auth via request headers:
 Example:
 
 ```bash
-curl -X POST http://localhost:8000/jobs \
+curl -X POST http://localhost/api/v1/jobs \
   -H "X-User-ID: 11111111-1111-1111-1111-111111111111" \
   -H "X-User-Role: RECRUITER" \
   -H "Content-Type: application/json" \
   -d '{"title": "Backend Engineer", "description": "Interim manual markdown while JD parsing is pending.", "required_skills": ["python", "fastapi"]}'
 ```
 
-Resume upload example:
+Resume upload example (independent of any application):
 
 ```bash
-curl -X POST http://localhost:8000/applications/<application-id>/resume \
+curl -X POST http://localhost/api/v1/resumes \
   -H "X-User-ID: candidate-123" \
   -H "X-User-Role: CANDIDATE" \
   -F "resume=@resume.pdf"
@@ -288,24 +288,25 @@ curl -X POST http://localhost:8000/applications/<application-id>/resume \
 
 ## 💾 Database Schema
 
-SmartHire uses PostgreSQL with async SQLAlchemy ORM. The schema includes five core entities:
+One PostgreSQL container hosts **six independent logical databases**, one per service (`infra/postgres/init.sql`). Each service only ever connects to its own database — there are no cross-database foreign keys; cross-service references (e.g. an application's `job_id`) are indexed UUID columns validated at write-time via HTTP calls, not DB-level constraints.
 
-| Table                 | Purpose                    | Key Fields                                                                                                                                                        |
-| --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **recruiters**        | Hiring team members        | id (UUID), email, name, timestamps                                                                                                                                |
-| **candidates**        | Job seekers                | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                                                   |
-| **jobs**              | Job postings               | id (UUID), recruiter_id (FK), title, description, description_breakdown (JSONB), status, required_skills (JSONB), timestamps                                      |
-| **candidate_resumes** | Candidate resume snapshots | id (UUID), candidate_id (FK), source_application_id (FK), file_name, content_type, storage_path, uploaded_at, parsing_status, structured_data (JSONB), timestamps |
-| **applications**      | Candidate submissions      | id (UUID), job_id (FK), candidate_id (FK), resume_id (FK), status, metadata (JSONB), timestamps                                                                   |
+| Database          | Owning Service        | Tables                                       | Key Fields                                                                                                                     |
+| ------------------ | ---------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `recruiter_db`     | recruiter-service      | `recruiters`                                 | id (UUID), email, name, timestamps                                                                                             |
+| `candidate_db`     | candidate-service      | `candidates`                                 | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                |
+| `job_db`           | job-service            | `jobs`, `job_status_history`                 | id (UUID), recruiter_id, title, description, description_breakdown (JSONB), required_skills (JSONB), status, jd_parsing_status |
+| `resume_db`        | resume-service         | `candidate_resumes`                          | id (UUID), candidate_id, file_name, storage_path, parsing_status, structured_data (JSONB), timestamps                          |
+| `application_db`   | application-service    | `applications`, `application_status_history` | id (UUID), job_id, candidate_id, resume_id, status, eligibility_result (JSONB), metadata (JSONB)                               |
+| `notification_db`  | notification-service   | *(none yet — Week 3 stub)*                   | —                                                                                                                                |
 
 **Key Design Features:**
 
-- **UUID Primary Keys:** All entities use UUID for global uniqueness
-- **JSONB Columns:** Flexible data storage for canonical candidate profiles, resume parsing output, job requirements, and application scores
-- **Foreign Keys:** Strict referential integrity between entities
+- **UUID Primary Keys:** All entities use UUID for global uniqueness (required once IDs cross service boundaries over HTTP)
+- **JSONB Columns:** Flexible data storage for canonical candidate profiles, resume parsing output, job requirements, and eligibility results
+- **Foreign Keys within a service only:** e.g. `job_status_history.job_id → jobs.id` and `application_status_history.application_id → applications.id`; `applications.job_id`/`candidate_id`/`resume_id` are plain indexed UUIDs since those tables live in other services' databases
 - **Timestamps:** Automatic `created_at` and `updated_at` tracking
-- **Unique Constraints:** Duplicate application prevention (job_id, candidate_id)
-- **Application-Scoped Resumes:** Each application can store a different uploaded resume for the target role
+- **Unique Constraints:** Duplicate application prevention (`job_id`, `candidate_id`) inside `application_db`
+- **Independent Resumes:** Resumes belong to a candidate, not an application — an application only stores the `resume_id` it was evaluated against
 
 For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATABASE.md).
 
@@ -320,14 +321,14 @@ For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATA
 See [Docker Setup](#docker-setup-recommended) section for startup instructions. Additional utilities:
 
 ```bash
-# Access database CLI
-docker exec -it smarthire-postgres psql -U smarthire -d smarthire
+# Access a specific logical database (recruiter_db, candidate_db, job_db, resume_db, application_db, notification_db)
+docker exec -it smarthire-postgres psql -U smarthire -d recruiter_db
 ```
 
-**Database Migrations:**
+**Database Migrations** (run inside a specific service):
 
 ```bash
-cd backend
+cd services/<name>
 
 # Create a new migration
 alembic revision --autogenerate -m "Describe your change"
@@ -339,18 +340,16 @@ alembic upgrade head
 alembic history --verbose
 ```
 
-**Backend Development:**
+Each service's `Dockerfile` also runs `alembic upgrade head` automatically on container start, so this is mainly needed for local (non-Docker) development or generating new revisions.
+
+**Service Development:**
 
 ```bash
-cd backend
-source .venv/bin/activate
-
-# Run tests or linting (if configured)
-pytest
-flake8 app
+cd services/<name>
+source ../../.venv/bin/activate   # Windows: ..\..\.venv\Scripts\Activate.ps1
 
 # Run with hot reload
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port <service-port>
 ```
 
 ### Code Organization

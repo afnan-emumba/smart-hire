@@ -5,7 +5,8 @@
     "description": "API validation flow for SmartHire."
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "baseUrl", "value": "http://localhost/api/v1" },
+    { "key": "gatewayUrl", "value": "http://localhost" },
     { "key": "temporalUiUrl", "value": "http://localhost:8080" },
     { "key": "recruiterUserId", "value": "{{$randomUUID}}" },
     { "key": "candidateUserId", "value": "{{$randomUUID}}" },
@@ -13,22 +14,25 @@
     { "key": "candidateId", "value": "" },
     { "key": "jobId", "value": "" },
     { "key": "workflowId", "value": "" },
-    { "key": "applicationId", "value": "" }
+    { "key": "applicationId", "value": "" },
+    { "key": "resumeId", "value": "" }
   ],
   "item": [
     {
       "name": "Health",
+      "description": "Gateway liveness check (nginx itself, no backend dependency) plus per-service deep health checks (each proxies to that service's own DB-connectivity check).",
       "item": [
         {
-          "name": "Health Check",
+          "name": "Gateway Health",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Health endpoint is up', function () {",
+                  "pm.test('Gateway is up', function () {",
                   "    pm.expect(pm.response.code).to.equal(200);",
+                  "    pm.expect(pm.response.json().status).to.equal('ok');",
                   "});"
                 ]
               }
@@ -38,9 +42,81 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{gatewayUrl}}/health",
+              "host": ["{{gatewayUrl}}"],
               "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Recruiter Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/recruiter",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "recruiter"]
+            }
+          }
+        },
+        {
+          "name": "Candidate Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/candidate",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "candidate"]
+            }
+          }
+        },
+        {
+          "name": "Job Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/job",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "job"]
+            }
+          }
+        },
+        {
+          "name": "Resume Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "resume"]
+            }
+          }
+        },
+        {
+          "name": "Application Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/application",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "application"]
+            }
+          }
+        },
+        {
+          "name": "Notification Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/notification",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "notification"]
             }
           }
         }
@@ -311,6 +387,45 @@
       "name": "Application Workflow",
       "item": [
         {
+          "name": "Upload Resume",
+          "description": "Uploads a PDF resume directly to resume-service (independent of any application). Parsing runs asynchronously via the ResumeParsingWorkflow (Temporal); structured_data/parsing_status populate once the worker finishes.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resume uploaded', function () {",
+                  "    pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('resumeId', body.id);",
+                  "pm.test('Resume response matches contract', function () {",
+                  "    pm.expect(body.candidate_id).to.equal(pm.collectionVariables.get('candidateId'));",
+                  "    pm.expect(body).to.have.property('parsing_status');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "resume", "type": "file", "src": [] }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/resumes",
+              "host": ["{{baseUrl}}"],
+              "path": ["resumes"]
+            }
+          }
+        },
+        {
           "name": "Create Application",
           "description": "Creates an application only after the job is publishable. The candidate identity is taken from X-User-ID, and the response should match the documented ApplicationResponse contract. Returns 400 when the candidate has reached the active application limit configured by MAX_APPLICATIONS_PER_CANDIDATE.",
           "event": [
@@ -328,7 +443,6 @@
                   "    pm.expect(body.status).to.equal('pending');",
                   "    pm.expect(body).to.have.property('metadata').that.is.an('object');",
                   "    pm.expect(body).to.have.property('resume_id');",
-                  "    pm.expect(body).to.have.property('resume');",
                   "});"
                 ]
               }
@@ -403,45 +517,6 @@
                 { "key": "limit", "value": "20" },
                 { "key": "offset", "value": "0" }
               ]
-            }
-          }
-        },
-        {
-          "name": "Upload Application Resume",
-          "description": "Uploads a PDF resume to the application. Resume parsing is validated as a Week 2 workflow side effect, but full candidate scoring remains out of scope until Week 3.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Resume upload accepted', function () {",
-                  "    pm.expect(pm.response.code).to.equal(200);",
-                  "});",
-                  "pm.test('Resume snapshot returned', function () {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.resume_id).to.be.a('string');",
-                  "    pm.expect(body.resume).to.be.an('object');",
-                  "    pm.expect(body.metadata).to.have.property('resume_parsing');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [{ "key": "resume", "type": "file", "src": [] }]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/applications/{{applicationId}}/resume",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "resume"]
             }
           }
         },
