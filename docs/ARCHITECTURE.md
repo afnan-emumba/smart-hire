@@ -105,7 +105,7 @@ Every service repeats this same internal shape. The only structural difference b
 - Style: fully async FastAPI handlers
 - Error handling: catches domain exceptions from services and converts to HTTP responses via centralized exception handlers
 - **Auth scoping:** Guards endpoints with `require_role()` dependency; only authenticated users of the correct role can proceed
-- **Gateway:** nginx (`infra/nginx/nginx.conf`) is the only externally reachable entrypoint, routing `/api/v1/<resource>/*` to the owning service's internal port. Individual services publish no host ports.
+- **Gateway:** nginx (`infra/nginx/nginx.conf`) is the intended API entrypoint for real traffic, routing `/api/v1/<resource>/*` to the owning service's internal port. Each service additionally publishes its own host port (8001-8006) as a local-dev convenience for direct Swagger access — not something a real client should call.
 
 ### Services Layer
 
@@ -136,7 +136,7 @@ Every service repeats this same internal shape. The only structural difference b
 ### Manual Validation Surface
 
 - The Postman collection (`postman/SmartHire.postman_collection.json`), driven entirely through the nginx gateway, is the primary validation surface.
-- Each service still exposes its own Swagger UI/ReDoc internally (`docs_url="/docs"`), but since individual services publish no host ports, that's only reachable from inside the Docker network — not through the gateway.
+- Each service exposes its own Swagger UI/ReDoc (`docs_url="/docs"`), reachable directly on its host port (recruiter 8001, candidate 8002, job 8003, resume 8004, application 8005, notification 8006) for interactive schema inspection — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway itself.
 - Resume files are uploaded independently of any application (`POST /resumes`) and stored on resume-service's local disk in development.
 - Job description PDFs are uploaded per job and processed through the Temporal `JobPublishingWorkflow` when the job is published.
 

@@ -183,11 +183,11 @@ Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicor
 
 **Services:**
 
-- **Gateway:** http://localhost/api/v1 (nginx — the only externally reachable API surface)
+- **Gateway:** http://localhost/api/v1 (nginx — use this for real API requests)
 - **Database:** localhost:5432 (PostgreSQL, six logical databases)
 - **Temporal UI:** http://localhost:8080
 
-Individual services (`recruiter-service`, `job-service`, etc.) do **not** publish ports to the host — they're reachable only through the gateway or the Docker network.
+Each service also publishes its own host port purely so its Swagger UI is reachable directly for local dev (recruiter 8001, candidate 8002, job 8003, resume 8004, application 8005, notification 8006) — actual API traffic should still go through the gateway so routing and auth-header forwarding match production shape.
 
 ### Local Development (Without Docker)
 
@@ -208,7 +208,7 @@ For detailed setup, port mappings, and the full manual validation walkthrough, s
 
 ## 📡 API & Endpoints
 
-All endpoints are served behind the nginx gateway under `http://localhost/api/v1`, which routes each `/api/v1/<resource>/*` prefix to the owning service. Individual services are not reachable directly from the host.
+All endpoints are served behind the nginx gateway under `http://localhost/api/v1`, which routes each `/api/v1/<resource>/*` prefix to the owning service — use this for real requests. Each service also publishes its own host port (8001-8006) directly, but that's a local-dev convenience for Swagger UI access, not the intended API surface.
 
 **Health:**
 
@@ -255,7 +255,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 **Manual API Testing:**
 
 - Use the Postman collection at `postman/SmartHire.postman_collection.json` for the full validation flow through the gateway.
-- Per-service Swagger UI (`/docs`) is not reachable through the gateway since individual services don't publish host ports — Postman is the primary manual testing surface.
+- Each service also exposes its own Swagger UI directly on its host port for interactive schema inspection: recruiter `:8001/docs`, candidate `:8002/docs`, job `:8003/docs`, resume `:8004/docs`, application `:8005/docs`, notification `:8006/docs`. It's a local-dev convenience — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway.
 - Resume and JD uploads are stored on each owning service's local filesystem (not shared with `docker compose down`/recreate) and should remain untracked in git.
 
 **Authentication:**

@@ -34,18 +34,18 @@ Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicor
 
 | Service                              | Host Port         | Purpose                                          |
 | ------------------------------------- | ------------------ | ------------------------------------------------- |
-| `nginx` (gateway)                    | `${NGINX_PORT}` (80) | Single entrypoint, routes `/api/v1/<resource>/*` to the owning service |
-| `recruiter-service`                  | internal `8001`    | Recruiter CRUD (not published to host)            |
-| `candidate-service`                  | internal `8002`    | Candidate CRUD                                    |
-| `job-service` + `job-service-worker` | internal `8003`    | Job CRUD + `JobPublishingWorkflow` (Temporal)      |
-| `resume-service` + `resume-service-worker` | internal `8004` | Resume upload + `ResumeParsingWorkflow` (Temporal) |
-| `application-service`                | internal `8005`    | Application workflow, calls job/candidate/resume services over HTTP |
-| `notification-service`               | internal `8006`    | Week 3 stub — health endpoint only                |
+| `nginx` (gateway)                    | `${NGINX_PORT}` (80) | Primary entrypoint, routes `/api/v1/<resource>/*` to the owning service |
+| `recruiter-service`                  | `8001`             | Recruiter CRUD                                     |
+| `candidate-service`                  | `8002`             | Candidate CRUD                                    |
+| `job-service` + `job-service-worker` | `8003`             | Job CRUD + `JobPublishingWorkflow` (Temporal)      |
+| `resume-service` + `resume-service-worker` | `8004`       | Resume upload + `ResumeParsingWorkflow` (Temporal) |
+| `application-service`                | `8005`             | Application workflow, calls job/candidate/resume services over HTTP |
+| `notification-service`               | `8006`             | Week 3 stub — health endpoint only                |
 | `postgres`                           | `5432`             | One container, six logical databases (see below) |
 | `temporal`                           | `7233` (gRPC), `8233` | Temporal server                               |
 | `temporal-ui`                        | `${TEMPORAL_UI_PORT}` (8080) | Workflow inspection UI                  |
 
-Only `nginx`, `postgres`, `temporal`, and `temporal-ui` publish ports to the host. Every other service is reachable **only** through the gateway at `http://localhost/api/v1/...` — there is no direct `http://localhost:800x` access. This also means each service's own Swagger UI (`/docs`) isn't reachable from the host by default; use the Postman collection (or `docker compose exec <service> curl localhost:800x/docs`) if you need to inspect a specific service's OpenAPI schema.
+Every service publishes its own host port so its Swagger UI (`http://localhost:<port>/docs`) is directly reachable for interactive schema inspection — that's a local-dev convenience only. Real API requests should go through the gateway at `http://localhost/api/v1/...` so routing and auth-header forwarding match what a real client would see; nginx doesn't proxy `/docs`, so Swagger itself isn't reachable through the gateway.
 
 ## Local Service Run (Without Docker)
 
@@ -143,7 +143,7 @@ Use one of these entry points:
 
 - **Postman collection**: `postman/SmartHire.postman_collection.json` — the primary validation path; every request routes through the gateway at `{{baseUrl}} = http://localhost/api/v1`.
 - **Temporal UI**: `http://localhost:8080` — inspect `JobPublishingWorkflow` and `ResumeParsingWorkflow` executions.
-- Per-service Swagger/ReDoc is not reachable through the gateway (see the Local Services table above).
+- **Per-service Swagger/ReDoc**: `http://localhost:<port>/docs` (see the Local Services table above) — handy for schema inspection, but not routed through the gateway.
 
 Required mock auth headers for most requests:
 

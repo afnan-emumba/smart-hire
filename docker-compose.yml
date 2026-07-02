@@ -98,6 +98,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8001:8001"
 
   candidate-service:
     build:
@@ -113,6 +115,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8002:8002"
 
   job-service:
     build:
@@ -134,6 +138,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8003:8003"
 
   job-service-worker:
     build:
@@ -178,6 +184,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8004:8004"
 
   resume-service-worker:
     build:
@@ -227,6 +235,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8005:8005"
 
   notification-service:
     build:
@@ -238,6 +248,8 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+    ports:
+      - "8006:8006"
 
 volumes:
   postgres_data:
