@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.dependencies import get_application_service
 from app.core.application_states import ApplicationStatus
@@ -50,6 +50,17 @@ async def list_applications(
         limit=limit,
         offset=offset,
     )
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_applications(
+    job_id: uuid.UUID | None = None,
+    candidate_id: uuid.UUID | None = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: ApplicationService = Depends(get_application_service),
+) -> Response:
+    await service.delete_applications(job_id=job_id, candidate_id=candidate_id, current_user=current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)

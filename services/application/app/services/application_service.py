@@ -102,11 +102,12 @@ class ApplicationService:
             if candidate_id is not None and job_id is None:
                 raise BadRequestError("Recruiters must provide job_id when filtering by candidate_id")
             if job_id is not None:
-                job = await self.job_client.get_job(job_id, current_user)
-                if job is None:
-                    raise NotFoundError("Job not found")
-                if uuid.UUID(job["recruiter_id"]) != recruiter_id:
-                    raise ForbiddenError("Not authorized to view applications for this job")
+                await self._get_job_owned_by_recruiter(
+                    job_id,
+                    recruiter_id,
+                    current_user,
+                    forbidden_message="Not authorized to view applications for this job",
+                )
 
         if candidate_id is not None and job_id is not None:
             application = await self.application_repo.get_by_job_and_candidate(job_id, candidate_id)
@@ -148,11 +149,12 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        job = await self.job_client.get_job(application.job_id, current_user)
-        if job is None:
-            raise NotFoundError("Job not found")
-        if uuid.UUID(job["recruiter_id"]) != recruiter_id:
-            raise ForbiddenError("Not authorized to update this application")
+        await self._get_job_owned_by_recruiter(
+            application.job_id,
+            recruiter_id,
+            current_user,
+            forbidden_message="Not authorized to update this application",
+        )
 
         current_status = ApplicationStatus(application.status)
         if current_status == new_status:
@@ -170,6 +172,32 @@ class ApplicationService:
         )
         return ApplicationResponse.model_validate(updated_application)
 
+    async def delete_applications(
+        self,
+        *,
+        job_id: uuid.UUID | None,
+        candidate_id: uuid.UUID | None,
+        current_user: CurrentUser,
+    ) -> None:
+        if (job_id is None) == (candidate_id is None):
+            raise BadRequestError("Provide exactly one of job_id or candidate_id")
+
+        if job_id is not None:
+            recruiter_id = self._require_recruiter_user_id(current_user)
+            await self._get_job_owned_by_recruiter(
+                job_id,
+                recruiter_id,
+                current_user,
+                forbidden_message="Not authorized to delete applications for this job",
+            )
+            await self.application_repo.delete_by_job(job_id)
+            return
+
+        owner_id = self._require_candidate_user_id(current_user)
+        if owner_id != candidate_id:
+            raise ForbiddenError("Not authorized to delete another candidate's applications")
+        await self.application_repo.delete_by_candidate(candidate_id)
+
     async def _authorize_application_access(
         self,
         application,
@@ -182,11 +210,27 @@ class ApplicationService:
             return
 
         recruiter_id = self._require_recruiter_user_id(current_user)
-        job = await self.job_client.get_job(application.job_id, current_user)
+        await self._get_job_owned_by_recruiter(
+            application.job_id,
+            recruiter_id,
+            current_user,
+            forbidden_message="Not authorized to view this application",
+        )
+
+    async def _get_job_owned_by_recruiter(
+        self,
+        job_id: uuid.UUID,
+        recruiter_id: uuid.UUID,
+        current_user: CurrentUser,
+        *,
+        forbidden_message: str,
+    ) -> dict:
+        job = await self.job_client.get_job(job_id, current_user)
         if job is None:
             raise NotFoundError("Job not found")
         if uuid.UUID(job["recruiter_id"]) != recruiter_id:
-            raise ForbiddenError("Not authorized to view this application")
+            raise ForbiddenError(forbidden_message)
+        return job
 
     @staticmethod
     def _filter_single_application(application, status_filter: str | None) -> list:

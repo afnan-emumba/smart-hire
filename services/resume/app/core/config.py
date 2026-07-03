@@ -15,6 +15,14 @@ class Settings(ServiceSettings):
     )
     resume_upload_dir: str = Field(default="uploads/resumes", alias="RESUME_UPLOAD_DIR")
     max_resume_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES")
+    candidate_service_url: str = Field(
+        default="http://candidate-service:8002",
+        alias="CANDIDATE_SERVICE_URL",
+    )
+    http_client_timeout_seconds: float = Field(
+        default=5.0,
+        alias="HTTP_CLIENT_TIMEOUT_SECONDS",
+    )
 
 
 @lru_cache

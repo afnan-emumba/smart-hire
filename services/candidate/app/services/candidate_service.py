@@ -5,6 +5,8 @@ import uuid
 
 from sqlalchemy.exc import IntegrityError
 
+from app.clients.application_client import ApplicationClient
+from app.clients.resume_client import ResumeClient
 from app.repositories.candidate_repo import CandidateRepository
 from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from auth.header_auth import CurrentUser
@@ -16,8 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 class CandidateService:
-    def __init__(self, candidate_repo: CandidateRepository) -> None:
+    def __init__(
+        self,
+        candidate_repo: CandidateRepository,
+        resume_client: ResumeClient,
+        application_client: ApplicationClient,
+    ) -> None:
         self.candidate_repo = candidate_repo
+        self.resume_client = resume_client
+        self.application_client = application_client
 
     async def create_candidate(self, candidate_create: CandidateCreate) -> CandidateResponse:
         existing_candidate = await self.candidate_repo.get_by_email(candidate_create.email)
@@ -102,6 +111,9 @@ class CandidateService:
         candidate = await self.candidate_repo.get_by_id(candidate_id)
         if candidate is None:
             raise NotFoundError("Candidate not found")
+
+        await self.resume_client.delete_resumes_for_candidate(candidate_id, current_user)
+        await self.application_client.delete_applications_for_candidate(candidate_id, current_user)
 
         was_deleted = await self.candidate_repo.delete(candidate_id)
         if not was_deleted:

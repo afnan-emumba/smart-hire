@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
 from app.temporal.client import TemporalClient
 from exceptions.http_exceptions import (
@@ -26,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.candidate_client = CandidateClient(settings)
     yield
+    await app.state.candidate_client.aclose()
     await TemporalClient.close()
 
 

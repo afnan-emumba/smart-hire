@@ -629,7 +629,25 @@
     },
     {
       "name": "Cleanup",
+      "description": "Deleting a job or candidate now cascades server-side (job-service/candidate-service call application-service and resume-service internally), so the bulk-delete requests below are optional direct checks of those endpoints rather than required steps.",
       "item": [
+        {
+          "name": "Delete Applications For Job",
+          "description": "Bulk-deletes all applications tied to a job. Called internally by job-service before it deletes the job itself.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
+              { "key": "X-User-Role", "value": "RECRUITER" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications?job_id={{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [{ "key": "job_id", "value": "{{jobId}}" }]
+            }
+          }
+        },
         {
           "name": "Delete Job",
           "request": {
@@ -642,6 +660,40 @@
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
               "host": ["{{baseUrl}}"],
               "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Resumes For Candidate",
+          "description": "Bulk-deletes all resumes belonging to a candidate. Called internally by candidate-service before it deletes the candidate itself.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/resumes?candidate_id={{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["resumes"],
+              "query": [{ "key": "candidate_id", "value": "{{candidateId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Applications For Candidate",
+          "description": "Bulk-deletes all applications belonging to a candidate. Called internally by candidate-service before it deletes the candidate itself.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications?candidate_id={{candidateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [{ "key": "candidate_id", "value": "{{candidateId}}" }]
             }
           }
         },

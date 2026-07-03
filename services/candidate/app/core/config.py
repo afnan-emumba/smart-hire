@@ -9,6 +9,18 @@ from pydantic import Field
 class Settings(ServiceSettings):
     app_name: str = "Candidate Service"
     app_port: int = Field(default=8002, alias="APP_PORT")
+    resume_service_url: str = Field(
+        default="http://resume-service:8004",
+        alias="RESUME_SERVICE_URL",
+    )
+    application_service_url: str = Field(
+        default="http://application-service:8005",
+        alias="APPLICATION_SERVICE_URL",
+    )
+    http_client_timeout_seconds: float = Field(
+        default=5.0,
+        alias="HTTP_CLIENT_TIMEOUT_SECONDS",
+    )
 
 
 @lru_cache

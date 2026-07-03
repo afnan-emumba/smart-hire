@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 from app.clients.candidate_client import CandidateClient
@@ -33,11 +34,12 @@ class EligibilityService:
         job_id: uuid.UUID,
         current_user: CurrentUser,
     ) -> EligibilityResult:
-        job = await self.job_client.get_job(job_id, current_user)
+        job, candidate = await asyncio.gather(
+            self.job_client.get_job(job_id, current_user),
+            self.candidate_client.get_candidate(candidate_id, current_user),
+        )
         if job is None:
             raise NotFoundError("Job not found")
-
-        candidate = await self.candidate_client.get_candidate(candidate_id, current_user)
         if candidate is None:
             raise NotFoundError("Candidate not found")
 

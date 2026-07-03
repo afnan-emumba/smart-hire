@@ -10,6 +10,8 @@ from typing import Any
 
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
+from app.clients.application_client import ApplicationClient
+from app.clients.recruiter_client import RecruiterClient
 from app.core.config import Settings
 from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
 from app.core.enums import JobStatus
@@ -46,9 +48,13 @@ class JobService:
         self,
         job_repo: JobRepository,
         settings: Settings,
+        recruiter_client: RecruiterClient,
+        application_client: ApplicationClient,
     ) -> None:
         self.job_repo = job_repo
         self.settings = settings
+        self.recruiter_client = recruiter_client
+        self.application_client = application_client
 
     async def create_job(self, job_create: JobCreate, current_user: CurrentUser) -> JobResponse:
         if current_user.role != "RECRUITER":
@@ -58,6 +64,10 @@ class JobService:
             recruiter_id = uuid.UUID(current_user.id)
         except ValueError as exc:
             raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc
+
+        recruiter = await self.recruiter_client.get_recruiter(recruiter_id, current_user)
+        if recruiter is None:
+            raise NotFoundError("Recruiter not found")
 
         breakdown_fields = await self._build_breakdown_fields(
             title=job_create.title,
@@ -260,6 +270,8 @@ class JobService:
             raise NotFoundError("Job not found")
         if existing_job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to delete this job")
+
+        await self.application_client.delete_applications_for_job(job_id, current_user)
 
         was_deleted = await self.job_repo.delete(job_id)
         if not was_deleted:

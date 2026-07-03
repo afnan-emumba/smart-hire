@@ -15,6 +15,18 @@ class Settings(ServiceSettings):
     )
     jd_upload_dir: str = Field(default="uploads/job_descriptions", alias="JD_UPLOAD_DIR")
     max_jd_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_JD_SIZE_BYTES")
+    recruiter_service_url: str = Field(
+        default="http://recruiter-service:8001",
+        alias="RECRUITER_SERVICE_URL",
+    )
+    application_service_url: str = Field(
+        default="http://application-service:8005",
+        alias="APPLICATION_SERVICE_URL",
+    )
+    http_client_timeout_seconds: float = Field(
+        default=5.0,
+        alias="HTTP_CLIENT_TIMEOUT_SECONDS",
+    )
 
 
 @lru_cache

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.dependencies import get_resume_service
 from app.core.config import get_settings
@@ -58,9 +58,20 @@ async def get_resume(
     return await service.get_resume(resume_id, current_user)
 
 
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_resumes(
+    candidate_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role("CANDIDATE")),
+    service: ResumeService = Depends(get_resume_service),
+) -> Response:
+    await service.delete_resumes_for_candidate(candidate_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("", response_model=list[ResumeResponse])
 async def list_resumes(
     candidate_id: uuid.UUID | None = None,
+    parsing_status: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: CurrentUser = Depends(get_current_user),
@@ -69,6 +80,7 @@ async def list_resumes(
     return await service.list_resumes(
         candidate_id=candidate_id,
         current_user=current_user,
+        parsing_status=parsing_status,
         limit=limit,
         offset=offset,
     )

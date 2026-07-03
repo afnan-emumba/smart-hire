@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import CandidateResume
@@ -55,17 +55,26 @@ class ResumeRepository:
         self,
         candidate_id: uuid.UUID,
         *,
+        parsing_status: str | None = None,
         limit: int,
         offset: int,
     ) -> list[CandidateResume]:
+        stmt = select(CandidateResume).where(CandidateResume.candidate_id == candidate_id)
+        if parsing_status is not None:
+            stmt = stmt.where(CandidateResume.parsing_status == parsing_status)
         result = await self.session.execute(
-            select(CandidateResume)
-            .where(CandidateResume.candidate_id == candidate_id)
-            .order_by(CandidateResume.uploaded_at.desc(), CandidateResume.created_at.desc())
+            stmt.order_by(CandidateResume.uploaded_at.desc(), CandidateResume.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    async def delete_by_candidate(self, candidate_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            delete(CandidateResume).where(CandidateResume.candidate_id == candidate_id)
+        )
+        await self.session.flush()
+        return result.rowcount or 0
 
     async def update_parsing_status(
         self,

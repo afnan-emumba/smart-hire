@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.application_states import ApplicationStatus
@@ -156,6 +156,18 @@ class ApplicationRepository:
         )
         await self.session.flush()
         return await self.get_by_id(application.id)
+
+    async def delete_by_job(self, job_id: uuid.UUID) -> int:
+        result = await self.session.execute(delete(Application).where(Application.job_id == job_id))
+        await self.session.flush()
+        return result.rowcount or 0
+
+    async def delete_by_candidate(self, candidate_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            delete(Application).where(Application.candidate_id == candidate_id)
+        )
+        await self.session.flush()
+        return result.rowcount or 0
 
     async def update_metadata(
         self,

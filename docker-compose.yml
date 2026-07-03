@@ -112,6 +112,9 @@ services:
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${CANDIDATE_DATABASE_URL}
+      RESUME_SERVICE_URL: http://resume-service:8004
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
@@ -135,6 +138,9 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
+      RECRUITER_SERVICE_URL: http://recruiter-service:8001
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
@@ -159,6 +165,9 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
+      RECRUITER_SERVICE_URL: http://recruiter-service:8001
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
@@ -181,6 +190,8 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
+      CANDIDATE_SERVICE_URL: http://candidate-service:8002
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
@@ -205,6 +216,8 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
+      CANDIDATE_SERVICE_URL: http://candidate-service:8002
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared

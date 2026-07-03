@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.candidate_client import CandidateClient
@@ -14,13 +14,14 @@ from app.services.eligibility_service import EligibilityService
 
 
 async def get_application_service(
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> ApplicationService:
     settings = get_settings()
     application_repo = ApplicationRepository(session)
-    job_client = JobClient(settings)
-    candidate_client = CandidateClient(settings)
-    resume_client = ResumeClient(settings)
+    job_client: JobClient = request.app.state.job_client
+    candidate_client: CandidateClient = request.app.state.candidate_client
+    resume_client: ResumeClient = request.app.state.resume_client
     return ApplicationService(
         application_repo=application_repo,
         job_client=job_client,

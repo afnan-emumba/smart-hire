@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+from app.clients.application_client import ApplicationClient
+from app.clients.resume_client import ResumeClient
 from app.core.config import get_settings
 from exceptions.http_exceptions import (
     BadRequestError,
@@ -23,10 +26,20 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.resume_client = ResumeClient(settings)
+    app.state.application_client = ApplicationClient(settings)
+    yield
+    await app.state.resume_client.aclose()
+    await app.state.application_client.aclose()
+
+
 app = FastAPI(
     title=settings.app_name,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

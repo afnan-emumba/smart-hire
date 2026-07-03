@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+from app.clients.application_client import ApplicationClient
+from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.temporal.client import TemporalClient
 from exceptions.http_exceptions import (
@@ -27,7 +29,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.recruiter_client = RecruiterClient(settings)
+    app.state.application_client = ApplicationClient(settings)
     yield
+    await app.state.recruiter_client.aclose()
+    await app.state.application_client.aclose()
     await TemporalClient.close()
 
 

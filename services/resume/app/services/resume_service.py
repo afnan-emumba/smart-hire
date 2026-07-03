@@ -9,6 +9,7 @@ from typing import Any
 
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
+from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
 from app.schemas.resume import ResumeResponse
@@ -38,9 +39,15 @@ class ResumeService:
     _RESUME_PARSER_VERSION = "resume_pdf.v1"
     _RESUME_SCHEMA_VERSION = "resume_profile.v1"
 
-    def __init__(self, resume_repo: ResumeRepository, settings: Settings) -> None:
+    def __init__(
+        self,
+        resume_repo: ResumeRepository,
+        settings: Settings,
+        candidate_client: CandidateClient,
+    ) -> None:
         self.resume_repo = resume_repo
         self.settings = settings
+        self.candidate_client = candidate_client
 
     async def upload_resume(
         self,
@@ -51,6 +58,10 @@ class ResumeService:
         current_user: CurrentUser,
     ) -> ResumeResponse:
         candidate_id = self._require_candidate_user_id(current_user)
+
+        candidate = await self.candidate_client.get_candidate(candidate_id, current_user)
+        if candidate is None:
+            raise NotFoundError("Candidate not found")
 
         if len(file_bytes) > self.settings.max_resume_size_bytes:
             raise PayloadTooLargeError("Resume file exceeds the configured size limit")
@@ -110,6 +121,7 @@ class ResumeService:
         *,
         candidate_id: uuid.UUID | None,
         current_user: CurrentUser,
+        parsing_status: str | None = None,
         limit: int,
         offset: int,
     ) -> list[ResumeResponse]:
@@ -121,7 +133,12 @@ class ResumeService:
         elif candidate_id is None:
             raise BadRequestError("candidate_id is required")
 
-        resumes = await self.resume_repo.list_by_candidate(candidate_id, limit=limit, offset=offset)
+        resumes = await self.resume_repo.list_by_candidate(
+            candidate_id,
+            parsing_status=parsing_status,
+            limit=limit,
+            offset=offset,
+        )
         return [ResumeResponse.model_validate(resume) for resume in resumes]
 
     async def process_resume_parsing(self, resume_id: uuid.UUID) -> dict[str, Any]:
@@ -190,6 +207,17 @@ class ResumeService:
             structured_data=parsed_resume,
         )
         return self._parsing_result(updated)
+
+    async def delete_resumes_for_candidate(
+        self,
+        candidate_id: uuid.UUID,
+        current_user: CurrentUser,
+    ) -> None:
+        owner_id = self._require_candidate_user_id(current_user)
+        if owner_id != candidate_id:
+            raise ForbiddenError("Not authorized to delete another candidate's resumes")
+
+        await self.resume_repo.delete_by_candidate(candidate_id)
 
     async def _update_resume_record(
         self,

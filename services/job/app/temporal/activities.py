@@ -6,6 +6,8 @@ from typing import Any
 
 from temporalio import activity
 
+from app.clients.application_client import ApplicationClient
+from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.core.enums import JobStatus
 from app.db.session import SessionLocal
@@ -16,18 +18,27 @@ from app.services.job_service import JobService
 async def _run_job_service_operation(
     operation: Callable[[JobService], Awaitable[Any]],
 ) -> Any:
-    async with SessionLocal() as session:
-        service = JobService(
-            job_repo=JobRepository(session),
-            settings=get_settings(),
-        )
-        try:
-            result = await operation(service)
-            await session.commit()
-            return _serialize_result(result)
-        except Exception:
-            await session.rollback()
-            raise
+    settings = get_settings()
+    recruiter_client = RecruiterClient(settings)
+    application_client = ApplicationClient(settings)
+    try:
+        async with SessionLocal() as session:
+            service = JobService(
+                job_repo=JobRepository(session),
+                settings=settings,
+                recruiter_client=recruiter_client,
+                application_client=application_client,
+            )
+            try:
+                result = await operation(service)
+                await session.commit()
+                return _serialize_result(result)
+            except Exception:
+                await session.rollback()
+                raise
+    finally:
+        await recruiter_client.aclose()
+        await application_client.aclose()
 
 
 @activity.defn
