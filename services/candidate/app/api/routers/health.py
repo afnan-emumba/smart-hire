@@ -1,26 +1,8 @@
 from __future__ import annotations
 
-import logging
-
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from api.health import make_health_router
 
 from app.db.session import get_db_session, ping_database
 
 
-router = APIRouter()
-logger = logging.getLogger(__name__)
-
-
-@router.get("/health", status_code=status.HTTP_200_OK)
-async def health_check(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
-    try:
-        database_ok = await ping_database(session)
-    except Exception:
-        logger.exception("Database health check failed")
-        database_ok = False
-
-    return {
-        "status": "ok" if database_ok else "degraded",
-        "database": "up" if database_ok else "down",
-    }
+router = make_health_router(get_db_session, ping_database)

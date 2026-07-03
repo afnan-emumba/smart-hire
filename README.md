@@ -122,10 +122,12 @@ smart-hire/
 │   └── postgres/                      # init.sql — creates the six logical databases
 │
 ├── shared/                            # Code shared across services (mounted read-only at /shared)
+│   ├── api/                           # Generic FastAPI health-router factory
 │   ├── auth/                          # Header-based mock auth (X-User-ID, X-User-Role)
 │   ├── config/                        # Base Pydantic Settings class
-│   ├── db/                            # DeclarativeBase + db error helpers
-│   ├── exceptions/                    # Domain exceptions → HTTP status mapping
+│   ├── db/                            # DeclarativeBase, TimestampMixin, session/health helpers
+│   ├── exceptions/                    # Domain exceptions → HTTP status mapping + handler registration
+│   ├── pdf/                           # Shared PDF-to-markdown converter (job descriptions + resumes)
 │   └── temporal/                      # Shared Temporal client singleton
 │
 └── services/

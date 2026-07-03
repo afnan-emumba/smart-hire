@@ -14,8 +14,7 @@ from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import Settings
 from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
-from app.core.enums import JobStatus
-from app.core.state_machine import StateMachine
+from app.core.enums import JobStatus, is_valid_transition
 from app.repositories.job_repo import JobRepository
 from app.schemas.job import (
     JobBreakdownFields,
@@ -138,6 +137,10 @@ class JobService:
 
         updates = job_update.model_dump(exclude_unset=True)
         needs_rebuild = "description" in updates or ("title" in updates and existing_job.description is not None)
+        if needs_rebuild and existing_job.status != JobStatus.DRAFT.value:
+            raise BadRequestError(
+                "Job description can only be edited while the job is in draft status"
+            )
         if needs_rebuild:
             effective_title = updates.get("title", existing_job.title)
             effective_description = updates.get("description", existing_job.description)
@@ -192,7 +195,9 @@ class JobService:
             except ValueError as exc:
                 raise BadRequestError("Invalid job status") from exc
 
-            if not StateMachine.can_transition(current_status, target_status):
+            if current_status != target_status and not is_valid_transition(
+                current_status, target_status
+            ):
                 raise InvalidStateTransitionError(
                     f"Invalid job state transition from '{existing_job.status}' to '{updates['status']}'"
                 )
@@ -392,7 +397,7 @@ class JobService:
         if current_status == target_status:
             return JobResponse.model_validate(job)
 
-        if not StateMachine.can_transition(current_status, target_status):
+        if not is_valid_transition(current_status, target_status):
             raise InvalidStateTransitionError(
                 f"Invalid job state transition from '{job.status}' to '{target_status.value}'"
             )
@@ -449,7 +454,9 @@ class JobService:
     async def _finalize_pdf_breakdown(self, job: Any):
         try:
             file_bytes = await asyncio.to_thread(Path(job.jd_storage_path).read_bytes)
-            description = JobDescriptionPdfConverter.convert_pdf_to_markdown(file_bytes)
+            description = await asyncio.to_thread(
+                JobDescriptionPdfConverter.convert_pdf_to_markdown, file_bytes
+            )
             extracted_profile = await JobBreakdownService.extract_job_profile(
                 title=job.title,
                 description=description,

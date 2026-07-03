@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from temporalio.worker import Worker
 
@@ -11,6 +12,7 @@ from app.temporal.workflows import ResumeParsingWorkflow
 
 
 async def start_worker() -> None:
+    logging.basicConfig(level=logging.INFO)
     settings = get_settings()
     client = await TemporalClient.get_client()
     worker = Worker(

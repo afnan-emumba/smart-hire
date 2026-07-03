@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
@@ -13,6 +14,24 @@ from app.core.enums import JobStatus
 from app.db.session import SessionLocal
 from app.repositories.job_repo import JobRepository
 from app.services.job_service import JobService
+from exceptions.http_exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    PayloadTooLargeError,
+)
+
+
+_NON_RETRYABLE_ERRORS = (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    ConflictError,
+    PayloadTooLargeError,
+    InvalidStateTransitionError,
+)
 
 
 async def _run_job_service_operation(
@@ -33,6 +52,9 @@ async def _run_job_service_operation(
                 result = await operation(service)
                 await session.commit()
                 return _serialize_result(result)
+            except _NON_RETRYABLE_ERRORS as exc:
+                await session.rollback()
+                raise ApplicationError(str(exc), type=type(exc).__name__, non_retryable=True) from exc
             except Exception:
                 await session.rollback()
                 raise

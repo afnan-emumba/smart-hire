@@ -29,6 +29,8 @@ class ResumeClient(BaseServiceClient):
             },
             headers=self._headers(current_user),
         )
+        if response.status_code == 404:
+            return None
         self._raise_for_status(response)
 
         resumes = response.json()

@@ -12,7 +12,13 @@ from app.repositories.candidate_repo import CandidateRepository
 from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
-from exceptions.http_exceptions import BadRequestError, ConflictError, ForbiddenError, NotFoundError
+from exceptions.http_exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ServiceUnavailableError,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +57,14 @@ class CandidateService:
 
         return CandidateResponse.model_validate(candidate)
 
-    async def get_candidate(self, candidate_id: uuid.UUID) -> CandidateResponse:
+    async def get_candidate(
+        self,
+        candidate_id: uuid.UUID,
+        current_user: CurrentUser,
+    ) -> CandidateResponse:
+        if current_user.role == "CANDIDATE" and current_user.id != str(candidate_id):
+            raise ForbiddenError("Candidates can only view their own profile")
+
         candidate = await self.candidate_repo.get_by_id(candidate_id)
         if candidate is None:
             raise NotFoundError("Candidate not found")
@@ -113,10 +126,23 @@ class CandidateService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        await asyncio.gather(
+        results = await asyncio.gather(
             self.resume_client.delete_resumes_for_candidate(candidate_id, current_user),
             self.application_client.delete_applications_for_candidate(candidate_id, current_user),
+            return_exceptions=True,
         )
+        failures = [result for result in results if isinstance(result, Exception)]
+        if failures:
+            logger.error(
+                "Failed to cascade-delete one or more of the candidate's dependents; "
+                "candidate was not deleted, safe to retry",
+                extra={"candidate_id": str(candidate_id)},
+                exc_info=failures[0],
+            )
+            raise ServiceUnavailableError(
+                "Failed to delete the candidate's resumes or applications; "
+                "the candidate was not deleted, please retry"
+            ) from failures[0]
 
         was_deleted = await self.candidate_repo.delete(candidate_id)
         if not was_deleted:

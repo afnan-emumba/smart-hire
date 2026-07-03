@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from app.core.config import Settings
@@ -7,7 +8,10 @@ from auth.header_auth import CurrentUser
 from http_client.base_client import BaseServiceClient
 
 
+logger = logging.getLogger(__name__)
+
 _JOB_PAGE_SIZE = 100
+_MAX_JOBS_PER_RECRUITER = 5000
 
 
 class JobClient(BaseServiceClient):
@@ -43,6 +47,13 @@ class JobClient(BaseServiceClient):
             page = response.json()
             jobs.extend(page)
             if len(page) < _JOB_PAGE_SIZE:
+                break
+            if len(jobs) >= _MAX_JOBS_PER_RECRUITER:
+                logger.warning(
+                    "Recruiter %s has more than %d jobs; truncating list_by_recruiter results",
+                    recruiter_id,
+                    _MAX_JOBS_PER_RECRUITER,
+                )
                 break
             offset += _JOB_PAGE_SIZE
 

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
 from typing import Any
 
-from db.base import Base
-from sqlalchemy import DateTime, String, func, text
+from db.base import Base, TimestampMixin
+from sqlalchemy import String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,20 +31,6 @@ DEFAULT_MASTER_PROFILE_DATA_JSON = json.dumps(DEFAULT_MASTER_PROFILE_DATA)
 
 def default_master_profile_data() -> dict[str, Any]:
     return json.loads(DEFAULT_MASTER_PROFILE_DATA_JSON)
-
-
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
 
 class Candidate(TimestampMixin, Base):

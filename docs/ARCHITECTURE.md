@@ -71,7 +71,7 @@ flowchart TB
 
     subgraph Domain["services/&lt;name&gt;/app/services/"]
         svc[Service<br/>business rules + orchestration]
-        clients[HTTP Clients<br/>application-service only]
+        clients[HTTP Clients<br/>all but recruiter/notification]
     end
 
     subgraph DataAccess["services/&lt;name&gt;/app/repositories/"]
@@ -114,7 +114,7 @@ Every service repeats this same internal shape. The only structural difference b
 - Principle: services own behavior, repositories own queries
 - **Exception pattern:** Services raise domain exceptions (`NotFoundError`, `ForbiddenError`, `BadRequestError`, `ConflictError`, `PayloadTooLargeError`, `ServiceUnavailableError`) from the shared `exceptions.http_exceptions` module, **not** `HTTPException`. This decouples services from HTTP and allows them to be called from workflows, background tasks, or other contexts.
 - **Auth binding:** Services extract ownership IDs from `current_user` context (X-User-ID header), not from request bodies. Prevents authorization bypasses.
-- **Cross-service calls:** application-service has no direct DB access to jobs, candidates, or resumes — it calls job-service, candidate-service, and resume-service over HTTP (`app/clients/`) instead of joining across databases. This is the only service that does so; every other service is self-contained.
+- **Cross-service calls:** no service has direct DB access to another service's tables — cross-service reads/writes go over HTTP via each service's own `app/clients/`, never a join across databases. application-service calls job-service, candidate-service, and resume-service (to validate jobs/candidates and cascade-delete on job/candidate removal); job-service calls recruiter-service and application-service; candidate-service calls resume-service and application-service; resume-service calls candidate-service. Only `recruiter-service` and `notification-service` make no outbound service calls.
 
 ### Repository Layer
 

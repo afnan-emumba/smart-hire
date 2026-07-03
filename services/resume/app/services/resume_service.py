@@ -28,10 +28,9 @@ from exceptions.http_exceptions import (
 
 logger = logging.getLogger(__name__)
 
+# Keep in sync with process_resume_parsing, which only implements PDF extraction.
 _SUPPORTED_CONTENT_TYPES = {
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
 

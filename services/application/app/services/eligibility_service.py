@@ -137,8 +137,17 @@ class EligibilityService:
             return canonical_skills, None
 
         latest_resume = await self.resume_client.get_latest_parsed_resume(candidate_id, current_user)
-        if latest_resume is None or latest_resume.get("structured_data") is None:
+        if latest_resume is None:
             return canonical_skills, None
 
-        resume_skills = self._normalize_skills(latest_resume["structured_data"].get("skills", []))
-        return resume_skills, uuid.UUID(latest_resume["id"])
+        structured_data = latest_resume.get("structured_data")
+        if not isinstance(structured_data, dict):
+            return canonical_skills, None
+
+        try:
+            resume_id = uuid.UUID(latest_resume["id"])
+        except (KeyError, TypeError, ValueError):
+            return canonical_skills, None
+
+        resume_skills = self._normalize_skills(structured_data.get("skills", []))
+        return resume_skills, resume_id

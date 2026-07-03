@@ -8,7 +8,6 @@ from app.api.dependencies import get_candidate_service
 from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from app.services.candidate_service import CandidateService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from exceptions.http_exceptions import ForbiddenError
 
 
 router = APIRouter()
@@ -29,9 +28,7 @@ async def get_candidate(
     current_user: CurrentUser = Depends(get_current_user),
     service: CandidateService = Depends(get_candidate_service),
 ) -> CandidateResponse:
-    if current_user.role == "CANDIDATE" and current_user.id != str(candidate_id):
-        raise ForbiddenError("Candidates can only view their own profile")
-    return await service.get_candidate(candidate_id)
+    return await service.get_candidate(candidate_id, current_user)
 
 
 @router.get("", response_model=list[CandidateResponse])

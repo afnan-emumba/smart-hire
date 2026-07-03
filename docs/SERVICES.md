@@ -2,7 +2,7 @@
 
 ## Overview
 
-Services own business behavior. Routers should stay thin, repositories should stay data-focused, and services should coordinate validation, persistence, workflows, and — for application-service — calls to other services over HTTP. Each service in `services/<name>/` only ever talks to its own database; there is no shared database session or cross-service ORM join anywhere in the codebase.
+Services own business behavior. Routers should stay thin, repositories should stay data-focused, and services should coordinate validation, persistence, workflows, and — where a service needs data it doesn't own — calls to other services over HTTP. Each service in `services/<name>/` only ever talks to its own database; there is no shared database session or cross-service ORM join anywhere in the codebase.
 
 ## Service Interaction Diagram
 
@@ -13,18 +13,24 @@ flowchart LR
     repo[Repository]
     db[(Own service's PostgreSQL database)]
     workflow[Temporal]
-    httpclients[HTTP Clients<br/>job/candidate/resume]
+    httpclients[HTTP Clients<br/>app/clients/]
     otherservices[Other Services'<br/>Gateways]
 
     router --> service
     service --> repo
     repo --> db
     service --> workflow
-    service -.application-service only.-> httpclients
+    service -.most services.-> httpclients
     httpclients -.-> otherservices
 ```
 
-application-service is the one service with no local view of jobs, candidates, or resumes — it calls job-service, candidate-service, and resume-service over HTTP (`app/clients/job_client.py`, `candidate_client.py`, `resume_client.py`), forwarding the caller's `X-User-ID`/`X-User-Role` headers, instead of joining across databases.
+No service has a local view of another service's tables. Cross-service reads/writes go over HTTP via each service's own `app/clients/`, forwarding the caller's `X-User-ID`/`X-User-Role` headers, instead of joining across databases:
+
+- **application-service** calls job-service, candidate-service, and resume-service — it has no local view of jobs, candidates, or resumes at all.
+- **job-service** calls recruiter-service (to validate the recruiter on job creation) and application-service (to cascade-delete applications when a job is deleted).
+- **candidate-service** calls resume-service and application-service (to cascade-delete a candidate's resumes/applications on candidate deletion).
+- **resume-service** calls candidate-service (to validate the candidate on resume upload).
+- **recruiter-service** and **notification-service** make no outbound service calls.
 
 ## Core Service Responsibilities
 
