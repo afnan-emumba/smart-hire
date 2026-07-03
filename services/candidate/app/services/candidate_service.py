@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -112,8 +113,10 @@ class CandidateService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        await self.resume_client.delete_resumes_for_candidate(candidate_id, current_user)
-        await self.application_client.delete_applications_for_candidate(candidate_id, current_user)
+        await asyncio.gather(
+            self.resume_client.delete_resumes_for_candidate(candidate_id, current_user),
+            self.application_client.delete_applications_for_candidate(candidate_id, current_user),
+        )
 
         was_deleted = await self.candidate_repo.delete(candidate_id)
         if not was_deleted:

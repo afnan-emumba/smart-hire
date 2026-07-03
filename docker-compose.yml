@@ -136,7 +136,7 @@ services:
       DATABASE_URL: ${JOB_DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
-      JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
+      JD_UPLOAD_DIR: /data/job_descriptions
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
       RECRUITER_SERVICE_URL: http://recruiter-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
@@ -144,6 +144,7 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+      - job_uploads:/data/job_descriptions
     ports:
       - "8003:8003"
 
@@ -163,7 +164,7 @@ services:
       DATABASE_URL: ${JOB_DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
-      JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
+      JD_UPLOAD_DIR: /data/job_descriptions
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
       RECRUITER_SERVICE_URL: http://recruiter-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
@@ -171,6 +172,7 @@ services:
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+      - job_uploads:/data/job_descriptions
     restart: unless-stopped
 
   resume-service:
@@ -188,13 +190,14 @@ services:
       DATABASE_URL: ${RESUME_DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
-      RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
+      RESUME_UPLOAD_DIR: /data/resumes
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
       CANDIDATE_SERVICE_URL: http://candidate-service:8002
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+      - resume_uploads:/data/resumes
     ports:
       - "8004:8004"
 
@@ -214,13 +217,14 @@ services:
       DATABASE_URL: ${RESUME_DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
-      RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
+      RESUME_UPLOAD_DIR: /data/resumes
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
       CANDIDATE_SERVICE_URL: http://candidate-service:8002
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
       PYTHONPATH: /shared
     volumes:
       - ./shared:/shared
+      - resume_uploads:/data/resumes
     restart: unless-stopped
 
   application-service:
@@ -266,3 +270,5 @@ services:
 
 volumes:
   postgres_data:
+  job_uploads:
+  resume_uploads:
