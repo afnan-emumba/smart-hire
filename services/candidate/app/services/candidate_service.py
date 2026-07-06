@@ -10,10 +10,10 @@ from app.clients.application_client import ApplicationClient
 from app.clients.resume_client import ResumeClient
 from app.repositories.candidate_repo import CandidateRepository
 from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
+from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
 from exceptions.http_exceptions import (
-    BadRequestError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -81,7 +81,7 @@ class CandidateService:
         candidate_update: CandidateUpdate,
         current_user: CurrentUser,
     ) -> CandidateResponse:
-        owner_id = self._require_candidate_user_id(current_user)
+        owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to update this candidate")
 
@@ -118,7 +118,7 @@ class CandidateService:
         return CandidateResponse.model_validate(updated_candidate)
 
     async def delete_candidate(self, candidate_id: uuid.UUID, current_user: CurrentUser) -> None:
-        owner_id = self._require_candidate_user_id(current_user)
+        owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete this candidate")
 
@@ -148,12 +148,3 @@ class CandidateService:
         if not was_deleted:
             raise NotFoundError("Candidate not found")
 
-    @staticmethod
-    def _require_candidate_user_id(current_user: CurrentUser) -> uuid.UUID:
-        if current_user.role != "CANDIDATE":
-            raise ForbiddenError("Only candidates can perform this action")
-
-        try:
-            return uuid.UUID(current_user.id)
-        except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc

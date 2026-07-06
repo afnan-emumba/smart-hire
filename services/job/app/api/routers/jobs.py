@@ -2,35 +2,17 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 
 from app.api.dependencies import get_job_service
 from app.core.config import get_settings
 from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate, PublishJobResponse
 from app.services.job_service import JobService
 from auth.header_auth import CurrentUser, get_current_user, require_role
+from api.uploads import read_limited_upload
 
 
 router = APIRouter()
-
-
-async def read_limited_upload(upload: UploadFile, max_bytes: int) -> bytes:
-    chunks: list[bytes] = []
-    total_size = 0
-
-    while True:
-        chunk = await upload.read(1024 * 1024)
-        if not chunk:
-            break
-        total_size += len(chunk)
-        if total_size > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Job description file exceeds the configured size limit",
-            )
-        chunks.append(chunk)
-
-    return b"".join(chunks)
 
 
 @router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
@@ -90,7 +72,11 @@ async def upload_job_description_file(
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
     settings = get_settings()
-    file_bytes = await read_limited_upload(description_file, settings.max_jd_size_bytes)
+    file_bytes = await read_limited_upload(
+        description_file,
+        settings.max_jd_size_bytes,
+        error_detail="Job description file exceeds the configured size limit",
+    )
     return await service.upload_job_description(
         job_id,
         file_name=description_file.filename or "job-description.pdf",

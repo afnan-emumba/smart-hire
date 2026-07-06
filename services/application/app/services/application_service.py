@@ -14,6 +14,7 @@ from app.schemas.application import (
     EligibilityReasonCode,
 )
 from app.services.eligibility_service import EligibilityService
+from auth.actors import require_candidate_user_id, require_recruiter_user_id
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
 from exceptions.http_exceptions import (
@@ -43,7 +44,7 @@ class ApplicationService:
         application_create: ApplicationCreate,
         current_user: CurrentUser,
     ) -> ApplicationResponse:
-        candidate_id = self._require_candidate_user_id(current_user)
+        candidate_id = require_candidate_user_id(current_user)
 
         eligibility = await self.eligibility_service.check_eligibility(
             candidate_id,
@@ -96,9 +97,9 @@ class ApplicationService:
         status_filter = status.value if status is not None else None
 
         if current_user.role == "CANDIDATE":
-            candidate_id = self._require_candidate_user_id(current_user)
+            candidate_id = require_candidate_user_id(current_user)
         else:
-            recruiter_id = self._require_recruiter_user_id(current_user)
+            recruiter_id = require_recruiter_user_id(current_user)
             if candidate_id is not None and job_id is None:
                 raise BadRequestError("Recruiters must provide job_id when filtering by candidate_id")
             if job_id is not None:
@@ -144,7 +145,7 @@ class ApplicationService:
         new_status: ApplicationStatus,
         current_user: CurrentUser,
     ) -> ApplicationResponse:
-        recruiter_id = self._require_recruiter_user_id(current_user)
+        recruiter_id = require_recruiter_user_id(current_user)
         application = await self.application_repo.get_by_id(application_id)
         if application is None:
             raise NotFoundError("Application not found")
@@ -183,7 +184,7 @@ class ApplicationService:
             raise BadRequestError("Provide exactly one of job_id or candidate_id")
 
         if job_id is not None:
-            recruiter_id = self._require_recruiter_user_id(current_user)
+            recruiter_id = require_recruiter_user_id(current_user)
             await self._get_job_owned_by_recruiter(
                 job_id,
                 recruiter_id,
@@ -193,7 +194,7 @@ class ApplicationService:
             await self.application_repo.delete_by_job(job_id)
             return
 
-        owner_id = self._require_candidate_user_id(current_user)
+        owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete another candidate's applications")
         await self.application_repo.delete_by_candidate(candidate_id)
@@ -204,12 +205,12 @@ class ApplicationService:
         current_user: CurrentUser,
     ) -> None:
         if current_user.role == "CANDIDATE":
-            candidate_id = self._require_candidate_user_id(current_user)
+            candidate_id = require_candidate_user_id(current_user)
             if application.candidate_id != candidate_id:
                 raise ForbiddenError("Not authorized to view this application")
             return
 
-        recruiter_id = self._require_recruiter_user_id(current_user)
+        recruiter_id = require_recruiter_user_id(current_user)
         await self._get_job_owned_by_recruiter(
             application.job_id,
             recruiter_id,
@@ -240,22 +241,3 @@ class ApplicationService:
             return []
         return [application]
 
-    @staticmethod
-    def _require_candidate_user_id(current_user: CurrentUser) -> uuid.UUID:
-        if current_user.role != "CANDIDATE":
-            raise ForbiddenError("Only candidates can perform this action")
-
-        try:
-            return uuid.UUID(current_user.id)
-        except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
-
-    @staticmethod
-    def _require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:
-        if current_user.role != "RECRUITER":
-            raise ForbiddenError("Only recruiters can perform this action")
-
-        try:
-            return uuid.UUID(current_user.id)
-        except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid recruiter UUID") from exc

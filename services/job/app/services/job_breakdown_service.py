@@ -76,6 +76,10 @@ class JobBreakdownService:
         "confluence": "tool",
         "google analytics": "tool",
     }
+    _NORMALIZED_TECHNOLOGY_KEYS: set[str] = {
+        key.replace(" ", "")
+        for key in _TECHNOLOGY_CATEGORIES
+    }
     _SOFT_SKILL_KEYWORDS = (
         "communication",
         "leadership",
@@ -127,6 +131,14 @@ class JobBreakdownService:
         re.IGNORECASE,
     )
     _DEADLINE_PATTERNS: tuple[str, ...] = ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y")
+    _SECTION_HEADING_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+        (
+            section_name,
+            re.compile(rf"^(?:#+\s*)?{re.escape(alias)}\s*:?\s*(.*)$", re.IGNORECASE),
+        )
+        for section_name, aliases in _SECTION_ALIASES.items()
+        for alias in aliases
+    )
 
     @classmethod
     async def breakdown_job_description(cls, description: str) -> JobBreakdown:
@@ -147,7 +159,7 @@ class JobBreakdownService:
         overview = cls._extract_overview(sections)
         years_of_experience_required = cls._extract_years_of_experience_required(sections)
         employment_type = cls._extract_employment_type(sections)
-        seniority_level = cls._extract_seniority_level(title, normalized_description)
+        seniority_level = cls._extract_seniority_level(title)
         department, job_category = cls._extract_department_and_category(title, sections)
         application_deadline = cls._extract_application_deadline(sections)
 
@@ -416,7 +428,7 @@ class JobBreakdownService:
         return None
 
     @classmethod
-    def _extract_seniority_level(cls, title: str | None, description: str) -> str | None:
+    def _extract_seniority_level(cls, title: str | None) -> str | None:
         if not title:
             return None
 
@@ -502,15 +514,13 @@ class JobBreakdownService:
 
     @classmethod
     def _match_section_heading(cls, line: str) -> tuple[str | None, str | None]:
-        for section_name, aliases in cls._SECTION_ALIASES.items():
-            for alias in aliases:
-                pattern = re.compile(rf"^(?:#+\s*)?{re.escape(alias)}\s*:?\s*(.*)$", re.IGNORECASE)
-                match = pattern.match(line)
-                if match is None:
-                    continue
+        for section_name, pattern in cls._SECTION_HEADING_PATTERNS:
+            match = pattern.match(line)
+            if match is None:
+                continue
 
-                inline_content = match.group(1).strip() or None
-                return section_name, inline_content
+            inline_content = match.group(1).strip() or None
+            return section_name, inline_content
 
         return None, None
 
@@ -546,7 +556,7 @@ class JobBreakdownService:
             return "soft"
         if normalized in cls._TECHNOLOGY_CATEGORIES:
             return "technology"
-        if normalized.replace(" ", "") in {key.replace(" ", "") for key in cls._TECHNOLOGY_CATEGORIES}:
+        if normalized.replace(" ", "") in cls._NORMALIZED_TECHNOLOGY_KEYS:
             return "technology"
         return "domain"
 

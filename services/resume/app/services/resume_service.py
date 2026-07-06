@@ -7,8 +7,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from temporalio.exceptions import WorkflowAlreadyStartedError
-
 from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
@@ -16,14 +14,15 @@ from app.schemas.resume import ResumeResponse
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
 from app.utils.resume_pdf import ResumePdfConverter
+from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from exceptions.http_exceptions import (
     BadRequestError,
     ForbiddenError,
     NotFoundError,
     PayloadTooLargeError,
-    ServiceUnavailableError,
 )
+from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ class ResumeService:
         file_bytes: bytes,
         current_user: CurrentUser,
     ) -> ResumeResponse:
-        candidate_id = self._require_candidate_user_id(current_user)
+        candidate_id = require_candidate_user_id(current_user)
 
         candidate = await self.candidate_client.get_candidate(candidate_id, current_user)
         if candidate is None:
@@ -109,7 +108,7 @@ class ResumeService:
             raise NotFoundError("Resume not found")
 
         if current_user.role == "CANDIDATE":
-            candidate_id = self._require_candidate_user_id(current_user)
+            candidate_id = require_candidate_user_id(current_user)
             if resume.candidate_id != candidate_id:
                 raise ForbiddenError("Not authorized to view this resume")
 
@@ -125,7 +124,7 @@ class ResumeService:
         offset: int,
     ) -> list[ResumeResponse]:
         if current_user.role == "CANDIDATE":
-            own_candidate_id = self._require_candidate_user_id(current_user)
+            own_candidate_id = require_candidate_user_id(current_user)
             if candidate_id is not None and candidate_id != own_candidate_id:
                 raise ForbiddenError("Not authorized to view another candidate's resumes")
             candidate_id = own_candidate_id
@@ -212,7 +211,7 @@ class ResumeService:
         candidate_id: uuid.UUID,
         current_user: CurrentUser,
     ) -> None:
-        owner_id = self._require_candidate_user_id(current_user)
+        owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete another candidate's resumes")
 
@@ -251,39 +250,24 @@ class ResumeService:
 
     async def _start_resume_parsing_workflow(self, resume_id: uuid.UUID, uploaded_at: datetime) -> None:
         workflow_id = self._build_resume_workflow_id(resume_id, uploaded_at)
-        try:
-            client = await TemporalClient.get_client()
-            from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
+        client = await TemporalClient.get_client()
+        from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
 
-            await client.start_workflow(
-                ResumeParsingWorkflow.run,
-                ResumeParsingWorkflowInput(resume_id=str(resume_id)),
-                id=workflow_id,
-                task_queue=self.settings.temporal_resume_task_queue,
-                execution_timeout=timedelta(minutes=5),
-            )
-        except WorkflowAlreadyStartedError:
-            logger.info(
-                "Resume parsing workflow already started",
-                extra={"resume_id": str(resume_id), "workflow_id": workflow_id},
-            )
-        except Exception as exc:
-            logger.exception(
-                "Failed to start resume parsing workflow",
-                extra={"resume_id": str(resume_id), "workflow_id": workflow_id},
-            )
-            raise ServiceUnavailableError("Temporal workflow service is unavailable") from exc
+        await start_workflow_with_retryable_error_mapping(
+            client=client,
+            workflow=ResumeParsingWorkflow.run,
+            workflow_input=ResumeParsingWorkflowInput(resume_id=str(resume_id)),
+            workflow_id=workflow_id,
+            task_queue=self.settings.temporal_resume_task_queue,
+            execution_timeout=timedelta(minutes=5),
+            logger=logger,
+            context={"resume_id": str(resume_id), "workflow_id": workflow_id},
+            conflict_log_message="Resume parsing workflow already started",
+            failure_log_message="Failed to start resume parsing workflow",
+            unavailable_message="Temporal workflow service is unavailable",
+        )
 
     @staticmethod
     def _build_resume_workflow_id(resume_id: uuid.UUID, uploaded_at: datetime) -> str:
         return f"resume-parsing-{resume_id}-{int(uploaded_at.timestamp())}"
 
-    @staticmethod
-    def _require_candidate_user_id(current_user: CurrentUser) -> uuid.UUID:
-        if current_user.role != "CANDIDATE":
-            raise ForbiddenError("Only candidates can perform this action")
-
-        try:
-            return uuid.UUID(current_user.id)
-        except ValueError as exc:
-            raise BadRequestError("X-User-ID must be a valid candidate UUID") from exc
