@@ -7,9 +7,6 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
 
-with workflow.unsafe.imports_passed_through():
-    from app.temporal.activities import finalize_job_breakdown, mark_job_ready
-
 
 @dataclass
 class JobPublishingInput:
@@ -28,7 +25,7 @@ class JobPublishingWorkflow:
         )
 
         breakdown_result = await workflow.execute_activity(
-            finalize_job_breakdown,
+            "finalize_job_breakdown",
             input.job_id,
             start_to_close_timeout=timedelta(minutes=3),
             retry_policy=retry_policy,
@@ -41,7 +38,7 @@ class JobPublishingWorkflow:
             )
 
         ready_result = await workflow.execute_activity(
-            mark_job_ready,
+            "mark_job_ready",
             input.job_id,
             start_to_close_timeout=timedelta(minutes=1),
             retry_policy=retry_policy,

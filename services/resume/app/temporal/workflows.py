@@ -6,9 +6,6 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-with workflow.unsafe.imports_passed_through():
-    from app.temporal.activities import parse_resume
-
 
 @dataclass
 class ResumeParsingWorkflowInput:
@@ -27,7 +24,7 @@ class ResumeParsingWorkflow:
         )
 
         result = await workflow.execute_activity(
-            parse_resume,
+            "parse_resume",
             input.resume_id,
             start_to_close_timeout=timedelta(minutes=3),
             retry_policy=retry_policy,

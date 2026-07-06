@@ -14,6 +14,7 @@ from app.schemas.resume import ResumeResponse
 from app.services.resume_file_service import ResumeFileService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
+from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
 from app.utils.resume_pdf import ResumePdfConverter
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
@@ -256,7 +257,6 @@ class ResumeService:
     async def _start_resume_parsing_workflow(self, resume_id: uuid.UUID, uploaded_at: datetime) -> None:
         workflow_id = self._build_resume_workflow_id(resume_id, uploaded_at)
         client = await TemporalClient.get_client()
-        from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
 
         await start_workflow_with_retryable_error_mapping(
             client=client,

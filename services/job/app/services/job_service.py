@@ -22,6 +22,7 @@ from app.schemas.job import (
 from app.services.job_breakdown_orchestrator import JobBreakdownOrchestrator
 from app.services.job_file_service import JobFileService
 from app.temporal.client import TemporalClient
+from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 from auth.actors import require_recruiter_user_id
 from auth.header_auth import CurrentUser
 from exceptions.http_exceptions import (
@@ -309,7 +310,6 @@ class JobService:
         )
 
         client = await TemporalClient.get_client()
-        from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 
         await start_workflow_with_retryable_error_mapping(
             client=client,
