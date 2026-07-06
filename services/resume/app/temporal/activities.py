@@ -4,12 +4,17 @@ import uuid
 from typing import Any
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.repositories.resume_repo import ResumeRepository
 from app.services.resume_service import ResumeService
+from exceptions.http_exceptions import NotFoundError
+
+
+_NON_RETRYABLE_ERRORS = (NotFoundError,)
 
 
 @activity.defn
@@ -30,6 +35,9 @@ async def parse_resume(resume_id: str) -> dict[str, Any]:
                 result = await service.process_resume_parsing(parsed_resume_id)
                 await session.commit()
                 return result
+            except _NON_RETRYABLE_ERRORS as exc:
+                await session.rollback()
+                raise ApplicationError(str(exc), type=type(exc).__name__, non_retryable=True) from exc
             except Exception:
                 await session.rollback()
                 raise

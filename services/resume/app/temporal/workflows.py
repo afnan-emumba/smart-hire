@@ -26,21 +26,14 @@ class ResumeParsingWorkflow:
             maximum_attempts=5,
         )
 
-        try:
-            result = await workflow.execute_activity(
-                parse_resume,
-                input.resume_id,
-                start_to_close_timeout=timedelta(minutes=3),
-                retry_policy=retry_policy,
-            )
-            return {
-                "status": "success",
-                "resume_id": input.resume_id,
-                "parsing_status": result.get("parsing_status", "failed"),
-            }
-        except Exception as exc:
-            return {
-                "status": "failed",
-                "resume_id": input.resume_id,
-                "error": str(exc),
-            }
+        result = await workflow.execute_activity(
+            parse_resume,
+            input.resume_id,
+            start_to_close_timeout=timedelta(minutes=3),
+            retry_policy=retry_policy,
+        )
+        return {
+            "status": "success",
+            "resume_id": input.resume_id,
+            "parsing_status": result.get("parsing_status", "failed"),
+        }

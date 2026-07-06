@@ -246,6 +246,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `POST /api/v1/resumes` — Upload a resume, independent of any application (starts `ResumeParsingWorkflow`)
 - `GET /api/v1/resumes/{id}` — Retrieve a resume and its parsed data
 - `GET /api/v1/resumes` — List a candidate's resumes
+- `DELETE /api/v1/resumes?candidate_id={id}` — Bulk delete all resumes for a candidate
 
 **Applications** (application-service):
 
@@ -253,6 +254,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `GET /api/v1/applications/{id}` — Retrieve application
 - `GET /api/v1/applications` — List applications with filters
 - `PATCH /api/v1/applications/{id}/status` — Recruiter transitions application status
+- `DELETE /api/v1/applications?job_id={id}|candidate_id={id}` — Bulk delete applications for a job or candidate
 
 **Manual API Testing:**
 
