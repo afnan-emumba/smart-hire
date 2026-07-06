@@ -158,8 +158,15 @@ class JobBreakdownOrchestrator:
         return value
 
     async def _finalize_pdf_breakdown(self, job: Any) -> Any:
+        if not job.jd_storage_path:
+            return await self._fail_pdf_breakdown(job, "Job description file is missing")
+
+        storage_path = Path(job.jd_storage_path)
+        if not await asyncio.to_thread(storage_path.exists):
+            return await self._fail_pdf_breakdown(job, "Uploaded job description file is no longer available")
+
         try:
-            file_bytes = await asyncio.to_thread(Path(job.jd_storage_path).read_bytes)
+            file_bytes = await asyncio.to_thread(storage_path.read_bytes)
             description = await asyncio.to_thread(
                 JobDescriptionPdfConverter.convert_pdf_to_markdown,
                 file_bytes,
@@ -174,23 +181,7 @@ class JobBreakdownOrchestrator:
                 "Failed to finalize job description breakdown",
                 extra={"job_id": str(job.id)},
             )
-            failed_job = await self.job_repo.set_job_description_parsing_result(
-                job,
-                description=None,
-                description_breakdown=None,
-                required_skills=job.required_skills,
-                parsing_status="failed",
-                parsing_error=str(exc),
-                structured_updates=self.empty_structured_updates(),
-            )
-            await self.job_repo.update(
-                job.id,
-                {
-                    "publishing_failed_at": datetime.now(timezone.utc),
-                    "publishing_error": str(exc),
-                },
-            )
-            return failed_job
+            return await self._fail_pdf_breakdown(job, str(exc))
 
         return await self.job_repo.set_job_description_parsing_result(
             job,
@@ -204,3 +195,22 @@ class JobBreakdownOrchestrator:
             parsing_error=None,
             structured_updates=self.build_structured_updates(extracted_profile),
         )
+
+    async def _fail_pdf_breakdown(self, job: Any, parsing_error: str) -> Any:
+        failed_job = await self.job_repo.set_job_description_parsing_result(
+            job,
+            description=None,
+            description_breakdown=None,
+            required_skills=job.required_skills,
+            parsing_status="failed",
+            parsing_error=parsing_error,
+            structured_updates=self.empty_structured_updates(),
+        )
+        await self.job_repo.update(
+            job.id,
+            {
+                "publishing_failed_at": datetime.now(timezone.utc),
+                "publishing_error": parsing_error,
+            },
+        )
+        return failed_job

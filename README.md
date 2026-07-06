@@ -82,7 +82,7 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - Maximum file size enforced by config (`MAX_RESUME_SIZE_BYTES`, default 10 MB)
 - Supported types: PDF, DOC, DOCX
 - Internal storage path is **not** exposed in API responses (security best practice)
-- Files are stored on resume-service's local filesystem under `RESUME_UPLOAD_DIR` (no volume mount, so uploads don't survive a container recreate — acceptable for local validation)
+- Files are stored on resume-service's local filesystem under `RESUME_UPLOAD_DIR`, backed by a named Docker volume (`resume_uploads`) shared with resume-service-worker so uploads persist across container recreates and stay visible to the parsing worker
 - Resumes are uploaded independently of any application (`POST /resumes`) and only referenced by `resume_id` from applications, not owned by them
 
 ### Job Description Ingestion

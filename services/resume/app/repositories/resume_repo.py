@@ -69,12 +69,14 @@ class ResumeRepository:
         )
         return list(result.scalars().all())
 
-    async def delete_by_candidate(self, candidate_id: uuid.UUID) -> int:
+    async def delete_by_candidate(self, candidate_id: uuid.UUID) -> list[str]:
         result = await self.session.execute(
-            delete(CandidateResume).where(CandidateResume.candidate_id == candidate_id)
+            delete(CandidateResume)
+            .where(CandidateResume.candidate_id == candidate_id)
+            .returning(CandidateResume.storage_path)
         )
         await self.session.flush()
-        return result.rowcount or 0
+        return [storage_path for storage_path in result.scalars().all() if storage_path]
 
     async def update_parsing_status(
         self,

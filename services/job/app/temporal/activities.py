@@ -5,7 +5,6 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from temporalio import activity
-from temporalio.exceptions import ApplicationError
 
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
@@ -22,6 +21,7 @@ from exceptions.http_exceptions import (
     NotFoundError,
     PayloadTooLargeError,
 )
+from temporal.activity_runner import run_temporal_activity
 
 
 _NON_RETRYABLE_ERRORS = (
@@ -40,27 +40,19 @@ async def _run_job_service_operation(
     settings = get_settings()
     recruiter_client = RecruiterClient(settings)
     application_client = ApplicationClient(settings)
-    try:
-        async with SessionLocal() as session:
-            service = JobService(
-                job_repo=JobRepository(session),
-                settings=settings,
-                recruiter_client=recruiter_client,
-                application_client=application_client,
-            )
-            try:
-                result = await operation(service)
-                await session.commit()
-                return _serialize_result(result)
-            except _NON_RETRYABLE_ERRORS as exc:
-                await session.rollback()
-                raise ApplicationError(str(exc), type=type(exc).__name__, non_retryable=True) from exc
-            except Exception:
-                await session.rollback()
-                raise
-    finally:
-        await recruiter_client.aclose()
-        await application_client.aclose()
+    return await run_temporal_activity(
+        session_factory=SessionLocal,
+        build_service=lambda session: JobService(
+            job_repo=JobRepository(session),
+            settings=settings,
+            recruiter_client=recruiter_client,
+            application_client=application_client,
+        ),
+        operation=operation,
+        non_retryable_errors=_NON_RETRYABLE_ERRORS,
+        clients=[recruiter_client, application_client],
+        serialize_result=_serialize_result,
+    )
 
 
 @activity.defn

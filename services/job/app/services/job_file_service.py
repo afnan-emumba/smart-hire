@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
-import os
 import uuid
 from pathlib import Path
 
 from app.core.config import Settings
 from exceptions.http_exceptions import BadRequestError, PayloadTooLargeError
+from storage.local_file_store import remove_if_exists, write_file
 
 
 class JobFileService:
@@ -36,17 +35,11 @@ class JobFileService:
         job_id: uuid.UUID,
         file_bytes: bytes,
     ) -> str:
-        upload_dir = Path(self.settings.jd_upload_dir)
-        await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
-
-        file_path = upload_dir / f"{job_id}.pdf"
-        await asyncio.to_thread(file_path.write_bytes, file_bytes)
-        return file_path.as_posix()
+        return await write_file(
+            directory=self.settings.jd_upload_dir,
+            file_name=f"{job_id}.pdf",
+            file_bytes=file_bytes,
+        )
 
     async def remove_if_exists(self, storage_path: str | None) -> None:
-        if not storage_path:
-            return
-
-        path = Path(storage_path)
-        if path.exists():
-            await asyncio.to_thread(os.remove, path)
+        await remove_if_exists(storage_path)

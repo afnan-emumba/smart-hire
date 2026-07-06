@@ -4,7 +4,6 @@ import uuid
 from typing import Any
 
 from temporalio import activity
-from temporalio.exceptions import ApplicationError
 
 from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
@@ -12,6 +11,7 @@ from app.db.session import SessionLocal
 from app.repositories.resume_repo import ResumeRepository
 from app.services.resume_service import ResumeService
 from exceptions.http_exceptions import NotFoundError
+from temporal.activity_runner import run_temporal_activity
 
 
 _NON_RETRYABLE_ERRORS = (NotFoundError,)
@@ -24,22 +24,14 @@ async def parse_resume(resume_id: str) -> dict[str, Any]:
 
     settings = get_settings()
     candidate_client = CandidateClient(settings)
-    try:
-        async with SessionLocal() as session:
-            service = ResumeService(
-                resume_repo=ResumeRepository(session),
-                settings=settings,
-                candidate_client=candidate_client,
-            )
-            try:
-                result = await service.process_resume_parsing(parsed_resume_id)
-                await session.commit()
-                return result
-            except _NON_RETRYABLE_ERRORS as exc:
-                await session.rollback()
-                raise ApplicationError(str(exc), type=type(exc).__name__, non_retryable=True) from exc
-            except Exception:
-                await session.rollback()
-                raise
-    finally:
-        await candidate_client.aclose()
+    return await run_temporal_activity(
+        session_factory=SessionLocal,
+        build_service=lambda session: ResumeService(
+            resume_repo=ResumeRepository(session),
+            settings=settings,
+            candidate_client=candidate_client,
+        ),
+        operation=lambda service: service.process_resume_parsing(parsed_resume_id),
+        non_retryable_errors=_NON_RETRYABLE_ERRORS,
+        clients=[candidate_client],
+    )

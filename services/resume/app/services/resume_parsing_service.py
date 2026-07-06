@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.utils.skill_extractor import SkillExtractor
+from skills.skill_extractor import SkillExtractor
 
 
 class ResumeParsingService:

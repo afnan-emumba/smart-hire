@@ -13,7 +13,7 @@ from app.schemas.job_breakdown import (
     Skill,
     Technology,
 )
-from app.utils.skill_extractor import SkillExtractor
+from skills.skill_extractor import SkillExtractor
 
 
 class JobBreakdownService:
@@ -197,16 +197,19 @@ class JobBreakdownService:
             for skill_item in sections.get("skills", [])
             if cls._normalize_skill_item(skill_item)
         ]
-        inferred_skills = SkillExtractor.extract_skills(
-            "\n".join(
-                [
-                    *sections.get("skills", []),
-                    *sections.get("requirements", []),
-                    *sections.get("must_haves", []),
-                    *sections.get("nice_to_haves", []),
-                ]
+        inferred_skills = [
+            Skill(**extracted_skill.model_dump())
+            for extracted_skill in SkillExtractor.extract_skills(
+                "\n".join(
+                    [
+                        *sections.get("skills", []),
+                        *sections.get("requirements", []),
+                        *sections.get("must_haves", []),
+                        *sections.get("nice_to_haves", []),
+                    ]
+                )
             )
-        )
+        ]
         return cls._merge_skills(direct_skills, inferred_skills)
 
     @classmethod

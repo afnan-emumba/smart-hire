@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class Skill(BaseModel):
-    name: str
-    category: str
-    proficiency: str
-    years_required: int | None = None
+ExtractedSkillProficiency = Literal["entry", "intermediate", "expert"]
+
+
+class ExtractedSkill(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
+    category: Literal["technology"] = "technology"
+    proficiency: ExtractedSkillProficiency
+    years_required: int | None = Field(default=None, ge=0)
 
 
 class SkillExtractor:
@@ -50,8 +56,8 @@ class SkillExtractor:
     _YEARS_PATTERN = re.compile(r"(?P<years>\d+)\+?\s*(?:years?|yrs?)")
 
     @classmethod
-    def extract_skills(cls, text: str) -> list[Skill]:
-        extracted_skills: list[Skill] = []
+    def extract_skills(cls, text: str) -> list[ExtractedSkill]:
+        extracted_skills: list[ExtractedSkill] = []
         lowered_text = text.lower()
 
         for skill_name, keywords in cls.SKILL_KEYWORDS.items():
@@ -60,7 +66,7 @@ class SkillExtractor:
                 continue
 
             extracted_skills.append(
-                Skill(
+                ExtractedSkill(
                     name=skill_name,
                     category="technology",
                     proficiency=cls._infer_proficiency(context),

@@ -11,6 +11,7 @@ from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
 from app.schemas.resume import ResumeResponse
+from app.services.resume_file_service import ResumeFileService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
 from app.utils.resume_pdf import ResumePdfConverter
@@ -20,17 +21,11 @@ from exceptions.http_exceptions import (
     BadRequestError,
     ForbiddenError,
     NotFoundError,
-    PayloadTooLargeError,
 )
 from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 
 logger = logging.getLogger(__name__)
-
-# Keep in sync with process_resume_parsing, which only implements PDF extraction.
-_SUPPORTED_CONTENT_TYPES = {
-    "application/pdf",
-}
 
 
 class ResumeService:
@@ -46,6 +41,7 @@ class ResumeService:
         self.resume_repo = resume_repo
         self.settings = settings
         self.candidate_client = candidate_client
+        self.file_service = ResumeFileService(settings)
 
     async def upload_resume(
         self,
@@ -61,42 +57,42 @@ class ResumeService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        if len(file_bytes) > self.settings.max_resume_size_bytes:
-            raise PayloadTooLargeError("Resume file exceeds the configured size limit")
-
-        if not file_bytes:
-            raise BadRequestError("Resume file is empty")
-
-        if content_type not in _SUPPORTED_CONTENT_TYPES:
-            raise BadRequestError("Unsupported resume file type")
-
-        upload_dir = Path(self.settings.resume_upload_dir)
-        await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
-
-        sanitized_name = Path(file_name).name
-        suffix = Path(sanitized_name).suffix.lower()
-        if not suffix:
-            raise BadRequestError("Resume file must include an extension")
+        sanitized_name, suffix = await self.file_service.validate_resume_upload(
+            file_name=file_name,
+            content_type=content_type,
+            file_bytes=file_bytes,
+        )
 
         resume_id = uuid.uuid4()
-        stored_file_name = f"{resume_id}{suffix}"
-        file_path = upload_dir / stored_file_name
-
-        await asyncio.to_thread(file_path.write_bytes, file_bytes)
+        storage_path = await self.file_service.write_resume_file(
+            resume_id=resume_id,
+            suffix=suffix,
+            file_bytes=file_bytes,
+        )
 
         uploaded_at = datetime.now(timezone.utc)
-        resume = await self.resume_repo.create(
-            resume_id=resume_id,
-            candidate_id=candidate_id,
-            file_name=sanitized_name,
-            content_type=content_type,
-            storage_path=file_path.as_posix(),
-            uploaded_at=uploaded_at,
-            parsing_status="pending",
-            parser_version=self._RESUME_PARSER_VERSION,
-            schema_version=self._RESUME_SCHEMA_VERSION,
-            extraction_metadata={"source": "resume_upload"},
-        )
+        try:
+            resume = await self.resume_repo.create(
+                resume_id=resume_id,
+                candidate_id=candidate_id,
+                file_name=sanitized_name,
+                content_type=content_type,
+                storage_path=storage_path,
+                uploaded_at=uploaded_at,
+                parsing_status="pending",
+                parser_version=self._RESUME_PARSER_VERSION,
+                schema_version=self._RESUME_SCHEMA_VERSION,
+                extraction_metadata={"source": "resume_upload"},
+            )
+        except Exception:
+            try:
+                await self.file_service.remove_if_exists(storage_path)
+            except Exception:
+                logger.exception(
+                    "Failed to clean up orphaned resume file after a failed upload",
+                    extra={"resume_id": str(resume_id), "storage_path": storage_path},
+                )
+            raise
 
         await self._start_resume_parsing_workflow(resume.id, uploaded_at)
 
@@ -215,7 +211,16 @@ class ResumeService:
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete another candidate's resumes")
 
-        await self.resume_repo.delete_by_candidate(candidate_id)
+        storage_paths = await self.resume_repo.delete_by_candidate(candidate_id)
+
+        for storage_path in storage_paths:
+            try:
+                await self.file_service.remove_if_exists(storage_path)
+            except Exception:
+                logger.exception(
+                    "Failed to remove resume file after deleting candidate's resumes",
+                    extra={"candidate_id": str(candidate_id), "storage_path": storage_path},
+                )
 
     async def _update_resume_record(
         self,
