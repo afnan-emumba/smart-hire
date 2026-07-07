@@ -4,17 +4,21 @@ import asyncio
 import logging
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from app.clients.application_client import ApplicationClient
 from app.clients.resume_client import ResumeClient
 from app.repositories.candidate_repo import CandidateRepository
-from app.schemas.candidate import (CandidateCreate, CandidateResponse,
-                                   CandidateUpdate)
+from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
-from exceptions.http_exceptions import (ConflictError, ForbiddenError,
-                                        NotFoundError, ServiceUnavailableError)
-from sqlalchemy.exc import IntegrityError
+from exceptions.http_exceptions import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ServiceUnavailableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +34,12 @@ class CandidateService:
         self.resume_client = resume_client
         self.application_client = application_client
 
-    async def create_candidate(self, candidate_create: CandidateCreate) -> CandidateResponse:
-        existing_candidate = await self.candidate_repo.get_by_email(candidate_create.email)
+    async def create_candidate(
+        self, candidate_create: CandidateCreate
+    ) -> CandidateResponse:
+        existing_candidate = await self.candidate_repo.get_by_email(
+            candidate_create.email
+        )
         if existing_candidate is not None:
             raise ConflictError("Candidate with this email already exists")
 
@@ -66,7 +74,9 @@ class CandidateService:
 
         return CandidateResponse.model_validate(candidate)
 
-    async def list_candidates(self, *, limit: int, offset: int) -> list[CandidateResponse]:
+    async def list_candidates(
+        self, *, limit: int, offset: int
+    ) -> list[CandidateResponse]:
         candidates = await self.candidate_repo.list_all(limit=limit, offset=offset)
         return [CandidateResponse.model_validate(candidate) for candidate in candidates]
 
@@ -85,7 +95,9 @@ class CandidateService:
             raise NotFoundError("Candidate not found")
 
         if candidate_update.email is not None:
-            existing_candidate = await self.candidate_repo.get_by_email(candidate_update.email)
+            existing_candidate = await self.candidate_repo.get_by_email(
+                candidate_update.email
+            )
             if existing_candidate is not None and existing_candidate.id != candidate_id:
                 raise ConflictError("Candidate with this email already exists")
 
@@ -98,7 +110,10 @@ class CandidateService:
             if is_unique_violation(exc):
                 logger.info(
                     "Candidate update conflicted with a concurrent request",
-                    extra={"candidate_id": str(candidate_id), "email": candidate_update.email},
+                    extra={
+                        "candidate_id": str(candidate_id),
+                        "email": candidate_update.email,
+                    },
                 )
                 raise ConflictError("Candidate with this email already exists") from exc
             logger.exception(
@@ -112,7 +127,9 @@ class CandidateService:
 
         return CandidateResponse.model_validate(updated_candidate)
 
-    async def delete_candidate(self, candidate_id: uuid.UUID, current_user: CurrentUser) -> None:
+    async def delete_candidate(
+        self, candidate_id: uuid.UUID, current_user: CurrentUser
+    ) -> None:
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete this candidate")
@@ -123,7 +140,9 @@ class CandidateService:
 
         results = await asyncio.gather(
             self.resume_client.delete_resumes_for_candidate(candidate_id, current_user),
-            self.application_client.delete_applications_for_candidate(candidate_id, current_user),
+            self.application_client.delete_applications_for_candidate(
+                candidate_id, current_user
+            ),
             return_exceptions=True,
         )
         failures = [result for result in results if isinstance(result, Exception)]
@@ -142,4 +161,3 @@ class CandidateService:
         was_deleted = await self.candidate_repo.delete(candidate_id)
         if not was_deleted:
             raise NotFoundError("Candidate not found")
-

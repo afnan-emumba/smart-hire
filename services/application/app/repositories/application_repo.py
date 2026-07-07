@@ -4,11 +4,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.application_states import ApplicationStatus
 from app.db.models import Application, ApplicationStatusHistory
 from app.schemas.application import ApplicationCreate, EligibilityResult
-from sqlalchemy import delete, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ApplicationRepository:
@@ -97,8 +98,7 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()
-                          ).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -114,8 +114,7 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()
-                          ).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -133,8 +132,7 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()
-                          ).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -164,7 +162,9 @@ class ApplicationRepository:
         return await self.get_by_id(application.id)
 
     async def delete_by_job(self, job_id: uuid.UUID) -> int:
-        result = await self.session.execute(delete(Application).where(Application.job_id == job_id))
+        result = await self.session.execute(
+            delete(Application).where(Application.job_id == job_id)
+        )
         await self.session.flush()
         return result.rowcount or 0
 
@@ -191,9 +191,15 @@ class ApplicationRepository:
         status: ApplicationStatus,
     ) -> None:
         changed_at = datetime.now(timezone.utc)
-        if status == ApplicationStatus.SCREENING and application.screening_started_at is None:
+        if (
+            status == ApplicationStatus.SCREENING
+            and application.screening_started_at is None
+        ):
             application.screening_started_at = changed_at
-        elif status == ApplicationStatus.INTERVIEW and application.interview_started_at is None:
+        elif (
+            status == ApplicationStatus.INTERVIEW
+            and application.interview_started_at is None
+        ):
             application.interview_started_at = changed_at
         elif status == ApplicationStatus.OFFER and application.offered_at is None:
             application.offered_at = changed_at

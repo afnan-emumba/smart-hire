@@ -86,7 +86,9 @@ class JobBreakdownOrchestrator:
                 **self.build_structured_updates(extracted_profile),
                 **override_values,
                 "description_breakdown": breakdown.model_dump(mode="json"),
-                "required_skills": self.merge_required_skills(required_skills, extracted_skills),
+                "required_skills": self.merge_required_skills(
+                    required_skills, extracted_skills
+                ),
                 "jd_parsing_status": "parsed",
                 "jd_parsing_error": None,
                 "status": JobStatus.DRAFT.value,
@@ -122,12 +124,23 @@ class JobBreakdownOrchestrator:
         must_haves = requirements.get("must_haves") or []
         nice_to_haves = requirements.get("nice_to_haves") or []
         overview = description_breakdown.get("overview")
-        return bool(skills or technologies or responsibilities or must_haves or nice_to_haves or overview)
+        return bool(
+            skills
+            or technologies
+            or responsibilities
+            or must_haves
+            or nice_to_haves
+            or overview
+        )
 
     @staticmethod
-    def merge_required_skills(base_skills: list[str], extracted_skills: list[str]) -> list[str]:
+    def merge_required_skills(
+        base_skills: list[str], extracted_skills: list[str]
+    ) -> list[str]:
         normalized_skills = [
-            skill.strip() for skill in [*base_skills, *extracted_skills] if skill.strip()
+            skill.strip()
+            for skill in [*base_skills, *extracted_skills]
+            if skill.strip()
         ]
         return JobBreakdownService._deduplicate(normalized_skills)
 
@@ -136,7 +149,9 @@ class JobBreakdownOrchestrator:
         return {field_name: None for field_name in STRUCTURED_JOB_METADATA_FIELDS}
 
     @classmethod
-    def build_structured_updates(cls, extracted_profile: dict[str, Any]) -> dict[str, Any]:
+    def build_structured_updates(
+        cls, extracted_profile: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "employment_type": extracted_profile.get("employment_type"),
             "seniority_level": extracted_profile.get("seniority_level"),
@@ -144,7 +159,9 @@ class JobBreakdownOrchestrator:
             "job_category": extracted_profile.get("job_category"),
             "location": cls._dump_model(extracted_profile.get("location")),
             "compensation": cls._dump_model(extracted_profile.get("compensation")),
-            "years_of_experience_required": extracted_profile.get("years_of_experience_required"),
+            "years_of_experience_required": extracted_profile.get(
+                "years_of_experience_required"
+            ),
             "application_deadline": extracted_profile.get("application_deadline"),
         }
 
@@ -158,11 +175,15 @@ class JobBreakdownOrchestrator:
 
     async def _finalize_pdf_breakdown(self, job: Any) -> Any:
         if not job.jd_storage_path:
-            return await self._fail_pdf_breakdown(job, "Job description file is missing")
+            return await self._fail_pdf_breakdown(
+                job, "Job description file is missing"
+            )
 
         storage_path = Path(job.jd_storage_path)
         if not await asyncio.to_thread(storage_path.exists):
-            return await self._fail_pdf_breakdown(job, "Uploaded job description file is no longer available")
+            return await self._fail_pdf_breakdown(
+                job, "Uploaded job description file is no longer available"
+            )
 
         try:
             file_bytes = await asyncio.to_thread(storage_path.read_bytes)

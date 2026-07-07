@@ -2,19 +2,25 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import APIRouter, Depends, Query, Response, status
+
 from api.pagination import PaginationParams
 from app.api.dependencies import get_application_service
 from app.core.application_states import ApplicationStatus
-from app.schemas.application import (ApplicationCreate, ApplicationResponse,
-                                     ApplicationStatusUpdate)
+from app.schemas.application import (
+    ApplicationCreate,
+    ApplicationResponse,
+    ApplicationStatusUpdate,
+)
 from app.services.application_service import ApplicationService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from fastapi import APIRouter, Depends, Query, Response, status
 
 router = APIRouter()
 
 
-@router.post("", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_application(
     application_create: ApplicationCreate,
     current_user: CurrentUser = Depends(require_role("CANDIDATE")),
@@ -58,7 +64,9 @@ async def delete_applications(
     current_user: CurrentUser = Depends(get_current_user),
     service: ApplicationService = Depends(get_application_service),
 ) -> Response:
-    await service.delete_applications(job_id=job_id, candidate_id=candidate_id, current_user=current_user)
+    await service.delete_applications(
+        job_id=job_id, candidate_id=candidate_id, current_user=current_user
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

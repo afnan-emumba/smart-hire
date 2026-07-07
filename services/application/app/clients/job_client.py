@@ -7,10 +7,13 @@ from app.core.config import Settings
 from auth.header_auth import CurrentUser
 from contracts.service_responses import JobResponseContract
 from http_client.base_client import BaseServiceClient
-from http_client.constants import (DEFAULT_JOB_PAGE_SIZE,
-                                   MAX_JOBS_PER_RECRUITER, QUERY_PARAM_LIMIT,
-                                   QUERY_PARAM_OFFSET,
-                                   QUERY_PARAM_RECRUITER_ID)
+from http_client.constants import (
+    DEFAULT_JOB_PAGE_SIZE,
+    MAX_JOBS_PER_RECRUITER,
+    QUERY_PARAM_LIMIT,
+    QUERY_PARAM_OFFSET,
+    QUERY_PARAM_RECRUITER_ID,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +26,12 @@ class JobClient(BaseServiceClient):
             service_label="Job service",
         )
 
-    async def get_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> JobResponseContract | None:
-        response = await self._get(f"/jobs/{job_id}", headers=self._headers(current_user))
+    async def get_job(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> JobResponseContract | None:
+        response = await self._get(
+            f"/jobs/{job_id}", headers=self._headers(current_user)
+        )
         if response.status_code == 404:
             return None
         self._raise_for_status(response)
@@ -49,8 +56,9 @@ class JobClient(BaseServiceClient):
             )
             self._raise_for_status(response)
 
-            page = [JobResponseContract.model_validate(
-                item) for item in response.json()]
+            page = [
+                JobResponseContract.model_validate(item) for item in response.json()
+            ]
             jobs.extend(page)
             if len(page) < DEFAULT_JOB_PAGE_SIZE:
                 break

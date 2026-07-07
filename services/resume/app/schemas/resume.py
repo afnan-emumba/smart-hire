@@ -3,9 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from contracts.enums import ResumeParsingStatus
 from contracts.profile import ProfileLinks
-from pydantic import BaseModel, ConfigDict, Field
 
 # These models describe the output of a best-effort heuristic markdown parser
 # (ResumeParsingService) whose shape evolves across schema_version bumps, so
@@ -69,6 +70,7 @@ class ResumeResponse(BaseModel):
     schema_version: str
     structured_data: ResumeStructuredData | None = None
     extraction_metadata: ResumeExtractionMetadata = Field(
-        default_factory=ResumeExtractionMetadata)
+        default_factory=ResumeExtractionMetadata
+    )
     created_at: datetime
     updated_at: datetime

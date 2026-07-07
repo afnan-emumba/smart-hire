@@ -21,8 +21,7 @@ class ResumeFileService:
         self, *, file_name: str, content_type: str, file_bytes: bytes
     ) -> tuple[str, str]:
         if len(file_bytes) > self.settings.max_resume_size_bytes:
-            raise PayloadTooLargeError(
-                "Resume file exceeds the configured size limit")
+            raise PayloadTooLargeError("Resume file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Resume file is empty")

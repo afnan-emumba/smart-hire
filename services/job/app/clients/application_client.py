@@ -16,7 +16,9 @@ class ApplicationClient(BaseServiceClient):
             service_label="Application service",
         )
 
-    async def delete_applications_for_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> None:
+    async def delete_applications_for_job(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> None:
         response = await self._delete(
             "/applications",
             params={QUERY_PARAM_JOB_ID: str(job_id)},

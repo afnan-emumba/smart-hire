@@ -4,13 +4,26 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from contracts.profile import ProfileLinks
-from pydantic import (BaseModel, ConfigDict, EmailStr, Field,
-                      StringConstraints, model_validator)
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
-ProfileText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
-SummaryText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
-SkillName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+from contracts.profile import ProfileLinks
+
+ProfileText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
+SummaryText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+]
+SkillName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
 
 
 class EducationEntry(BaseModel):
@@ -29,7 +42,9 @@ class EducationEntry(BaseModel):
             and self.end_year is not None
             and self.end_year < self.start_year
         ):
-            raise ValueError("education end_year must be greater than or equal to start_year")
+            raise ValueError(
+                "education end_year must be greater than or equal to start_year"
+            )
         return self
 
 
@@ -49,7 +64,9 @@ class WorkExperienceEntry(BaseModel):
             and self.end_year is not None
             and self.end_year < self.start_year
         ):
-            raise ValueError("work_experience end_year must be greater than or equal to start_year")
+            raise ValueError(
+                "work_experience end_year must be greater than or equal to start_year"
+            )
         return self
 
 
@@ -60,7 +77,12 @@ class CandidateLinks(ProfileLinks):
 class CandidateContact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    phone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)] | None = None
+    phone: (
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)
+        ]
+        | None
+    ) = None
     location: ProfileText | None = None
 
 
@@ -71,10 +93,7 @@ class MasterProfileData(BaseModel):
             "example": {
                 "summary": "Backend engineer focused on distributed systems and API platforms.",
                 "skills": ["Python", "FastAPI", "PostgreSQL"],
-                "contact": {
-                    "phone": "+1-555-0198",
-                    "location": "Lahore, PK"
-                },
+                "contact": {"phone": "+1-555-0198", "location": "Lahore, PK"},
                 "education": [
                     {
                         "institution": "State University",

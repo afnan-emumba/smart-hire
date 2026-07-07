@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from contracts.enums import JobStatus, ResumeParsingStatus
 from pydantic import BaseModel, ConfigDict, Field
+
+from contracts.enums import JobStatus, ResumeParsingStatus
 
 
 class CandidateMasterProfileContract(BaseModel):

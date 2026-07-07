@@ -34,4 +34,7 @@ def is_unique_violation(error: IntegrityError) -> bool:
     if sqlstate == "23505":
         return True
 
-    return "unique constraint" in str(error).casefold() or "duplicate key" in str(error).casefold()
+    return (
+        "unique constraint" in str(error).casefold()
+        or "duplicate key" in str(error).casefold()
+    )

@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import re
 
-from app.schemas.resume import (ResumeContact, ResumeLinks,
-                                ResumeStructuredData, ResumeTextEntry)
 from pydantic import AnyHttpUrl, TypeAdapter, ValidationError
+
+from app.schemas.resume import (
+    ResumeContact,
+    ResumeLinks,
+    ResumeStructuredData,
+    ResumeTextEntry,
+)
 from skills.skill_extractor import SkillExtractor
 
 _URL_ADAPTER = TypeAdapter(AnyHttpUrl)
@@ -26,8 +31,7 @@ class ResumeParsingService:
         "contact": ("contact",),
         "links": ("links",),
     }
-    _EMAIL_PATTERN = re.compile(
-        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+    _EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
     _PHONE_PATTERN = re.compile(
         r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3}[\s.-]?\d{3,4}"
     )
@@ -44,16 +48,14 @@ class ResumeParsingService:
             education=cls._extract_list_section(sections, "education"),
             work_experience=cls._extract_list_section(sections, "experience"),
             projects=cls._extract_list_section(sections, "projects"),
-            certifications=cls._extract_list_section(
-                sections, "certifications"),
+            certifications=cls._extract_list_section(sections, "certifications"),
             links=cls._extract_links(sections, normalized_markdown),
             markdown=normalized_markdown,
         )
 
     @classmethod
     def _collect_sections(cls, markdown: str) -> dict[str, list[str]]:
-        sections: dict[str, list[str]] = {key: []
-                                          for key in cls._SECTION_ALIASES}
+        sections: dict[str, list[str]] = {key: [] for key in cls._SECTION_ALIASES}
         current_section = "summary"
 
         for raw_line in markdown.splitlines():
@@ -89,21 +91,24 @@ class ResumeParsingService:
         return "\n".join(lines[:3])
 
     @classmethod
-    def _extract_skills(cls, sections: dict[str, list[str]], markdown: str) -> list[str]:
+    def _extract_skills(
+        cls, sections: dict[str, list[str]], markdown: str
+    ) -> list[str]:
         explicit_skills = {
             cls._normalize_skill(skill)
             for skill in sections.get("skills", [])
             if cls._normalize_skill(skill)
         }
         inferred_skills = {
-            skill.name
-            for skill in SkillExtractor.extract_skills(markdown)
+            skill.name for skill in SkillExtractor.extract_skills(markdown)
         }
         combined = explicit_skills | inferred_skills
         return sorted(combined)
 
     @classmethod
-    def _extract_contact(cls, sections: dict[str, list[str]], markdown: str) -> ResumeContact:
+    def _extract_contact(
+        cls, sections: dict[str, list[str]], markdown: str
+    ) -> ResumeContact:
         contact_text = "\n".join(
             [
                 *sections.get("contact", []),
@@ -115,7 +120,11 @@ class ResumeParsingService:
         phone_match = cls._PHONE_PATTERN.search(contact_text)
         location = None
         for line in sections.get("contact", []) + sections.get("summary", [])[:2]:
-            if "@" in line or cls._PHONE_PATTERN.search(line) or cls._URL_PATTERN.search(line):
+            if (
+                "@" in line
+                or cls._PHONE_PATTERN.search(line)
+                or cls._URL_PATTERN.search(line)
+            ):
                 continue
             if line:
                 location = line
@@ -127,13 +136,13 @@ class ResumeParsingService:
         )
 
     @classmethod
-    def _extract_links(cls, sections: dict[str, list[str]], markdown: str) -> ResumeLinks:
-        sources = [*sections.get("links", []), *
-                   sections.get("contact", []), markdown]
+    def _extract_links(
+        cls, sections: dict[str, list[str]], markdown: str
+    ) -> ResumeLinks:
+        sources = [*sections.get("links", []), *sections.get("contact", []), markdown]
         urls: list[str] = []
         for source in sources:
-            urls.extend(match.group(0)
-                        for match in cls._URL_PATTERN.finditer(source))
+            urls.extend(match.group(0) for match in cls._URL_PATTERN.finditer(source))
 
         values: dict[str, str] = {}
         for url in urls:
@@ -160,8 +169,12 @@ class ResumeParsingService:
             return False
 
     @staticmethod
-    def _extract_list_section(sections: dict[str, list[str]], key: str) -> list[ResumeTextEntry]:
-        return [ResumeTextEntry(raw_text=line) for line in sections.get(key, []) if line]
+    def _extract_list_section(
+        sections: dict[str, list[str]], key: str
+    ) -> list[ResumeTextEntry]:
+        return [
+            ResumeTextEntry(raw_text=line) for line in sections.get(key, []) if line
+        ]
 
     @staticmethod
     def _normalize_skill(value: str) -> str | None:

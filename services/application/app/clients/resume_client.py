@@ -3,13 +3,17 @@ from __future__ import annotations
 import logging
 import uuid
 
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
 from contracts.service_responses import ResumeResponseContract
 from http_client.base_client import BaseServiceClient
-from http_client.constants import (QUERY_PARAM_CANDIDATE_ID, QUERY_PARAM_LIMIT,
-                                   QUERY_PARAM_PARSING_STATUS)
-from pydantic import ValidationError
+from http_client.constants import (
+    QUERY_PARAM_CANDIDATE_ID,
+    QUERY_PARAM_LIMIT,
+    QUERY_PARAM_PARSING_STATUS,
+)
 
 logger = logging.getLogger(__name__)
 

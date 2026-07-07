@@ -5,7 +5,6 @@ from db.session import build_service_session, ping_database
 
 settings = get_settings()
 
-engine, SessionLocal, get_db_session = build_service_session(
-    settings.database_url)
+engine, SessionLocal, get_db_session = build_service_session(settings.database_url)
 
 __all__ = ["SessionLocal", "get_db_session", "ping_database"]

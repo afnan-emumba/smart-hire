@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import httpx
+
 from auth.header_auth import CurrentUser
 from exceptions.http_exceptions import ServiceUnavailableError
 
@@ -31,7 +32,9 @@ class BaseServiceClient:
         try:
             return await self._client.get(path, headers=headers, params=params)
         except httpx.HTTPError as exc:
-            raise ServiceUnavailableError(f"{self._service_label} is unavailable") from exc
+            raise ServiceUnavailableError(
+                f"{self._service_label} is unavailable"
+            ) from exc
 
     async def _delete(
         self,
@@ -43,10 +46,14 @@ class BaseServiceClient:
         try:
             return await self._client.delete(path, headers=headers, params=params)
         except httpx.HTTPError as exc:
-            raise ServiceUnavailableError(f"{self._service_label} is unavailable") from exc
+            raise ServiceUnavailableError(
+                f"{self._service_label} is unavailable"
+            ) from exc
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            raise ServiceUnavailableError(f"{self._service_label} is unavailable") from exc
+            raise ServiceUnavailableError(
+                f"{self._service_label} is unavailable"
+            ) from exc

@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from app.db.models import CandidateResume
-from app.schemas.resume import ResumeExtractionMetadata, ResumeStructuredData
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import CandidateResume
+from app.schemas.resume import ResumeExtractionMetadata, ResumeStructuredData
 
 
 class ResumeRepository:
@@ -59,12 +60,14 @@ class ResumeRepository:
         offset: int,
     ) -> list[CandidateResume]:
         stmt = select(CandidateResume).where(
-            CandidateResume.candidate_id == candidate_id)
+            CandidateResume.candidate_id == candidate_id
+        )
         if parsing_status is not None:
             stmt = stmt.where(CandidateResume.parsing_status == parsing_status)
         result = await self.session.execute(
-            stmt.order_by(CandidateResume.uploaded_at.desc(),
-                          CandidateResume.created_at.desc())
+            stmt.order_by(
+                CandidateResume.uploaded_at.desc(), CandidateResume.created_at.desc()
+            )
             .limit(limit)
             .offset(offset)
         )
@@ -106,11 +109,11 @@ class ResumeRepository:
         resume.parsed_at = parsed_at
         resume.raw_markdown = raw_markdown
         resume.structured_data = (
-            structured_data.model_dump(
-                mode="json") if structured_data is not None else None
+            structured_data.model_dump(mode="json")
+            if structured_data is not None
+            else None
         )
-        resume.extraction_metadata = extraction_metadata.model_dump(
-            mode="json")
+        resume.extraction_metadata = extraction_metadata.model_dump(mode="json")
         await self.session.flush()
         await self.session.refresh(resume)
         return resume

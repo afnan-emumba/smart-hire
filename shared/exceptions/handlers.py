@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import logging
 
-from exceptions.http_exceptions import (BadRequestError, ConflictError,
-                                        ForbiddenError,
-                                        InvalidStateTransitionError,
-                                        NotFoundError, PayloadTooLargeError,
-                                        ServiceUnavailableError)
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
+from exceptions.http_exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    PayloadTooLargeError,
+    ServiceUnavailableError,
+)
 
 
 def _json_error(status_code: int, detail: str) -> JSONResponse:
@@ -35,7 +40,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _json_error(409, str(exc))
 
     @app.exception_handler(PayloadTooLargeError)
-    async def handle_payload_too_large(_: object, exc: PayloadTooLargeError) -> JSONResponse:
+    async def handle_payload_too_large(
+        _: object, exc: PayloadTooLargeError
+    ) -> JSONResponse:
         return _json_error(413, str(exc))
 
     @app.exception_handler(InvalidStateTransitionError)
@@ -46,7 +53,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _json_error(400, str(exc))
 
     @app.exception_handler(ServiceUnavailableError)
-    async def handle_service_unavailable(_: object, exc: ServiceUnavailableError) -> JSONResponse:
+    async def handle_service_unavailable(
+        _: object, exc: ServiceUnavailableError
+    ) -> JSONResponse:
         logger.error(
             "Service unavailable",
             exc_info=(type(exc), exc, exc.__traceback__),

@@ -10,23 +10,23 @@ from typing import Any
 from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
-from app.schemas.resume import (ResumeExtractionMetadata, ResumeResponse,
-                                ResumeStructuredData)
+from app.schemas.resume import (
+    ResumeExtractionMetadata,
+    ResumeResponse,
+    ResumeStructuredData,
+)
 from app.services.resume_file_service import ResumeFileService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
 from app.temporal.constants import RESUME_PARSING_WORKFLOW_ID_PREFIX
-from app.temporal.workflows import (ResumeParsingWorkflow,
-                                    ResumeParsingWorkflowInput)
+from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
 from app.utils.resume_pdf import ResumePdfConverter
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
-from exceptions.http_exceptions import (BadRequestError, ForbiddenError,
-                                        NotFoundError)
+from exceptions.http_exceptions import BadRequestError, ForbiddenError, NotFoundError
 from storage.constants import MIME_TYPE_APPLICATION_PDF
 from temporal.schemas import ResumeParsingActivityResult
-from temporal.workflow_launcher import \
-    start_workflow_with_retryable_error_mapping
+from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,9 @@ class ResumeService:
     ) -> ResumeResponse:
         candidate_id = require_candidate_user_id(current_user)
 
-        candidate = await self.candidate_client.get_candidate(candidate_id, current_user)
+        candidate = await self.candidate_client.get_candidate(
+            candidate_id, current_user
+        )
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
@@ -85,8 +87,7 @@ class ResumeService:
                 parsing_status="pending",
                 parser_version=self._RESUME_PARSER_VERSION,
                 schema_version=self._RESUME_SCHEMA_VERSION,
-                extraction_metadata=ResumeExtractionMetadata(
-                    source="resume_upload"),
+                extraction_metadata=ResumeExtractionMetadata(source="resume_upload"),
             )
         except Exception:
             try:
@@ -94,8 +95,7 @@ class ResumeService:
             except Exception:
                 logger.exception(
                     "Failed to clean up orphaned resume file after a failed upload",
-                    extra={"resume_id": str(resume_id),
-                           "storage_path": storage_path},
+                    extra={"resume_id": str(resume_id), "storage_path": storage_path},
                 )
             raise
 
@@ -103,7 +103,9 @@ class ResumeService:
 
         return ResumeResponse.model_validate(resume)
 
-    async def get_resume(self, resume_id: uuid.UUID, current_user: CurrentUser) -> ResumeResponse:
+    async def get_resume(
+        self, resume_id: uuid.UUID, current_user: CurrentUser
+    ) -> ResumeResponse:
         resume = await self.resume_repo.get_by_id(resume_id)
         if resume is None:
             raise NotFoundError("Resume not found")
@@ -128,7 +130,8 @@ class ResumeService:
             own_candidate_id = require_candidate_user_id(current_user)
             if candidate_id is not None and candidate_id != own_candidate_id:
                 raise ForbiddenError(
-                    "Not authorized to view another candidate's resumes")
+                    "Not authorized to view another candidate's resumes"
+                )
             candidate_id = own_candidate_id
         elif candidate_id is None:
             raise BadRequestError("candidate_id is required")
@@ -141,7 +144,9 @@ class ResumeService:
         )
         return [ResumeResponse.model_validate(resume) for resume in resumes]
 
-    async def process_resume_parsing(self, resume_id: uuid.UUID) -> ResumeParsingActivityResult:
+    async def process_resume_parsing(
+        self, resume_id: uuid.UUID
+    ) -> ResumeParsingActivityResult:
         resume = await self.resume_repo.get_by_id(resume_id)
         if resume is None:
             raise NotFoundError("Resume not found")
@@ -180,11 +185,15 @@ class ResumeService:
             )
             return self._parsing_result(updated)
 
-        await self.resume_repo.update_parsing_status(resume, parsing_status="processing")
+        await self.resume_repo.update_parsing_status(
+            resume, parsing_status="processing"
+        )
 
         try:
             file_bytes = await asyncio.to_thread(resume_path.read_bytes)
-            markdown = await asyncio.to_thread(ResumePdfConverter.convert_pdf_to_markdown, file_bytes)
+            markdown = await asyncio.to_thread(
+                ResumePdfConverter.convert_pdf_to_markdown, file_bytes
+            )
             parsed_resume = await ResumeParsingService.extract_resume_profile(markdown)
         except ValueError as exc:
             updated = await self._update_resume_record(
@@ -215,8 +224,7 @@ class ResumeService:
     ) -> None:
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
-            raise ForbiddenError(
-                "Not authorized to delete another candidate's resumes")
+            raise ForbiddenError("Not authorized to delete another candidate's resumes")
 
         storage_paths = await self.resume_repo.delete_by_candidate(candidate_id)
 
@@ -226,8 +234,10 @@ class ResumeService:
             except Exception:
                 logger.exception(
                     "Failed to remove resume file after deleting candidate's resumes",
-                    extra={"candidate_id": str(
-                        candidate_id), "storage_path": storage_path},
+                    extra={
+                        "candidate_id": str(candidate_id),
+                        "storage_path": storage_path,
+                    },
                 )
 
     async def _update_resume_record(
@@ -263,15 +273,16 @@ class ResumeService:
             parsing_status=resume.parsing_status,
         )
 
-    async def _start_resume_parsing_workflow(self, resume_id: uuid.UUID, uploaded_at: datetime) -> None:
+    async def _start_resume_parsing_workflow(
+        self, resume_id: uuid.UUID, uploaded_at: datetime
+    ) -> None:
         workflow_id = self._build_resume_workflow_id(resume_id, uploaded_at)
         client = await TemporalClient.get_client()
 
         await start_workflow_with_retryable_error_mapping(
             client=client,
             workflow=ResumeParsingWorkflow.run,
-            workflow_input=ResumeParsingWorkflowInput(
-                resume_id=str(resume_id)),
+            workflow_input=ResumeParsingWorkflowInput(resume_id=str(resume_id)),
             workflow_id=workflow_id,
             task_queue=self.settings.temporal_resume_task_queue,
             execution_timeout=timedelta(minutes=5),

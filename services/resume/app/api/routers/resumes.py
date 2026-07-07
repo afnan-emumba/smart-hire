@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+
 from api.pagination import PaginationParams
 from api.uploads import read_limited_upload
 from app.api.dependencies import get_resume_service
@@ -9,7 +11,6 @@ from app.core.config import get_settings
 from app.schemas.resume import ResumeResponse
 from app.services.resume_service import ResumeService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from storage.constants import MIME_TYPE_APPLICATION_OCTET_STREAM
 
 router = APIRouter()

@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from app.core.enums import JobStatus
-from app.db.models import Job, JobStatusHistory
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.enums import JobStatus
+from app.db.models import Job, JobStatusHistory
 
 
 class JobRepository:
@@ -51,10 +52,7 @@ class JobRepository:
         if status_filter is not None:
             stmt = stmt.where(Job.status == status_filter)
         result = await self.session.execute(
-            stmt
-            .order_by(Job.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+            stmt.order_by(Job.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -181,7 +179,10 @@ class JobRepository:
         job.publishing_workflow_id = workflow_id
         job.publishing_error = None
         job.publishing_failed_at = None
-        if job.processing_started_at is None and job.status == JobStatus.PROCESSING.value:
+        if (
+            job.processing_started_at is None
+            and job.status == JobStatus.PROCESSING.value
+        ):
             job.processing_started_at = datetime.now(timezone.utc)
 
         await self.session.flush()

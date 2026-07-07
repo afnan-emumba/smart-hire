@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import APIRouter, Depends, Response, status
+
 from api.pagination import PaginationParams
 from app.api.dependencies import get_candidate_service
-from app.schemas.candidate import (CandidateCreate, CandidateResponse,
-                                   CandidateUpdate)
+from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 from app.services.candidate_service import CandidateService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from fastapi import APIRouter, Depends, Response, status
 
 router = APIRouter()
 
@@ -37,7 +37,9 @@ async def list_candidates(
     current_user: CurrentUser = Depends(require_role("RECRUITER")),
     service: CandidateService = Depends(get_candidate_service),
 ) -> list[CandidateResponse]:
-    return await service.list_candidates(limit=pagination.limit, offset=pagination.offset)
+    return await service.list_candidates(
+        limit=pagination.limit, offset=pagination.offset
+    )
 
 
 @router.patch("/{candidate_id}", response_model=CandidateResponse)

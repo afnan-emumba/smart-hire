@@ -11,9 +11,14 @@ from app.core.config import Settings
 from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
 from app.core.enums import JobStatus, is_valid_transition
 from app.repositories.job_repo import JobRepository
-from app.schemas.job import (JobBreakdownValidationResponse, JobCreate,
-                             JobCreatePayload, JobResponse, JobUpdate,
-                             PublishJobResponse)
+from app.schemas.job import (
+    JobBreakdownValidationResponse,
+    JobCreate,
+    JobCreatePayload,
+    JobResponse,
+    JobUpdate,
+    PublishJobResponse,
+)
 from app.services.job_breakdown_orchestrator import JobBreakdownOrchestrator
 from app.services.job_file_service import JobFileService
 from app.temporal.client import TemporalClient
@@ -21,11 +26,13 @@ from app.temporal.constants import JOB_PUBLISHING_WORKFLOW_ID_PREFIX
 from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 from auth.actors import require_recruiter_user_id
 from auth.header_auth import CurrentUser
-from exceptions.http_exceptions import (BadRequestError, ForbiddenError,
-                                        InvalidStateTransitionError,
-                                        NotFoundError)
-from temporal.workflow_launcher import \
-    start_workflow_with_retryable_error_mapping
+from exceptions.http_exceptions import (
+    BadRequestError,
+    ForbiddenError,
+    InvalidStateTransitionError,
+    NotFoundError,
+)
+from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +52,14 @@ class JobService:
         self.breakdown_orchestrator = JobBreakdownOrchestrator(job_repo)
         self.file_service = JobFileService(settings)
 
-    async def create_job(self, job_create: JobCreate, current_user: CurrentUser) -> JobResponse:
+    async def create_job(
+        self, job_create: JobCreate, current_user: CurrentUser
+    ) -> JobResponse:
         recruiter_id = require_recruiter_user_id(current_user)
 
-        recruiter = await self.recruiter_client.get_recruiter(recruiter_id, current_user)
+        recruiter = await self.recruiter_client.get_recruiter(
+            recruiter_id, current_user
+        )
         if recruiter is None:
             raise NotFoundError("Recruiter not found")
 
@@ -121,18 +132,19 @@ class JobService:
 
         updates = job_update.model_dump(exclude_unset=True)
         needs_rebuild = "description" in updates or (
-            "title" in updates and existing_job.description is not None)
+            "title" in updates and existing_job.description is not None
+        )
         if needs_rebuild and existing_job.status != JobStatus.DRAFT.value:
             raise BadRequestError(
                 "Job description can only be edited while the job is in draft status"
             )
         if needs_rebuild:
             effective_title = updates.get("title", existing_job.title)
-            effective_description = updates.get(
-                "description", existing_job.description)
+            effective_description = updates.get("description", existing_job.description)
             effective_required_skills = (
                 updates["required_skills"]
-                if "required_skills" in updates and updates["required_skills"] is not None
+                if "required_skills" in updates
+                and updates["required_skills"] is not None
                 else existing_job.required_skills
             )
             breakdown_fields = await self.breakdown_orchestrator.build_breakdown_fields(
@@ -142,7 +154,8 @@ class JobService:
                 overrides={
                     field_name: value
                     for field_name, value in updates.items()
-                    if field_name in STRUCTURED_JOB_METADATA_FIELDS and value is not None
+                    if field_name in STRUCTURED_JOB_METADATA_FIELDS
+                    and value is not None
                 },
             )
             if "description" in updates and updates["description"] is not None:
@@ -168,7 +181,9 @@ class JobService:
                 if breakdown_fields.compensation is not None
                 else None
             )
-            updates["years_of_experience_required"] = breakdown_fields.years_of_experience_required
+            updates["years_of_experience_required"] = (
+                breakdown_fields.years_of_experience_required
+            )
             updates["application_deadline"] = breakdown_fields.application_deadline
             updates["required_skills"] = breakdown_fields.required_skills
             if existing_job.status == JobStatus.DRAFT.value:
@@ -220,10 +235,13 @@ class JobService:
 
         if job.status != JobStatus.DRAFT.value:
             raise BadRequestError(
-                "Job description files can only be uploaded while the job is in draft")
+                "Job description files can only be uploaded while the job is in draft"
+            )
 
         previous_storage_path = job.jd_storage_path
-        storage_path = await self.file_service.write_job_pdf(job_id=job.id, file_bytes=file_bytes)
+        storage_path = await self.file_service.write_job_pdf(
+            job_id=job.id, file_bytes=file_bytes
+        )
 
         updated_job = None
         try:
@@ -241,8 +259,7 @@ class JobService:
             except Exception:
                 logger.exception(
                     "Failed to clean up orphaned job description file after a failed upload",
-                    extra={"job_id": str(
-                        job.id), "storage_path": storage_path},
+                    extra={"job_id": str(job.id), "storage_path": storage_path},
                 )
             raise
 
@@ -270,11 +287,15 @@ class JobService:
         except Exception:
             logger.exception(
                 "Failed to remove job description file after deleting job",
-                extra={"job_id": str(
-                    job_id), "storage_path": existing_job.jd_storage_path},
+                extra={
+                    "job_id": str(job_id),
+                    "storage_path": existing_job.jd_storage_path,
+                },
             )
 
-    async def publish_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> PublishJobResponse:
+    async def publish_job(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> PublishJobResponse:
         owner_id = require_recruiter_user_id(current_user)
         job = await self.job_repo.get_by_id(job_id)
         if job is None:
@@ -288,7 +309,10 @@ class JobService:
         workflow_id = self._build_publish_workflow_id(job_id)
         if job.status == JobStatus.DRAFT.value:
             processing_updates: dict[str, Any] = {}
-            if job.jd_source_type == "pdf_upload" and job.jd_parsing_status == "pending":
+            if (
+                job.jd_source_type == "pdf_upload"
+                and job.jd_parsing_status == "pending"
+            ):
                 processing_updates["jd_parsing_status"] = "processing"
                 processing_updates["jd_parsing_error"] = None
             updated_job = await self.job_repo.update_status(
@@ -329,14 +353,20 @@ class JobService:
             status=updated_job.status,
         )
 
-    async def finalize_job_breakdown(self, job_id: uuid.UUID) -> JobBreakdownValidationResponse:
+    async def finalize_job_breakdown(
+        self, job_id: uuid.UUID
+    ) -> JobBreakdownValidationResponse:
         job = await self.job_repo.get_by_id(job_id)
         if job is None:
             raise NotFoundError("Job not found")
 
         self._ensure_publishable(job)
 
-        if job.description_breakdown is None and not job.description and job.jd_source_type != "pdf_upload":
+        if (
+            job.description_breakdown is None
+            and not job.description
+            and job.jd_source_type != "pdf_upload"
+        ):
             raise BadRequestError("Job has no description content to publish")
 
         job = await self.breakdown_orchestrator.finalize_for_publish(job)
@@ -351,11 +381,14 @@ class JobService:
         return JobBreakdownValidationResponse(
             job_id=job.id,
             breakdown_validated=self.breakdown_orchestrator.is_breakdown_complete(
-                job.description_breakdown),
+                job.description_breakdown
+            ),
             jd_parsing_status=job.jd_parsing_status,
         )
 
-    async def update_job_status(self, job_id: uuid.UUID, target_status: JobStatus) -> JobResponse:
+    async def update_job_status(
+        self, job_id: uuid.UUID, target_status: JobStatus
+    ) -> JobResponse:
         job = await self.job_repo.get_by_id(job_id)
         if job is None:
             raise NotFoundError("Job not found")
@@ -391,10 +424,10 @@ class JobService:
             raise BadRequestError("Job is not in a publishable state")
         if job.jd_source_type == "pdf_upload":
             if not job.jd_storage_path:
-                raise BadRequestError(
-                    "Uploaded job description file is missing")
+                raise BadRequestError("Uploaded job description file is missing")
             return
         if job.description or job.description_breakdown:
             return
         raise BadRequestError(
-            "Job must have a manual description or uploaded PDF before publishing")
+            "Job must have a manual description or uploaded PDF before publishing"
+        )

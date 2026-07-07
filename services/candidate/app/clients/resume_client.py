@@ -16,7 +16,9 @@ class ResumeClient(BaseServiceClient):
             service_label="Resume service",
         )
 
-    async def delete_resumes_for_candidate(self, candidate_id: uuid.UUID, current_user: CurrentUser) -> None:
+    async def delete_resumes_for_candidate(
+        self, candidate_id: uuid.UUID, current_user: CurrentUser
+    ) -> None:
         response = await self._delete(
             "/resumes",
             params={QUERY_PARAM_CANDIDATE_ID: str(candidate_id)},

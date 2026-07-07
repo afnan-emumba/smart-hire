@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.schemas.recruiter import RecruiterCreate, RecruiterResponse
 from db.base import is_unique_violation
 from exceptions.http_exceptions import ConflictError, NotFoundError
-from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,12 @@ class RecruiterService:
     def __init__(self, recruiter_repo: RecruiterRepository) -> None:
         self.recruiter_repo = recruiter_repo
 
-    async def create_recruiter(self, recruiter_create: RecruiterCreate) -> RecruiterResponse:
-        existing_recruiter = await self.recruiter_repo.get_by_email(recruiter_create.email)
+    async def create_recruiter(
+        self, recruiter_create: RecruiterCreate
+    ) -> RecruiterResponse:
+        existing_recruiter = await self.recruiter_repo.get_by_email(
+            recruiter_create.email
+        )
         if existing_recruiter is not None:
             raise ConflictError("Recruiter with this email already exists")
 
@@ -45,6 +50,8 @@ class RecruiterService:
 
         return RecruiterResponse.model_validate(recruiter)
 
-    async def list_recruiters(self, *, limit: int, offset: int) -> list[RecruiterResponse]:
+    async def list_recruiters(
+        self, *, limit: int, offset: int
+    ) -> list[RecruiterResponse]:
         recruiters = await self.recruiter_repo.list_all(limit=limit, offset=offset)
         return [RecruiterResponse.model_validate(recruiter) for recruiter in recruiters]

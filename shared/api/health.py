@@ -15,7 +15,9 @@ def make_health_router(
     logger = logging.getLogger(__name__)
 
     @router.get("/health", status_code=status.HTTP_200_OK)
-    async def health_check(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
+    async def health_check(
+        session: AsyncSession = Depends(get_db_session),
+    ) -> dict[str, str]:
         try:
             database_ok = await ping_database(session)
         except Exception:

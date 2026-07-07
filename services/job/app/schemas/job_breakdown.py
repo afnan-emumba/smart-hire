@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 SkillProficiency = Literal["entry", "intermediate", "expert"]
 SkillCategory = Literal["technology", "domain", "soft"]
-TechnologyCategory = Literal["language", "framework", "database", "cloud", "tool", "platform", "other"]
+TechnologyCategory = Literal[
+    "language", "framework", "database", "cloud", "tool", "platform", "other"
+]
 RemotePolicy = Literal["remote", "hybrid", "on_site", "unknown"]
 CompensationInterval = Literal["hourly", "monthly", "annual", "contract", "unknown"]
 

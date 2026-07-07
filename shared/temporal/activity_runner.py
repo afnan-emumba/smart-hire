@@ -21,10 +21,14 @@ async def run_temporal_activity(
             try:
                 result = await operation(service)
                 await session.commit()
-                return serialize_result(result) if serialize_result is not None else result
+                return (
+                    serialize_result(result) if serialize_result is not None else result
+                )
             except non_retryable_errors as exc:
                 await session.rollback()
-                raise ApplicationError(str(exc), type=type(exc).__name__, non_retryable=True) from exc
+                raise ApplicationError(
+                    str(exc), type=type(exc).__name__, non_retryable=True
+                ) from exc
             except Exception:
                 await session.rollback()
                 raise

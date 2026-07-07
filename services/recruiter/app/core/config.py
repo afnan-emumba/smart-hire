@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from config.base import ServiceSettings
 from pydantic import Field
+
+from config.base import ServiceSettings
 
 
 class Settings(ServiceSettings):

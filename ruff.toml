@@ -1,0 +1,20 @@
+target-version = "py311"
+
+[lint]
+extend-select = ["I"]
+
+[lint.isort]
+known-first-party = [
+    "app",
+    "api",
+    "auth",
+    "config",
+    "contracts",
+    "db",
+    "exceptions",
+    "http_client",
+    "pdf",
+    "skills",
+    "storage",
+    "temporal",
+]

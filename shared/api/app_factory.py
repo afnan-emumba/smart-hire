@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
 
-from exceptions.handlers import register_exception_handlers
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from exceptions.handlers import register_exception_handlers
 
 
 def make_app(

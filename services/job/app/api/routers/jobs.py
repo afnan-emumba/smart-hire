@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+
 from api.pagination import PaginationParams
 from api.uploads import read_limited_upload
 from app.api.dependencies import get_job_service
 from app.core.config import get_settings
-from app.schemas.job import (JobCreate, JobResponse, JobStatus, JobUpdate,
-                             PublishJobResponse)
+from app.schemas.job import (
+    JobCreate,
+    JobResponse,
+    JobStatus,
+    JobUpdate,
+    PublishJobResponse,
+)
 from app.services.job_service import JobService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from fastapi import (APIRouter, Depends, File, Query, Response, UploadFile,
-                     status)
 from storage.constants import MIME_TYPE_APPLICATION_OCTET_STREAM
 
 router = APIRouter()
@@ -81,13 +86,18 @@ async def upload_job_description_file(
     return await service.upload_job_description(
         job_id,
         file_name=description_file.filename or "job-description.pdf",
-        content_type=description_file.content_type or MIME_TYPE_APPLICATION_OCTET_STREAM,
+        content_type=description_file.content_type
+        or MIME_TYPE_APPLICATION_OCTET_STREAM,
         file_bytes=file_bytes,
         current_user=current_user,
     )
 
 
-@router.post("/{job_id}/publish", response_model=PublishJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{job_id}/publish",
+    response_model=PublishJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def publish_job(
     job_id: uuid.UUID,
     current_user: CurrentUser = Depends(require_role("RECRUITER")),

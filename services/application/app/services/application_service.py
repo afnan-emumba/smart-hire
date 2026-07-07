@@ -2,23 +2,29 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from app.clients.job_client import JobClient
-from app.core.application_states import (ApplicationStatus,
-                                         is_valid_app_transition)
+from app.core.application_states import ApplicationStatus, is_valid_app_transition
 from app.core.config import Settings
 from app.repositories.application_repo import ApplicationRepository
-from app.schemas.application import (ApplicationCreate, ApplicationResponse,
-                                     EligibilityReasonCode)
+from app.schemas.application import (
+    ApplicationCreate,
+    ApplicationResponse,
+    EligibilityReasonCode,
+)
 from app.services.eligibility_service import EligibilityService
 from auth.actors import require_candidate_user_id, require_recruiter_user_id
 from auth.header_auth import CurrentUser
 from contracts.service_responses import JobResponseContract
 from db.base import is_unique_violation
-from exceptions.http_exceptions import (BadRequestError, ConflictError,
-                                        ForbiddenError,
-                                        InvalidStateTransitionError,
-                                        NotFoundError)
-from sqlalchemy.exc import IntegrityError
+from exceptions.http_exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    InvalidStateTransitionError,
+    NotFoundError,
+)
 
 
 class ApplicationService:
@@ -61,8 +67,7 @@ class ApplicationService:
             )
         except IntegrityError as exc:
             if is_unique_violation(exc):
-                raise ConflictError(
-                    "You have already applied to this job") from exc
+                raise ConflictError("You have already applied to this job") from exc
             raise
 
         return ApplicationResponse.model_validate(application)
@@ -98,7 +103,8 @@ class ApplicationService:
             recruiter_id = require_recruiter_user_id(current_user)
             if candidate_id is not None and job_id is None:
                 raise BadRequestError(
-                    "Recruiters must provide job_id when filtering by candidate_id")
+                    "Recruiters must provide job_id when filtering by candidate_id"
+                )
             if job_id is not None:
                 await self._get_job_owned_by_recruiter(
                     job_id,
@@ -108,9 +114,10 @@ class ApplicationService:
                 )
 
         if candidate_id is not None and job_id is not None:
-            application = await self.application_repo.get_by_job_and_candidate(job_id, candidate_id)
-            applications = self._filter_single_application(
-                application, status_filter)
+            application = await self.application_repo.get_by_job_and_candidate(
+                job_id, candidate_id
+            )
+            applications = self._filter_single_application(application, status_filter)
         elif candidate_id is not None:
             applications = await self.application_repo.list_by_candidate(
                 candidate_id,
@@ -126,7 +133,9 @@ class ApplicationService:
                 offset=offset,
             )
         else:
-            recruiter_jobs = await self.job_client.list_by_recruiter(recruiter_id, current_user)
+            recruiter_jobs = await self.job_client.list_by_recruiter(
+                recruiter_id, current_user
+            )
             job_ids = [job.id for job in recruiter_jobs]
             applications = await self.application_repo.list_by_job_ids(
                 job_ids,
@@ -135,7 +144,10 @@ class ApplicationService:
                 offset=offset,
             )
 
-        return [ApplicationResponse.model_validate(application) for application in applications]
+        return [
+            ApplicationResponse.model_validate(application)
+            for application in applications
+        ]
 
     async def update_application_status(
         self,
@@ -179,8 +191,7 @@ class ApplicationService:
         current_user: CurrentUser,
     ) -> None:
         if (job_id is None) == (candidate_id is None):
-            raise BadRequestError(
-                "Provide exactly one of job_id or candidate_id")
+            raise BadRequestError("Provide exactly one of job_id or candidate_id")
 
         if job_id is not None:
             recruiter_id = require_recruiter_user_id(current_user)
@@ -196,7 +207,8 @@ class ApplicationService:
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError(
-                "Not authorized to delete another candidate's applications")
+                "Not authorized to delete another candidate's applications"
+            )
         await self.application_repo.delete_by_candidate(candidate_id)
 
     async def _authorize_application_access(

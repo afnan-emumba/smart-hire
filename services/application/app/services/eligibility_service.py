@@ -64,8 +64,8 @@ class EligibilityService:
                 match_score=0.0,
             )
 
-        active_application_count = await self.application_repo.count_active_by_candidate(
-            candidate_id
+        active_application_count = (
+            await self.application_repo.count_active_by_candidate(candidate_id)
         )
         if active_application_count >= self.settings.max_applications_per_candidate:
             return EligibilityResult(
@@ -137,7 +137,9 @@ class EligibilityService:
         if canonical_skills:
             return canonical_skills, None
 
-        latest_resume = await self.resume_client.get_latest_parsed_resume(candidate_id, current_user)
+        latest_resume = await self.resume_client.get_latest_parsed_resume(
+            candidate_id, current_user
+        )
         if latest_resume is None:
             return canonical_skills, None
 

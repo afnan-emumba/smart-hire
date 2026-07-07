@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+
 from api.app_factory import make_app
 from app.api.router import api_router
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.temporal.client import TemporalClient
-from fastapi import FastAPI
 
 settings = get_settings()
 

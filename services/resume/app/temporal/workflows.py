@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.temporal.constants import (ACTIVITY_PARSE_RESUME,
-                                    RESUME_PARSING_WORKFLOW_NAME)
-from contracts.enums import ResumeParsingStatus
-from temporal.constants import WORKFLOW_STATUS_SUCCESS
-from temporal.schemas import (ResumeParsingActivityResult,
-                              ResumeParsingWorkflowResult)
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+
+from app.temporal.constants import ACTIVITY_PARSE_RESUME, RESUME_PARSING_WORKFLOW_NAME
+from contracts.enums import ResumeParsingStatus
+from temporal.constants import WORKFLOW_STATUS_SUCCESS
+from temporal.schemas import ResumeParsingActivityResult, ResumeParsingWorkflowResult
 
 
 @dataclass
@@ -39,5 +38,6 @@ class ResumeParsingWorkflow:
         return ResumeParsingWorkflowResult(
             status=WORKFLOW_STATUS_SUCCESS,
             resume_id=input.resume_id,
-            parsing_status=parsed_result.parsing_status or ResumeParsingStatus.FAILED.value,
+            parsing_status=parsed_result.parsing_status
+            or ResumeParsingStatus.FAILED.value,
         ).model_dump(mode="json")

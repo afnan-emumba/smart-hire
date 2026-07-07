@@ -4,12 +4,25 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
+
 JobStatus = Literal["draft", "processing", "ready", "archived"]
-EmploymentType = Literal["full_time", "part_time", "contract", "temporary", "internship", "freelance"]
-SeniorityLevel = Literal["intern", "junior", "mid", "senior", "lead", "staff", "principal", "manager", "director"]
+EmploymentType = Literal[
+    "full_time", "part_time", "contract", "temporary", "internship", "freelance"
+]
+SeniorityLevel = Literal[
+    "intern",
+    "junior",
+    "mid",
+    "senior",
+    "lead",
+    "staff",
+    "principal",
+    "manager",
+    "director",
+]
 JobDescriptionSourceType = Literal["manual_text", "pdf_upload"]
 JobDescriptionParsingStatus = Literal[
     "pending",

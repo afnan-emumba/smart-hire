@@ -47,7 +47,9 @@ class SkillExtractor:
         "Google Analytics": ("google analytics",),
     }
 
-    _EXPERT_KEYWORDS = re.compile(r"\b(expert|advanced|senior|lead|deep expertise|highly proficient)\b")
+    _EXPERT_KEYWORDS = re.compile(
+        r"\b(expert|advanced|senior|lead|deep expertise|highly proficient)\b"
+    )
     _INTERMEDIATE_KEYWORDS = re.compile(
         r"\b(intermediate|proficient|strong|solid|hands[- ]on|practical experience)\b"
     )

@@ -3,16 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.temporal.constants import (ACTIVITY_FINALIZE_JOB_BREAKDOWN,
-                                    ACTIVITY_MARK_JOB_READY,
-                                    JOB_PUBLISHING_WORKFLOW_NAME)
-from temporal.constants import WORKFLOW_STATUS_SUCCESS
-from temporal.schemas import (JobBreakdownActivityResult,
-                              JobPublishingWorkflowResult,
-                              JobStatusActivityResult)
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
+
+from app.temporal.constants import (
+    ACTIVITY_FINALIZE_JOB_BREAKDOWN,
+    ACTIVITY_MARK_JOB_READY,
+    JOB_PUBLISHING_WORKFLOW_NAME,
+)
+from temporal.constants import WORKFLOW_STATUS_SUCCESS
+from temporal.schemas import (
+    JobBreakdownActivityResult,
+    JobPublishingWorkflowResult,
+    JobStatusActivityResult,
+)
 
 
 @dataclass
@@ -38,7 +43,8 @@ class JobPublishingWorkflow:
             retry_policy=retry_policy,
         )
         validated_breakdown = JobBreakdownActivityResult.model_validate(
-            breakdown_result)
+            breakdown_result
+        )
         if not validated_breakdown.breakdown_validated:
             raise ApplicationError(
                 "Job breakdown validation failed",

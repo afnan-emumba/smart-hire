@@ -4,8 +4,12 @@ from collections.abc import AsyncGenerator, Callable
 from typing import NamedTuple
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
-                                    async_sessionmaker, create_async_engine)
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 
 async def ping_database(session: AsyncSession) -> bool:

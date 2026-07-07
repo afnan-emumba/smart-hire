@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from typing import Any, Mapping
 
-from app.db.models import Candidate
-from app.schemas.candidate import CandidateCreate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import Candidate
+from app.schemas.candidate import CandidateCreate
 
 
 class CandidateRepository:
@@ -41,7 +42,9 @@ class CandidateRepository:
         )
         return list(result.scalars().all())
 
-    async def update(self, candidate_id: uuid.UUID, updates: Mapping[str, Any]) -> Candidate | None:
+    async def update(
+        self, candidate_id: uuid.UUID, updates: Mapping[str, Any]
+    ) -> Candidate | None:
         update_values = dict(updates)
         if not update_values:
             return await self.get_by_id(candidate_id)

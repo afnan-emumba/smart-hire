@@ -29,7 +29,9 @@ async def get_current_user(
 
 
 def require_role(*roles: UserRole) -> Callable[..., CurrentUser]:
-    async def dependency(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    async def dependency(
+        current_user: CurrentUser = Depends(get_current_user),
+    ) -> CurrentUser:
         if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
