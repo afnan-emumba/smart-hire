@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 STRUCTURED_JOB_METADATA_FIELDS = {
     "employment_type",
     "seniority_level",

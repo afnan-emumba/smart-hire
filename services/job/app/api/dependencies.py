@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.repositories.job_repo import JobRepository
 from app.services.job_service import JobService
+from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_job_service(

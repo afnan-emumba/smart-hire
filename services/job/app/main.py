@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
+from api.app_factory import make_app
 from app.api.router import api_router
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.temporal.client import TemporalClient
-from exceptions.handlers import register_exception_handlers
-
+from fastapi import FastAPI
 
 settings = get_settings()
 
@@ -26,22 +23,6 @@ async def lifespan(app: FastAPI):
     await TemporalClient.close()
 
 
-app = FastAPI(
-    title=settings.app_name,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan,
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-register_exception_handlers(app)
+app = make_app(app_name=settings.app_name, lifespan=lifespan)
 
 app.include_router(api_router)

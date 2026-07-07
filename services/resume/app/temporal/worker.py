@@ -3,12 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from temporalio.worker import Worker
-
 from app.core.config import get_settings
 from app.temporal.activities import parse_resume
 from app.temporal.client import TemporalClient
 from app.temporal.workflows import ResumeParsingWorkflow
+from temporalio.worker import Worker
 
 
 async def start_worker() -> None:

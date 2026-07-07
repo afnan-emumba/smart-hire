@@ -4,11 +4,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.enums import JobStatus
 from app.db.models import Job, JobStatusHistory
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class JobRepository:

@@ -4,12 +4,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.application_states import ApplicationStatus
 from app.db.models import Application, ApplicationStatusHistory
 from app.schemas.application import ApplicationCreate
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ApplicationRepository:

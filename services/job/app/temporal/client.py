@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from app.core.config import get_settings
 from temporal.client import TemporalClient as SharedTemporalClient
 from temporalio.client import Client
-
-from app.core.config import get_settings
 
 
 class TemporalClient:

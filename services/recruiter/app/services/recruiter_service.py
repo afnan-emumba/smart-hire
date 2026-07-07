@@ -3,13 +3,11 @@ from __future__ import annotations
 import logging
 import uuid
 
-from sqlalchemy.exc import IntegrityError
-
 from app.repositories.recruiter_repo import RecruiterRepository
 from app.schemas.recruiter import RecruiterCreate, RecruiterResponse
 from db.base import is_unique_violation
 from exceptions.http_exceptions import ConflictError, NotFoundError
-
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 

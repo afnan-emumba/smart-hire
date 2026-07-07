@@ -14,17 +14,15 @@ from app.schemas.resume import ResumeResponse
 from app.services.resume_file_service import ResumeFileService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
-from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowInput
+from app.temporal.workflows import (ResumeParsingWorkflow,
+                                    ResumeParsingWorkflowInput)
 from app.utils.resume_pdf import ResumePdfConverter
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
-from exceptions.http_exceptions import (
-    BadRequestError,
-    ForbiddenError,
-    NotFoundError,
-)
-from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
-
+from exceptions.http_exceptions import (BadRequestError, ForbiddenError,
+                                        NotFoundError)
+from temporal.workflow_launcher import \
+    start_workflow_with_retryable_error_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +89,8 @@ class ResumeService:
             except Exception:
                 logger.exception(
                     "Failed to clean up orphaned resume file after a failed upload",
-                    extra={"resume_id": str(resume_id), "storage_path": storage_path},
+                    extra={"resume_id": str(resume_id),
+                           "storage_path": storage_path},
                 )
             raise
 
@@ -123,7 +122,8 @@ class ResumeService:
         if current_user.role == "CANDIDATE":
             own_candidate_id = require_candidate_user_id(current_user)
             if candidate_id is not None and candidate_id != own_candidate_id:
-                raise ForbiddenError("Not authorized to view another candidate's resumes")
+                raise ForbiddenError(
+                    "Not authorized to view another candidate's resumes")
             candidate_id = own_candidate_id
         elif candidate_id is None:
             raise BadRequestError("candidate_id is required")
@@ -210,7 +210,8 @@ class ResumeService:
     ) -> None:
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
-            raise ForbiddenError("Not authorized to delete another candidate's resumes")
+            raise ForbiddenError(
+                "Not authorized to delete another candidate's resumes")
 
         storage_paths = await self.resume_repo.delete_by_candidate(candidate_id)
 
@@ -220,7 +221,8 @@ class ResumeService:
             except Exception:
                 logger.exception(
                     "Failed to remove resume file after deleting candidate's resumes",
-                    extra={"candidate_id": str(candidate_id), "storage_path": storage_path},
+                    extra={"candidate_id": str(
+                        candidate_id), "storage_path": storage_path},
                 )
 
     async def _update_resume_record(
@@ -234,7 +236,8 @@ class ResumeService:
         structured_data: dict[str, Any] | None,
     ) -> Any:
         extraction_metadata = dict(resume.extraction_metadata)
-        extraction_metadata["last_processed_at"] = datetime.now(timezone.utc).isoformat()
+        extraction_metadata["last_processed_at"] = datetime.now(
+            timezone.utc).isoformat()
         extraction_metadata["parser_version"] = self._RESUME_PARSER_VERSION
         extraction_metadata["schema_version"] = self._RESUME_SCHEMA_VERSION
         return await self.resume_repo.update_parsing_result(
@@ -261,7 +264,8 @@ class ResumeService:
         await start_workflow_with_retryable_error_mapping(
             client=client,
             workflow=ResumeParsingWorkflow.run,
-            workflow_input=ResumeParsingWorkflowInput(resume_id=str(resume_id)),
+            workflow_input=ResumeParsingWorkflowInput(
+                resume_id=str(resume_id)),
             workflow_id=workflow_id,
             task_queue=self.settings.temporal_resume_task_queue,
             execution_timeout=timedelta(minutes=5),
@@ -275,4 +279,3 @@ class ResumeService:
     @staticmethod
     def _build_resume_workflow_id(resume_id: uuid.UUID, uploaded_at: datetime) -> str:
         return f"resume-parsing-{resume_id}-{int(uploaded_at.timestamp())}"
-

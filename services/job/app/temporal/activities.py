@@ -4,8 +4,6 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from temporalio import activity
-
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
@@ -13,16 +11,12 @@ from app.core.enums import JobStatus
 from app.db.session import SessionLocal
 from app.repositories.job_repo import JobRepository
 from app.services.job_service import JobService
-from exceptions.http_exceptions import (
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    InvalidStateTransitionError,
-    NotFoundError,
-    PayloadTooLargeError,
-)
+from exceptions.http_exceptions import (BadRequestError, ConflictError,
+                                        ForbiddenError,
+                                        InvalidStateTransitionError,
+                                        NotFoundError, PayloadTooLargeError)
 from temporal.activity_runner import run_temporal_activity
-
+from temporalio import activity
 
 _NON_RETRYABLE_ERRORS = (
     BadRequestError,

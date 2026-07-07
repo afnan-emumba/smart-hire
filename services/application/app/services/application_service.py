@@ -2,28 +2,22 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy.exc import IntegrityError
-
 from app.clients.job_client import JobClient
-from app.core.application_states import ApplicationStatus, is_valid_app_transition
+from app.core.application_states import (ApplicationStatus,
+                                         is_valid_app_transition)
 from app.core.config import Settings
 from app.repositories.application_repo import ApplicationRepository
-from app.schemas.application import (
-    ApplicationCreate,
-    ApplicationResponse,
-    EligibilityReasonCode,
-)
+from app.schemas.application import (ApplicationCreate, ApplicationResponse,
+                                     EligibilityReasonCode)
 from app.services.eligibility_service import EligibilityService
 from auth.actors import require_candidate_user_id, require_recruiter_user_id
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
-from exceptions.http_exceptions import (
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    InvalidStateTransitionError,
-    NotFoundError,
-)
+from exceptions.http_exceptions import (BadRequestError, ConflictError,
+                                        ForbiddenError,
+                                        InvalidStateTransitionError,
+                                        NotFoundError)
+from sqlalchemy.exc import IntegrityError
 
 
 class ApplicationService:

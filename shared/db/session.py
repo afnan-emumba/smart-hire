@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
+from typing import NamedTuple
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
+                                    async_sessionmaker, create_async_engine)
 
 
 async def ping_database(session: AsyncSession) -> bool:
@@ -24,3 +26,26 @@ def make_get_db_session(
                 raise
 
     return get_db_session
+
+
+class ServiceSession(NamedTuple):
+    engine: AsyncEngine
+    session_local: async_sessionmaker[AsyncSession]
+    get_db_session: Callable[[], AsyncGenerator[AsyncSession, None]]
+
+
+def build_service_session(database_url: str) -> ServiceSession:
+    engine = create_async_engine(
+        database_url,
+        future=True,
+        pool_pre_ping=True,
+    )
+
+    session_local = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+
+    return ServiceSession(engine, session_local, make_get_db_session(session_local))

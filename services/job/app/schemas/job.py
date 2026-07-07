@@ -4,10 +4,8 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
-
+from pydantic import BaseModel, ConfigDict, Field
 
 JobStatus = Literal["draft", "processing", "ready", "archived"]
 EmploymentType = Literal["full_time", "part_time", "contract", "temporary", "internship", "freelance"]

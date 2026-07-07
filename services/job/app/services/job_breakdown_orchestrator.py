@@ -13,7 +13,6 @@ from app.schemas.job import JobBreakdownFields
 from app.services.job_breakdown_service import JobBreakdownService
 from app.utils.job_description_pdf import JobDescriptionPdfConverter
 
-
 logger = logging.getLogger(__name__)
 
 

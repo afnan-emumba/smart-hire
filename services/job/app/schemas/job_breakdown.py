@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 SkillProficiency = Literal["entry", "intermediate", "expert"]
 SkillCategory = Literal["technology", "domain", "soft"]
 TechnologyCategory = Literal["language", "framework", "database", "cloud", "tool", "platform", "other"]

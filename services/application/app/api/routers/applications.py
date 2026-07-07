@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, Response, status
-
+from api.pagination import PaginationParams
 from app.api.dependencies import get_application_service
 from app.core.application_states import ApplicationStatus
-from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationStatusUpdate
+from app.schemas.application import (ApplicationCreate, ApplicationResponse,
+                                     ApplicationStatusUpdate)
 from app.services.application_service import ApplicationService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-
+from fastapi import APIRouter, Depends, Query, Response, status
 
 router = APIRouter()
 
@@ -37,8 +37,7 @@ async def list_applications(
     status_filter: ApplicationStatus | None = Query(default=None, alias="status"),
     candidate_id: uuid.UUID | None = None,
     job_id: uuid.UUID | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
     service: ApplicationService = Depends(get_application_service),
 ) -> list[ApplicationResponse]:
@@ -47,8 +46,8 @@ async def list_applications(
         candidate_id=candidate_id,
         job_id=job_id,
         current_user=current_user,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
     )
 
 

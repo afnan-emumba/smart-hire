@@ -4,22 +4,17 @@ import asyncio
 import logging
 import uuid
 
-from sqlalchemy.exc import IntegrityError
-
 from app.clients.application_client import ApplicationClient
 from app.clients.resume_client import ResumeClient
 from app.repositories.candidate_repo import CandidateRepository
-from app.schemas.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
+from app.schemas.candidate import (CandidateCreate, CandidateResponse,
+                                   CandidateUpdate)
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from db.base import is_unique_violation
-from exceptions.http_exceptions import (
-    ConflictError,
-    ForbiddenError,
-    NotFoundError,
-    ServiceUnavailableError,
-)
-
+from exceptions.http_exceptions import (ConflictError, ForbiddenError,
+                                        NotFoundError, ServiceUnavailableError)
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 

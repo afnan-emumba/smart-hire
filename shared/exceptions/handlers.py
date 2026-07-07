@@ -2,18 +2,13 @@ from __future__ import annotations
 
 import logging
 
+from exceptions.http_exceptions import (BadRequestError, ConflictError,
+                                        ForbiddenError,
+                                        InvalidStateTransitionError,
+                                        NotFoundError, PayloadTooLargeError,
+                                        ServiceUnavailableError)
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-
-from exceptions.http_exceptions import (
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    InvalidStateTransitionError,
-    NotFoundError,
-    PayloadTooLargeError,
-    ServiceUnavailableError,
-)
 
 
 def _json_error(status_code: int, detail: str) -> JSONResponse:

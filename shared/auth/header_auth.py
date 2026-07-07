@@ -6,7 +6,6 @@ from typing import Literal
 from fastapi import Depends, Header, HTTPException, status
 from pydantic import BaseModel
 
-
 UserRole = Literal["RECRUITER", "CANDIDATE"]
 ALLOWED_ROLES = {"RECRUITER", "CANDIDATE"}
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import httpx
-
 from auth.header_auth import CurrentUser
 from exceptions.http_exceptions import ServiceUnavailableError
 

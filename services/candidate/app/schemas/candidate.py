@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field, StringConstraints, model_validator
-
+from pydantic import (AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field,
+                      StringConstraints, model_validator)
 
 ProfileText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 SummaryText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]

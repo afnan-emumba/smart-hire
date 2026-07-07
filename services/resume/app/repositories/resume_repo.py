@@ -4,10 +4,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.db.models import CandidateResume
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.models import CandidateResume
 
 
 class ResumeRepository:

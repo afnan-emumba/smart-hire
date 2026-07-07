@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.repositories.resume_repo import ResumeRepository
 from app.services.resume_service import ResumeService
+from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_resume_service(

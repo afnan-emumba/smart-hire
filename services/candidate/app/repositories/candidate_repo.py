@@ -3,11 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Any, Mapping
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.models import Candidate
 from app.schemas.candidate import CandidateCreate
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class CandidateRepository:

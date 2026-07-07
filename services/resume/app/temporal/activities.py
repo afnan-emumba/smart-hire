@@ -3,8 +3,6 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from temporalio import activity
-
 from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
 from app.db.session import SessionLocal
@@ -12,7 +10,7 @@ from app.repositories.resume_repo import ResumeRepository
 from app.services.resume_service import ResumeService
 from exceptions.http_exceptions import NotFoundError
 from temporal.activity_runner import run_temporal_activity
-
+from temporalio import activity
 
 _NON_RETRYABLE_ERRORS = (NotFoundError,)
 

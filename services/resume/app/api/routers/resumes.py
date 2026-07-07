@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
-
+from api.pagination import PaginationParams
+from api.uploads import read_limited_upload
 from app.api.dependencies import get_resume_service
 from app.core.config import get_settings
 from app.schemas.resume import ResumeResponse
 from app.services.resume_service import ResumeService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from api.uploads import read_limited_upload
-
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 
 router = APIRouter()
 
@@ -58,8 +57,7 @@ async def delete_resumes(
 async def list_resumes(
     candidate_id: uuid.UUID | None = None,
     parsing_status: str | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
     service: ResumeService = Depends(get_resume_service),
 ) -> list[ResumeResponse]:
@@ -67,6 +65,6 @@ async def list_resumes(
         candidate_id=candidate_id,
         current_user=current_user,
         parsing_status=parsing_status,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
     )

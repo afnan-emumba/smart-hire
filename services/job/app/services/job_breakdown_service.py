@@ -4,15 +4,10 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from app.schemas.job_breakdown import (
-    Compensation,
-    EducationRequirement,
-    JobBreakdown,
-    JobLocation,
-    RequirementsBreakdown,
-    Skill,
-    Technology,
-)
+from app.schemas.job_breakdown import (Compensation, EducationRequirement,
+                                       JobBreakdown, JobLocation,
+                                       RequirementsBreakdown, Skill,
+                                       Technology)
 from skills.skill_extractor import SkillExtractor
 
 

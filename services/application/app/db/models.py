@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.core.application_states import ApplicationStatus
 from db.base import Base, TimestampMixin
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func, text
+from sqlalchemy import (CheckConstraint, DateTime, ForeignKey, String, Text,
+                        UniqueConstraint, func, text)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.core.application_states import ApplicationStatus
 
 
 class Application(TimestampMixin, Base):

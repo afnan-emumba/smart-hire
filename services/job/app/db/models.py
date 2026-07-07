@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.core.enums import JobStatus
 from db.base import Base, TimestampMixin
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func, text
+from sqlalchemy import (CheckConstraint, DateTime, ForeignKey, String, Text,
+                        func, text)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.core.enums import JobStatus
 
 
 class Job(TimestampMixin, Base):

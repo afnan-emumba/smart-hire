@@ -7,7 +7,6 @@ from app.core.config import Settings
 from auth.header_auth import CurrentUser
 from http_client.base_client import BaseServiceClient
 
-
 logger = logging.getLogger(__name__)
 
 _JOB_PAGE_SIZE = 100

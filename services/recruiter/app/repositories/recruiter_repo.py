@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.models import Recruiter
 from app.schemas.recruiter import RecruiterCreate
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class RecruiterRepository:

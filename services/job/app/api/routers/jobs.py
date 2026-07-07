@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
-
+from api.pagination import PaginationParams
+from api.uploads import read_limited_upload
 from app.api.dependencies import get_job_service
 from app.core.config import get_settings
-from app.schemas.job import JobCreate, JobResponse, JobStatus, JobUpdate, PublishJobResponse
+from app.schemas.job import (JobCreate, JobResponse, JobStatus, JobUpdate,
+                             PublishJobResponse)
 from app.services.job_service import JobService
 from auth.header_auth import CurrentUser, get_current_user, require_role
-from api.uploads import read_limited_upload
-
+from fastapi import (APIRouter, Depends, File, Query, Response, UploadFile,
+                     status)
 
 router = APIRouter()
 
@@ -37,16 +38,15 @@ async def get_job(
 async def list_jobs(
     recruiter_id: uuid.UUID | None = None,
     status_filter: JobStatus | None = Query(default=None, alias="status"),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
     service: JobService = Depends(get_job_service),
 ) -> list[JobResponse]:
     return await service.list_jobs(
         recruiter_id=recruiter_id,
         status_filter=status_filter,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
     )
 
 

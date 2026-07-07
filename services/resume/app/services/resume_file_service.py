@@ -7,7 +7,6 @@ from app.core.config import Settings
 from exceptions.http_exceptions import BadRequestError, PayloadTooLargeError
 from storage.local_file_store import remove_if_exists, write_file
 
-
 _SUPPORTED_CONTENT_TYPES = {
     "application/pdf",
 }

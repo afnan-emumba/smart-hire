@@ -9,7 +9,6 @@ from sqlalchemy import String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-
 DEFAULT_MASTER_PROFILE_DATA: dict[str, Any] = {
     "summary": None,
     "skills": [],
