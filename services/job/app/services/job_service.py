@@ -96,7 +96,7 @@ class JobService:
     async def list_jobs(
         self,
         recruiter_id: uuid.UUID | None = None,
-        status_filter: str | None = None,
+        status_filter: JobStatus | None = None,
         *,
         limit: int,
         offset: int,

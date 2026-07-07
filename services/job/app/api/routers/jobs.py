@@ -8,10 +8,10 @@ from api.pagination import PaginationParams
 from api.uploads import read_limited_upload
 from app.api.dependencies import get_job_service
 from app.core.config import get_settings
+from app.core.enums import JobStatus
 from app.schemas.job import (
     JobCreate,
     JobResponse,
-    JobStatus,
     JobUpdate,
     PublishJobResponse,
 )

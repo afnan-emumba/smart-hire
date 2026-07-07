@@ -11,6 +11,7 @@ from app.schemas.job_breakdown import (
     JobLocation,
     RequirementsBreakdown,
     Skill,
+    SkillCategory,
     Technology,
 )
 from skills.skill_extractor import SkillExtractor
@@ -299,7 +300,7 @@ class JobBreakdownService:
         seen: set[str] = set()
 
         for skill in skills:
-            if skill.category != "technology":
+            if skill.category != SkillCategory.TECHNOLOGY:
                 continue
 
             key = skill.name.casefold()
@@ -316,7 +317,7 @@ class JobBreakdownService:
             normalized = cls._normalize_skill_item(raw_item)
             if not normalized:
                 continue
-            if cls._classify_skill_category(normalized) != "technology":
+            if cls._classify_skill_category(normalized) != SkillCategory.TECHNOLOGY:
                 continue
 
             key = normalized.casefold()
@@ -622,15 +623,15 @@ class JobBreakdownService:
         return skill_item.strip().rstrip(".")
 
     @classmethod
-    def _classify_skill_category(cls, skill_item: str) -> str:
+    def _classify_skill_category(cls, skill_item: str) -> SkillCategory:
         normalized = skill_item.strip().casefold()
         if any(keyword in normalized for keyword in cls._SOFT_SKILL_KEYWORDS):
-            return "soft"
+            return SkillCategory.SOFT
         if normalized in cls._TECHNOLOGY_CATEGORIES:
-            return "technology"
+            return SkillCategory.TECHNOLOGY
         if normalized.replace(" ", "") in cls._NORMALIZED_TECHNOLOGY_KEYS:
-            return "technology"
-        return "domain"
+            return SkillCategory.TECHNOLOGY
+        return SkillCategory.DOMAIN
 
     @classmethod
     def _technology_category_for_name(cls, name: str) -> str:

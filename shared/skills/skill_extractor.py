@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-ExtractedSkillProficiency = Literal["entry", "intermediate", "expert"]
+SkillProficiency = Literal["entry", "intermediate", "expert"]
 
 
 class ExtractedSkill(BaseModel):
@@ -13,7 +13,7 @@ class ExtractedSkill(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     category: Literal["technology"] = "technology"
-    proficiency: ExtractedSkillProficiency
+    proficiency: SkillProficiency
     years_required: int | None = Field(default=None, ge=0)
 
 

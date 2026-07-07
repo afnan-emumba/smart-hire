@@ -44,13 +44,13 @@ class JobRepository:
         self,
         recruiter_id: uuid.UUID,
         *,
-        status_filter: str | None,
+        status_filter: JobStatus | None,
         limit: int,
         offset: int,
     ) -> list[Job]:
         stmt = select(Job).where(Job.recruiter_id == recruiter_id)
         if status_filter is not None:
-            stmt = stmt.where(Job.status == status_filter)
+            stmt = stmt.where(Job.status == status_filter.value)
         result = await self.session.execute(
             stmt.order_by(Job.created_at.desc()).limit(limit).offset(offset)
         )
@@ -59,13 +59,13 @@ class JobRepository:
     async def list_all(
         self,
         *,
-        status_filter: str | None,
+        status_filter: JobStatus | None,
         limit: int,
         offset: int,
     ) -> list[Job]:
         stmt = select(Job)
         if status_filter is not None:
-            stmt = stmt.where(Job.status == status_filter)
+            stmt = stmt.where(Job.status == status_filter.value)
         result = await self.session.execute(
             stmt.order_by(Job.created_at.desc()).limit(limit).offset(offset)
         )

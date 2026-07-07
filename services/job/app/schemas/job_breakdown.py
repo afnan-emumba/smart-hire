@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SkillProficiency = Literal["entry", "intermediate", "expert"]
-SkillCategory = Literal["technology", "domain", "soft"]
+from skills.skill_extractor import SkillProficiency
+
+
+class SkillCategory(str, Enum):
+    TECHNOLOGY = "technology"
+    DOMAIN = "domain"
+    SOFT = "soft"
+
+
 TechnologyCategory = Literal[
     "language", "framework", "database", "cloud", "tool", "platform", "other"
 ]
@@ -17,7 +25,7 @@ class Skill(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=100)
-    category: SkillCategory = "domain"
+    category: SkillCategory = SkillCategory.DOMAIN
     proficiency: SkillProficiency
     years_required: int | None = Field(default=None, ge=0)
 

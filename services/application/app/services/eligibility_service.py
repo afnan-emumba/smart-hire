@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.repositories.application_repo import ApplicationRepository
 from app.schemas.application import EligibilityReasonCode, EligibilityResult
 from auth.header_auth import CurrentUser
+from contracts.enums import JobStatus
 from contracts.service_responses import CandidateMasterProfileContract
 from exceptions.http_exceptions import NotFoundError
 
@@ -44,7 +45,7 @@ class EligibilityService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        if job.status != "ready":
+        if job.status != JobStatus.READY:
             return EligibilityResult(
                 is_eligible=False,
                 reason_code=EligibilityReasonCode.JOB_NOT_READY,

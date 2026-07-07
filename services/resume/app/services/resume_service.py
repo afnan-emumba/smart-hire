@@ -23,6 +23,7 @@ from app.temporal.workflows import ResumeParsingWorkflow, ResumeParsingWorkflowI
 from app.utils.resume_pdf import ResumePdfConverter
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
+from contracts.enums import ResumeParsingStatus
 from exceptions.http_exceptions import BadRequestError, ForbiddenError, NotFoundError
 from storage.constants import MIME_TYPE_APPLICATION_PDF
 from temporal.schemas import ResumeParsingActivityResult
@@ -84,7 +85,7 @@ class ResumeService:
                 content_type=content_type,
                 storage_path=storage_path,
                 uploaded_at=uploaded_at,
-                parsing_status="pending",
+                parsing_status=ResumeParsingStatus.PENDING.value,
                 parser_version=self._RESUME_PARSER_VERSION,
                 schema_version=self._RESUME_SCHEMA_VERSION,
                 extraction_metadata=ResumeExtractionMetadata(source="resume_upload"),
@@ -154,7 +155,7 @@ class ResumeService:
         if resume.content_type != MIME_TYPE_APPLICATION_PDF:
             updated = await self._update_resume_record(
                 resume,
-                parsing_status="unsupported",
+                parsing_status=ResumeParsingStatus.UNSUPPORTED.value,
                 parsing_error="Resume parsing currently supports PDF uploads only",
                 parsed_at=None,
                 raw_markdown=None,
@@ -165,7 +166,7 @@ class ResumeService:
         if resume.storage_path is None:
             updated = await self._update_resume_record(
                 resume,
-                parsing_status="failed",
+                parsing_status=ResumeParsingStatus.FAILED.value,
                 parsing_error="Resume storage path is missing",
                 parsed_at=None,
                 raw_markdown=None,
@@ -177,7 +178,7 @@ class ResumeService:
         if not resume_path.exists():
             updated = await self._update_resume_record(
                 resume,
-                parsing_status="failed",
+                parsing_status=ResumeParsingStatus.FAILED.value,
                 parsing_error="Uploaded resume file is no longer available",
                 parsed_at=None,
                 raw_markdown=None,
@@ -186,7 +187,7 @@ class ResumeService:
             return self._parsing_result(updated)
 
         await self.resume_repo.update_parsing_status(
-            resume, parsing_status="processing"
+            resume, parsing_status=ResumeParsingStatus.PROCESSING.value
         )
 
         try:
@@ -198,7 +199,7 @@ class ResumeService:
         except ValueError as exc:
             updated = await self._update_resume_record(
                 resume,
-                parsing_status="failed",
+                parsing_status=ResumeParsingStatus.FAILED.value,
                 parsing_error=str(exc),
                 parsed_at=None,
                 raw_markdown=None,
@@ -209,7 +210,7 @@ class ResumeService:
         parsed_at = datetime.now(timezone.utc)
         updated = await self._update_resume_record(
             resume,
-            parsing_status="parsed",
+            parsing_status=ResumeParsingStatus.PARSED.value,
             parsing_error=None,
             parsed_at=parsed_at,
             raw_markdown=markdown,

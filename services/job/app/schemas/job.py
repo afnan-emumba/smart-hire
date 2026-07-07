@@ -6,9 +6,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.enums import JobStatus
 from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
 
-JobStatus = Literal["draft", "processing", "ready", "archived"]
 EmploymentType = Literal[
     "full_time", "part_time", "contract", "temporary", "internship", "freelance"
 ]
@@ -61,7 +61,7 @@ class JobBreakdownFields(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
     jd_parsing_status: JobDescriptionParsingStatus = "pending"
     jd_parsing_error: str | None = None
-    status: JobStatus = "draft"
+    status: JobStatus = JobStatus.DRAFT
 
 
 class JobCreatePayload(BaseModel):
@@ -82,7 +82,7 @@ class JobCreatePayload(BaseModel):
     jd_parsing_status: JobDescriptionParsingStatus = "pending"
     jd_parsing_error: str | None = None
     description_breakdown: JobBreakdown | None = None
-    status: JobStatus = "draft"
+    status: JobStatus = JobStatus.DRAFT
 
 
 class JobResponse(BaseModel):

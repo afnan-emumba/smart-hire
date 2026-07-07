@@ -8,6 +8,7 @@ from sqlalchemy import CheckConstraint, DateTime, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from contracts.enums import ResumeParsingStatus
 from db.base import Base, TimestampMixin
 
 
@@ -35,8 +36,8 @@ class CandidateResume(TimestampMixin, Base):
     parsing_status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="pending",
-        server_default="pending",
+        default=ResumeParsingStatus.PENDING.value,
+        server_default=ResumeParsingStatus.PENDING.value,
     )
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     parsed_at: Mapped[datetime | None] = mapped_column(

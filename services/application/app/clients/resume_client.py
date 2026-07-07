@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
+from contracts.enums import ResumeParsingStatus
 from contracts.service_responses import ResumeResponseContract
 from http_client.base_client import BaseServiceClient
 from http_client.constants import (
@@ -35,7 +36,7 @@ class ResumeClient(BaseServiceClient):
             "/resumes",
             params={
                 QUERY_PARAM_CANDIDATE_ID: str(candidate_id),
-                QUERY_PARAM_PARSING_STATUS: "parsed",
+                QUERY_PARAM_PARSING_STATUS: ResumeParsingStatus.PARSED.value,
                 QUERY_PARAM_LIMIT: 1,
             },
             headers=self._headers(current_user),
