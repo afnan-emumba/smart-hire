@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from app.clients.application_client import ApplicationClient
-from app.clients.resume_client import ResumeClient
 from app.db.session import get_db_session
 from app.repositories.candidate_repo import CandidateRepository
 from app.services.candidate_service import CandidateService

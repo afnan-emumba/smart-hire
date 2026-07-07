@@ -4,6 +4,7 @@ import uuid
 
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
+from contracts.service_responses import RecruiterResponseContract
 from http_client.base_client import BaseServiceClient
 
 
@@ -15,7 +16,11 @@ class RecruiterClient(BaseServiceClient):
             service_label="Recruiter service",
         )
 
-    async def get_recruiter(self, recruiter_id: uuid.UUID, current_user: CurrentUser) -> dict | None:
+    async def get_recruiter(
+        self,
+        recruiter_id: uuid.UUID,
+        current_user: CurrentUser,
+    ) -> RecruiterResponseContract | None:
         response = await self._get(
             f"/recruiters/{recruiter_id}",
             headers=self._headers(current_user),
@@ -23,4 +28,4 @@ class RecruiterClient(BaseServiceClient):
         if response.status_code == 404:
             return None
         self._raise_for_status(response)
-        return response.json()
+        return RecruiterResponseContract.model_validate(response.json())

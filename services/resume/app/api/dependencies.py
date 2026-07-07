@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from app.clients.candidate_client import CandidateClient
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.repositories.resume_repo import ResumeRepository

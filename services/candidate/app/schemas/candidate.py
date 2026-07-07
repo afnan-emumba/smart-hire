@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import (AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field,
+from contracts.profile import ProfileLinks
+from pydantic import (BaseModel, ConfigDict, EmailStr, Field,
                       StringConstraints, model_validator)
 
 ProfileText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
@@ -52,13 +53,8 @@ class WorkExperienceEntry(BaseModel):
         return self
 
 
-class CandidateLinks(BaseModel):
+class CandidateLinks(ProfileLinks):
     model_config = ConfigDict(extra="forbid")
-
-    linkedin: AnyHttpUrl | None = None
-    github: AnyHttpUrl | None = None
-    portfolio: AnyHttpUrl | None = None
-    website: AnyHttpUrl | None = None
 
 
 class CandidateContact(BaseModel):

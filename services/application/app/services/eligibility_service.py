@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.repositories.application_repo import ApplicationRepository
 from app.schemas.application import EligibilityReasonCode, EligibilityResult
 from auth.header_auth import CurrentUser
+from contracts.service_responses import CandidateMasterProfileContract
 from exceptions.http_exceptions import NotFoundError
 
 
@@ -43,7 +44,7 @@ class EligibilityService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        if job["status"] != "ready":
+        if job.status != "ready":
             return EligibilityResult(
                 is_eligible=False,
                 reason_code=EligibilityReasonCode.JOB_NOT_READY,
@@ -79,10 +80,10 @@ class EligibilityService:
 
         candidate_skills, resume_id = await self._resolve_candidate_skills(
             candidate_id,
-            candidate.get("master_profile_data") or {},
+            candidate.master_profile_data,
             current_user,
         )
-        required_skills = self._normalize_skills(job.get("required_skills") or [])
+        required_skills = self._normalize_skills(job.required_skills)
 
         if not required_skills:
             return EligibilityResult(
@@ -129,10 +130,10 @@ class EligibilityService:
     async def _resolve_candidate_skills(
         self,
         candidate_id: uuid.UUID,
-        master_profile_data: dict,
+        master_profile_data: CandidateMasterProfileContract,
         current_user: CurrentUser,
     ) -> tuple[set[str], uuid.UUID | None]:
-        canonical_skills = self._normalize_skills(master_profile_data.get("skills", []))
+        canonical_skills = self._normalize_skills(master_profile_data.skills)
         if canonical_skills:
             return canonical_skills, None
 
@@ -140,14 +141,9 @@ class EligibilityService:
         if latest_resume is None:
             return canonical_skills, None
 
-        structured_data = latest_resume.get("structured_data")
-        if not isinstance(structured_data, dict):
+        structured_data = latest_resume.structured_data
+        if structured_data is None:
             return canonical_skills, None
 
-        try:
-            resume_id = uuid.UUID(latest_resume["id"])
-        except (KeyError, TypeError, ValueError):
-            return canonical_skills, None
-
-        resume_skills = self._normalize_skills(structured_data.get("skills", []))
-        return resume_skills, resume_id
+        resume_skills = self._normalize_skills(structured_data.skills)
+        return resume_skills, latest_resume.id

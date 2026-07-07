@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
+from contracts.service_responses import ResumeResponseContract
 from http_client.base_client import BaseServiceClient
+from http_client.constants import (QUERY_PARAM_CANDIDATE_ID, QUERY_PARAM_LIMIT,
+                                   QUERY_PARAM_PARSING_STATUS)
+from pydantic import ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 class ResumeClient(BaseServiceClient):
@@ -19,13 +26,13 @@ class ResumeClient(BaseServiceClient):
         self,
         candidate_id: uuid.UUID,
         current_user: CurrentUser,
-    ) -> dict | None:
+    ) -> ResumeResponseContract | None:
         response = await self._get(
             "/resumes",
             params={
-                "candidate_id": str(candidate_id),
-                "parsing_status": "parsed",
-                "limit": 1,
+                QUERY_PARAM_CANDIDATE_ID: str(candidate_id),
+                QUERY_PARAM_PARSING_STATUS: "parsed",
+                QUERY_PARAM_LIMIT: 1,
             },
             headers=self._headers(current_user),
         )
@@ -34,4 +41,14 @@ class ResumeClient(BaseServiceClient):
         self._raise_for_status(response)
 
         resumes = response.json()
-        return resumes[0] if resumes else None
+        if not resumes:
+            return None
+        try:
+            return ResumeResponseContract.model_validate(resumes[0])
+        except ValidationError:
+            logger.warning(
+                "Resume service returned a resume payload that does not match "
+                "ResumeResponseContract; treating as no usable resume",
+                exc_info=True,
+            )
+            return None

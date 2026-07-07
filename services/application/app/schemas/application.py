@@ -47,6 +47,6 @@ class ApplicationResponse(BaseModel):
         validation_alias="application_metadata",
     )
     resume_id: uuid.UUID | None = None
-    eligibility_result: dict[str, Any] | None = None
+    eligibility_result: EligibilityResult | None = None
     created_at: datetime
     updated_at: datetime

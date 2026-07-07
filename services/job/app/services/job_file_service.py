@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.core.config import Settings
 from exceptions.http_exceptions import BadRequestError, PayloadTooLargeError
+from storage.constants import MIME_TYPE_APPLICATION_PDF
 from storage.local_file_store import remove_if_exists, write_file
 
 
@@ -14,18 +15,21 @@ class JobFileService:
 
     async def validate_pdf_upload(self, *, file_name: str, content_type: str, file_bytes: bytes) -> str:
         if len(file_bytes) > self.settings.max_jd_size_bytes:
-            raise PayloadTooLargeError("Job description file exceeds the configured size limit")
+            raise PayloadTooLargeError(
+                "Job description file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Job description file is empty")
 
-        if content_type != "application/pdf":
-            raise BadRequestError("Job description files must be uploaded as PDFs")
+        if content_type != MIME_TYPE_APPLICATION_PDF:
+            raise BadRequestError(
+                "Job description files must be uploaded as PDFs")
 
         sanitized_name = Path(file_name).name
         suffix = Path(sanitized_name).suffix.lower()
         if suffix != ".pdf":
-            raise BadRequestError("Job description file must use a .pdf extension")
+            raise BadRequestError(
+                "Job description file must use a .pdf extension")
 
         return sanitized_name
 

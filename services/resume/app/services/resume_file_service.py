@@ -5,10 +5,11 @@ from pathlib import Path
 
 from app.core.config import Settings
 from exceptions.http_exceptions import BadRequestError, PayloadTooLargeError
+from storage.constants import MIME_TYPE_APPLICATION_PDF
 from storage.local_file_store import remove_if_exists, write_file
 
 _SUPPORTED_CONTENT_TYPES = {
-    "application/pdf",
+    MIME_TYPE_APPLICATION_PDF,
 }
 
 
@@ -20,7 +21,8 @@ class ResumeFileService:
         self, *, file_name: str, content_type: str, file_bytes: bytes
     ) -> tuple[str, str]:
         if len(file_bytes) > self.settings.max_resume_size_bytes:
-            raise PayloadTooLargeError("Resume file exceeds the configured size limit")
+            raise PayloadTooLargeError(
+                "Resume file exceeds the configured size limit")
 
         if not file_bytes:
             raise BadRequestError("Resume file is empty")

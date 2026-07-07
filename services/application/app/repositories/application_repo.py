@@ -6,7 +6,7 @@ from typing import Any
 
 from app.core.application_states import ApplicationStatus
 from app.db.models import Application, ApplicationStatusHistory
-from app.schemas.application import ApplicationCreate
+from app.schemas.application import ApplicationCreate, EligibilityResult
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,14 +25,18 @@ class ApplicationRepository:
         *,
         candidate_id: uuid.UUID,
         status: ApplicationStatus,
-        eligibility_result: dict[str, Any] | None = None,
+        eligibility_result: EligibilityResult | None = None,
         resume_id: uuid.UUID | None = None,
     ) -> Application:
         application = Application(
             **application_create.model_dump(),
             candidate_id=candidate_id,
             status=status.value,
-            eligibility_result=eligibility_result,
+            eligibility_result=(
+                eligibility_result.model_dump(mode="json")
+                if eligibility_result is not None
+                else None
+            ),
             resume_id=resume_id,
         )
         self.session.add(application)
@@ -93,7 +97,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -109,7 +114,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -127,7 +133,8 @@ class ApplicationRepository:
         if status_filter is not None:
             stmt = stmt.where(Application.status == status_filter)
         result = await self.session.execute(
-            stmt.order_by(Application.created_at.desc()).limit(limit).offset(offset)
+            stmt.order_by(Application.created_at.desc()
+                          ).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -172,7 +179,7 @@ class ApplicationRepository:
         self,
         application: Application,
         *,
-        metadata: dict,
+        metadata: dict[str, Any],
     ) -> Application:
         application.application_metadata = metadata
         await self.session.flush()

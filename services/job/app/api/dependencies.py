@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from app.clients.application_client import ApplicationClient
-from app.clients.recruiter_client import RecruiterClient
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.repositories.job_repo import JobRepository

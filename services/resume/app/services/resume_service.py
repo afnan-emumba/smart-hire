@@ -10,10 +10,12 @@ from typing import Any
 from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
-from app.schemas.resume import ResumeResponse
+from app.schemas.resume import (ResumeExtractionMetadata, ResumeResponse,
+                                ResumeStructuredData)
 from app.services.resume_file_service import ResumeFileService
 from app.services.resume_parsing_service import ResumeParsingService
 from app.temporal.client import TemporalClient
+from app.temporal.constants import RESUME_PARSING_WORKFLOW_ID_PREFIX
 from app.temporal.workflows import (ResumeParsingWorkflow,
                                     ResumeParsingWorkflowInput)
 from app.utils.resume_pdf import ResumePdfConverter
@@ -21,6 +23,8 @@ from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from exceptions.http_exceptions import (BadRequestError, ForbiddenError,
                                         NotFoundError)
+from storage.constants import MIME_TYPE_APPLICATION_PDF
+from temporal.schemas import ResumeParsingActivityResult
 from temporal.workflow_launcher import \
     start_workflow_with_retryable_error_mapping
 
@@ -81,7 +85,8 @@ class ResumeService:
                 parsing_status="pending",
                 parser_version=self._RESUME_PARSER_VERSION,
                 schema_version=self._RESUME_SCHEMA_VERSION,
-                extraction_metadata={"source": "resume_upload"},
+                extraction_metadata=ResumeExtractionMetadata(
+                    source="resume_upload"),
             )
         except Exception:
             try:
@@ -136,12 +141,12 @@ class ResumeService:
         )
         return [ResumeResponse.model_validate(resume) for resume in resumes]
 
-    async def process_resume_parsing(self, resume_id: uuid.UUID) -> dict[str, Any]:
+    async def process_resume_parsing(self, resume_id: uuid.UUID) -> ResumeParsingActivityResult:
         resume = await self.resume_repo.get_by_id(resume_id)
         if resume is None:
             raise NotFoundError("Resume not found")
 
-        if resume.content_type != "application/pdf":
+        if resume.content_type != MIME_TYPE_APPLICATION_PDF:
             updated = await self._update_resume_record(
                 resume,
                 parsing_status="unsupported",
@@ -233,13 +238,14 @@ class ResumeService:
         parsing_error: str | None,
         parsed_at: datetime | None,
         raw_markdown: str | None,
-        structured_data: dict[str, Any] | None,
+        structured_data: ResumeStructuredData | None,
     ) -> Any:
-        extraction_metadata = dict(resume.extraction_metadata)
-        extraction_metadata["last_processed_at"] = datetime.now(
-            timezone.utc).isoformat()
-        extraction_metadata["parser_version"] = self._RESUME_PARSER_VERSION
-        extraction_metadata["schema_version"] = self._RESUME_SCHEMA_VERSION
+        extraction_metadata = ResumeExtractionMetadata.model_validate(
+            resume.extraction_metadata or {}
+        )
+        extraction_metadata.last_processed_at = datetime.now(timezone.utc)
+        extraction_metadata.parser_version = self._RESUME_PARSER_VERSION
+        extraction_metadata.schema_version = self._RESUME_SCHEMA_VERSION
         return await self.resume_repo.update_parsing_result(
             resume,
             parsing_status=parsing_status,
@@ -251,11 +257,11 @@ class ResumeService:
         )
 
     @staticmethod
-    def _parsing_result(resume: Any) -> dict[str, Any]:
-        return {
-            "resume_id": str(resume.id),
-            "parsing_status": resume.parsing_status,
-        }
+    def _parsing_result(resume: Any) -> ResumeParsingActivityResult:
+        return ResumeParsingActivityResult(
+            resume_id=resume.id,
+            parsing_status=resume.parsing_status,
+        )
 
     async def _start_resume_parsing_workflow(self, resume_id: uuid.UUID, uploaded_at: datetime) -> None:
         workflow_id = self._build_resume_workflow_id(resume_id, uploaded_at)
@@ -278,4 +284,4 @@ class ResumeService:
 
     @staticmethod
     def _build_resume_workflow_id(resume_id: uuid.UUID, uploaded_at: datetime) -> str:
-        return f"resume-parsing-{resume_id}-{int(uploaded_at.timestamp())}"
+        return f"{RESUME_PARSING_WORKFLOW_ID_PREFIX}-{resume_id}-{int(uploaded_at.timestamp())}"

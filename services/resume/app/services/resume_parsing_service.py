@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
+from app.schemas.resume import (ResumeContact, ResumeLinks,
+                                ResumeStructuredData, ResumeTextEntry)
+from pydantic import AnyHttpUrl, TypeAdapter, ValidationError
 from skills.skill_extractor import SkillExtractor
+
+_URL_ADAPTER = TypeAdapter(AnyHttpUrl)
 
 
 class ResumeParsingService:
@@ -22,31 +26,34 @@ class ResumeParsingService:
         "contact": ("contact",),
         "links": ("links",),
     }
-    _EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+    _EMAIL_PATTERN = re.compile(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
     _PHONE_PATTERN = re.compile(
         r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3}[\s.-]?\d{3,4}"
     )
     _URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
 
     @classmethod
-    async def extract_resume_profile(cls, markdown: str) -> dict[str, Any]:
+    async def extract_resume_profile(cls, markdown: str) -> ResumeStructuredData:
         normalized_markdown = markdown.strip()
         sections = cls._collect_sections(normalized_markdown)
-        return {
-            "summary": cls._extract_summary(sections),
-            "skills": cls._extract_skills(sections, normalized_markdown),
-            "contact": cls._extract_contact(sections, normalized_markdown),
-            "education": cls._extract_list_section(sections, "education"),
-            "work_experience": cls._extract_list_section(sections, "experience"),
-            "projects": cls._extract_list_section(sections, "projects"),
-            "certifications": cls._extract_list_section(sections, "certifications"),
-            "links": cls._extract_links(sections, normalized_markdown),
-            "markdown": normalized_markdown,
-        }
+        return ResumeStructuredData(
+            summary=cls._extract_summary(sections),
+            skills=cls._extract_skills(sections, normalized_markdown),
+            contact=cls._extract_contact(sections, normalized_markdown),
+            education=cls._extract_list_section(sections, "education"),
+            work_experience=cls._extract_list_section(sections, "experience"),
+            projects=cls._extract_list_section(sections, "projects"),
+            certifications=cls._extract_list_section(
+                sections, "certifications"),
+            links=cls._extract_links(sections, normalized_markdown),
+            markdown=normalized_markdown,
+        )
 
     @classmethod
     def _collect_sections(cls, markdown: str) -> dict[str, list[str]]:
-        sections: dict[str, list[str]] = {key: [] for key in cls._SECTION_ALIASES}
+        sections: dict[str, list[str]] = {key: []
+                                          for key in cls._SECTION_ALIASES}
         current_section = "summary"
 
         for raw_line in markdown.splitlines():
@@ -96,7 +103,7 @@ class ResumeParsingService:
         return sorted(combined)
 
     @classmethod
-    def _extract_contact(cls, sections: dict[str, list[str]], markdown: str) -> dict[str, Any]:
+    def _extract_contact(cls, sections: dict[str, list[str]], markdown: str) -> ResumeContact:
         contact_text = "\n".join(
             [
                 *sections.get("contact", []),
@@ -113,41 +120,48 @@ class ResumeParsingService:
             if line:
                 location = line
                 break
-        return {
-            "email": email_match.group(0) if email_match is not None else None,
-            "phone": phone_match.group(0) if phone_match is not None else None,
-            "location": location,
-        }
+        return ResumeContact(
+            email=email_match.group(0) if email_match is not None else None,
+            phone=phone_match.group(0) if phone_match is not None else None,
+            location=location,
+        )
 
     @classmethod
-    def _extract_links(cls, sections: dict[str, list[str]], markdown: str) -> dict[str, Any]:
-        sources = [*sections.get("links", []), *sections.get("contact", []), markdown]
+    def _extract_links(cls, sections: dict[str, list[str]], markdown: str) -> ResumeLinks:
+        sources = [*sections.get("links", []), *
+                   sections.get("contact", []), markdown]
         urls: list[str] = []
         for source in sources:
-            urls.extend(match.group(0) for match in cls._URL_PATTERN.finditer(source))
+            urls.extend(match.group(0)
+                        for match in cls._URL_PATTERN.finditer(source))
 
-        links = {
-            "linkedin": None,
-            "github": None,
-            "portfolio": None,
-            "website": None,
-        }
+        values: dict[str, str] = {}
         for url in urls:
+            if not cls._is_valid_url(url):
+                continue
             lowered = url.casefold()
             if "linkedin.com" in lowered:
-                links["linkedin"] = url
+                values["linkedin"] = url
             elif "github.com" in lowered:
-                links["github"] = url
-            elif links["portfolio"] is None:
-                links["portfolio"] = url
-            elif links["website"] is None:
-                links["website"] = url
+                values["github"] = url
+            elif "portfolio" not in values:
+                values["portfolio"] = url
+            elif "website" not in values:
+                values["website"] = url
 
-        return links
+        return ResumeLinks(**values)
 
     @staticmethod
-    def _extract_list_section(sections: dict[str, list[str]], key: str) -> list[dict[str, str]]:
-        return [{"raw_text": line} for line in sections.get(key, []) if line]
+    def _is_valid_url(url: str) -> bool:
+        try:
+            _URL_ADAPTER.validate_python(url)
+            return True
+        except ValidationError:
+            return False
+
+    @staticmethod
+    def _extract_list_section(sections: dict[str, list[str]], key: str) -> list[ResumeTextEntry]:
+        return [ResumeTextEntry(raw_text=line) for line in sections.get(key, []) if line]
 
     @staticmethod
     def _normalize_skill(value: str) -> str | None:

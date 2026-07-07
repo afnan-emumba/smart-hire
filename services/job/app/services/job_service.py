@@ -17,6 +17,7 @@ from app.schemas.job import (JobBreakdownValidationResponse, JobCreate,
 from app.services.job_breakdown_orchestrator import JobBreakdownOrchestrator
 from app.services.job_file_service import JobFileService
 from app.temporal.client import TemporalClient
+from app.temporal.constants import JOB_PUBLISHING_WORKFLOW_ID_PREFIX
 from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 from auth.actors import require_recruiter_user_id
 from auth.header_auth import CurrentUser
@@ -119,14 +120,16 @@ class JobService:
             raise ForbiddenError("Not authorized to update this job")
 
         updates = job_update.model_dump(exclude_unset=True)
-        needs_rebuild = "description" in updates or ("title" in updates and existing_job.description is not None)
+        needs_rebuild = "description" in updates or (
+            "title" in updates and existing_job.description is not None)
         if needs_rebuild and existing_job.status != JobStatus.DRAFT.value:
             raise BadRequestError(
                 "Job description can only be edited while the job is in draft status"
             )
         if needs_rebuild:
             effective_title = updates.get("title", existing_job.title)
-            effective_description = updates.get("description", existing_job.description)
+            effective_description = updates.get(
+                "description", existing_job.description)
             effective_required_skills = (
                 updates["required_skills"]
                 if "required_skills" in updates and updates["required_skills"] is not None
@@ -216,7 +219,8 @@ class JobService:
             raise ForbiddenError("Not authorized to modify this job")
 
         if job.status != JobStatus.DRAFT.value:
-            raise BadRequestError("Job description files can only be uploaded while the job is in draft")
+            raise BadRequestError(
+                "Job description files can only be uploaded while the job is in draft")
 
         previous_storage_path = job.jd_storage_path
         storage_path = await self.file_service.write_job_pdf(job_id=job.id, file_bytes=file_bytes)
@@ -237,7 +241,8 @@ class JobService:
             except Exception:
                 logger.exception(
                     "Failed to clean up orphaned job description file after a failed upload",
-                    extra={"job_id": str(job.id), "storage_path": storage_path},
+                    extra={"job_id": str(
+                        job.id), "storage_path": storage_path},
                 )
             raise
 
@@ -265,7 +270,8 @@ class JobService:
         except Exception:
             logger.exception(
                 "Failed to remove job description file after deleting job",
-                extra={"job_id": str(job_id), "storage_path": existing_job.jd_storage_path},
+                extra={"job_id": str(
+                    job_id), "storage_path": existing_job.jd_storage_path},
             )
 
     async def publish_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> PublishJobResponse:
@@ -344,7 +350,8 @@ class JobService:
 
         return JobBreakdownValidationResponse(
             job_id=job.id,
-            breakdown_validated=self.breakdown_orchestrator.is_breakdown_complete(job.description_breakdown),
+            breakdown_validated=self.breakdown_orchestrator.is_breakdown_complete(
+                job.description_breakdown),
             jd_parsing_status=job.jd_parsing_status,
         )
 
@@ -372,7 +379,7 @@ class JobService:
 
     @staticmethod
     def _build_publish_workflow_id(job_id: uuid.UUID) -> str:
-        return f"job-publishing-{job_id}"
+        return f"{JOB_PUBLISHING_WORKFLOW_ID_PREFIX}-{job_id}"
 
     @staticmethod
     def _ensure_publishable(job: Any) -> None:
@@ -384,8 +391,10 @@ class JobService:
             raise BadRequestError("Job is not in a publishable state")
         if job.jd_source_type == "pdf_upload":
             if not job.jd_storage_path:
-                raise BadRequestError("Uploaded job description file is missing")
+                raise BadRequestError(
+                    "Uploaded job description file is missing")
             return
         if job.description or job.description_breakdown:
             return
-        raise BadRequestError("Job must have a manual description or uploaded PDF before publishing")
+        raise BadRequestError(
+            "Job must have a manual description or uploaded PDF before publishing")

@@ -5,6 +5,7 @@ import uuid
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
 from http_client.base_client import BaseServiceClient
+from http_client.constants import QUERY_PARAM_CANDIDATE_ID
 
 
 class ResumeClient(BaseServiceClient):
@@ -18,7 +19,7 @@ class ResumeClient(BaseServiceClient):
     async def delete_resumes_for_candidate(self, candidate_id: uuid.UUID, current_user: CurrentUser) -> None:
         response = await self._delete(
             "/resumes",
-            params={"candidate_id": str(candidate_id)},
+            params={QUERY_PARAM_CANDIDATE_ID: str(candidate_id)},
             headers=self._headers(current_user),
         )
         self._raise_for_status(response)

@@ -12,6 +12,7 @@ from app.services.job_service import JobService
 from auth.header_auth import CurrentUser, get_current_user, require_role
 from fastapi import (APIRouter, Depends, File, Query, Response, UploadFile,
                      status)
+from storage.constants import MIME_TYPE_APPLICATION_OCTET_STREAM
 
 router = APIRouter()
 
@@ -80,7 +81,7 @@ async def upload_job_description_file(
     return await service.upload_job_description(
         job_id,
         file_name=description_file.filename or "job-description.pdf",
-        content_type=description_file.content_type or "application/octet-stream",
+        content_type=description_file.content_type or MIME_TYPE_APPLICATION_OCTET_STREAM,
         file_bytes=file_bytes,
         current_user=current_user,
     )

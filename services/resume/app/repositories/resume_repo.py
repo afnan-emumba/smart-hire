@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from app.db.models import CandidateResume
+from app.schemas.resume import ResumeExtractionMetadata, ResumeStructuredData
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,7 @@ class ResumeRepository:
         parsing_status: str,
         parser_version: str | None,
         schema_version: str,
-        extraction_metadata: dict[str, Any],
+        extraction_metadata: ResumeExtractionMetadata,
     ) -> CandidateResume:
         resume = CandidateResume(
             id=resume_id,
@@ -37,7 +37,7 @@ class ResumeRepository:
             parsing_status=parsing_status,
             parser_version=parser_version,
             schema_version=schema_version,
-            extraction_metadata=extraction_metadata,
+            extraction_metadata=extraction_metadata.model_dump(mode="json"),
         )
         self.session.add(resume)
         await self.session.flush()
@@ -58,11 +58,13 @@ class ResumeRepository:
         limit: int,
         offset: int,
     ) -> list[CandidateResume]:
-        stmt = select(CandidateResume).where(CandidateResume.candidate_id == candidate_id)
+        stmt = select(CandidateResume).where(
+            CandidateResume.candidate_id == candidate_id)
         if parsing_status is not None:
             stmt = stmt.where(CandidateResume.parsing_status == parsing_status)
         result = await self.session.execute(
-            stmt.order_by(CandidateResume.uploaded_at.desc(), CandidateResume.created_at.desc())
+            stmt.order_by(CandidateResume.uploaded_at.desc(),
+                          CandidateResume.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -96,15 +98,19 @@ class ResumeRepository:
         parsing_error: str | None,
         parsed_at: datetime | None,
         raw_markdown: str | None,
-        structured_data: dict[str, Any] | None,
-        extraction_metadata: dict[str, Any],
+        structured_data: ResumeStructuredData | None,
+        extraction_metadata: ResumeExtractionMetadata,
     ) -> CandidateResume:
         resume.parsing_status = parsing_status
         resume.parsing_error = parsing_error
         resume.parsed_at = parsed_at
         resume.raw_markdown = raw_markdown
-        resume.structured_data = structured_data
-        resume.extraction_metadata = extraction_metadata
+        resume.structured_data = (
+            structured_data.model_dump(
+                mode="json") if structured_data is not None else None
+        )
+        resume.extraction_metadata = extraction_metadata.model_dump(
+            mode="json")
         await self.session.flush()
         await self.session.refresh(resume)
         return resume

@@ -12,6 +12,7 @@ from app.schemas.application import (ApplicationCreate, ApplicationResponse,
 from app.services.eligibility_service import EligibilityService
 from auth.actors import require_candidate_user_id, require_recruiter_user_id
 from auth.header_auth import CurrentUser
+from contracts.service_responses import JobResponseContract
 from db.base import is_unique_violation
 from exceptions.http_exceptions import (BadRequestError, ConflictError,
                                         ForbiddenError,
@@ -55,12 +56,13 @@ class ApplicationService:
                 application_create,
                 candidate_id=candidate_id,
                 status=ApplicationStatus.PENDING,
-                eligibility_result=eligibility.model_dump(mode="json"),
+                eligibility_result=eligibility,
                 resume_id=eligibility.resume_id,
             )
         except IntegrityError as exc:
             if is_unique_violation(exc):
-                raise ConflictError("You have already applied to this job") from exc
+                raise ConflictError(
+                    "You have already applied to this job") from exc
             raise
 
         return ApplicationResponse.model_validate(application)
@@ -95,7 +97,8 @@ class ApplicationService:
         else:
             recruiter_id = require_recruiter_user_id(current_user)
             if candidate_id is not None and job_id is None:
-                raise BadRequestError("Recruiters must provide job_id when filtering by candidate_id")
+                raise BadRequestError(
+                    "Recruiters must provide job_id when filtering by candidate_id")
             if job_id is not None:
                 await self._get_job_owned_by_recruiter(
                     job_id,
@@ -106,7 +109,8 @@ class ApplicationService:
 
         if candidate_id is not None and job_id is not None:
             application = await self.application_repo.get_by_job_and_candidate(job_id, candidate_id)
-            applications = self._filter_single_application(application, status_filter)
+            applications = self._filter_single_application(
+                application, status_filter)
         elif candidate_id is not None:
             applications = await self.application_repo.list_by_candidate(
                 candidate_id,
@@ -123,7 +127,7 @@ class ApplicationService:
             )
         else:
             recruiter_jobs = await self.job_client.list_by_recruiter(recruiter_id, current_user)
-            job_ids = [uuid.UUID(job["id"]) for job in recruiter_jobs]
+            job_ids = [job.id for job in recruiter_jobs]
             applications = await self.application_repo.list_by_job_ids(
                 job_ids,
                 status_filter=status_filter,
@@ -175,7 +179,8 @@ class ApplicationService:
         current_user: CurrentUser,
     ) -> None:
         if (job_id is None) == (candidate_id is None):
-            raise BadRequestError("Provide exactly one of job_id or candidate_id")
+            raise BadRequestError(
+                "Provide exactly one of job_id or candidate_id")
 
         if job_id is not None:
             recruiter_id = require_recruiter_user_id(current_user)
@@ -190,7 +195,8 @@ class ApplicationService:
 
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
-            raise ForbiddenError("Not authorized to delete another candidate's applications")
+            raise ForbiddenError(
+                "Not authorized to delete another candidate's applications")
         await self.application_repo.delete_by_candidate(candidate_id)
 
     async def _authorize_application_access(
@@ -219,11 +225,11 @@ class ApplicationService:
         current_user: CurrentUser,
         *,
         forbidden_message: str,
-    ) -> dict:
+    ) -> JobResponseContract:
         job = await self.job_client.get_job(job_id, current_user)
         if job is None:
             raise NotFoundError("Job not found")
-        if uuid.UUID(job["recruiter_id"]) != recruiter_id:
+        if job.recruiter_id != recruiter_id:
             raise ForbiddenError(forbidden_message)
         return job
 
@@ -234,4 +240,3 @@ class ApplicationService:
         if status_filter is not None and application.status != status_filter:
             return []
         return [application]
-

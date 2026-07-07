@@ -5,6 +5,7 @@ import uuid
 from app.core.config import Settings
 from auth.header_auth import CurrentUser
 from http_client.base_client import BaseServiceClient
+from http_client.constants import QUERY_PARAM_CANDIDATE_ID
 
 
 class ApplicationClient(BaseServiceClient):
@@ -22,7 +23,7 @@ class ApplicationClient(BaseServiceClient):
     ) -> None:
         response = await self._delete(
             "/applications",
-            params={"candidate_id": str(candidate_id)},
+            params={QUERY_PARAM_CANDIDATE_ID: str(candidate_id)},
             headers=self._headers(current_user),
         )
         self._raise_for_status(response)

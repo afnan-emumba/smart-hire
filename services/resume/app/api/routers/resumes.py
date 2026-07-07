@@ -10,6 +10,7 @@ from app.schemas.resume import ResumeResponse
 from app.services.resume_service import ResumeService
 from auth.header_auth import CurrentUser, get_current_user, require_role
 from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from storage.constants import MIME_TYPE_APPLICATION_OCTET_STREAM
 
 router = APIRouter()
 
@@ -28,7 +29,7 @@ async def upload_resume(
     )
     return await service.upload_resume(
         file_name=resume.filename or "resume",
-        content_type=resume.content_type or "application/octet-stream",
+        content_type=resume.content_type or MIME_TYPE_APPLICATION_OCTET_STREAM,
         file_bytes=file_bytes,
         current_user=current_user,
     )

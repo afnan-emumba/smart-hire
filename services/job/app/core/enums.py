@@ -1,14 +1,8 @@
 from __future__ import annotations
 
-from enum import Enum
+from contracts.enums import JobStatus
 
-
-class JobStatus(str, Enum):
-    DRAFT = "draft"
-    PROCESSING = "processing"
-    READY = "ready"
-    ARCHIVED = "archived"
-
+__all__ = ["JobStatus", "is_valid_transition"]
 
 _VALID_JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.DRAFT: {JobStatus.PROCESSING},
