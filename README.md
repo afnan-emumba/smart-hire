@@ -106,7 +106,6 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 smart-hire/
 ├── README.md                          # Repository overview
 ├── CLAUDE.md                          # Coding conventions and architectural guidelines
-├── MIGRATION.md                       # Week 2 monolith → microservices migration tracker
 ├── docs/
 │   ├── ARCHITECTURE.md                # System design and Mermaid diagrams
 │   ├── DATABASE.md                    # Schema and ER diagrams

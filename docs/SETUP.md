@@ -150,7 +150,7 @@ Required mock auth headers for most requests:
 - `X-User-ID`
 - `X-User-Role` with value `RECRUITER` or `CANDIDATE`
 
-Recommended validation order (matches the Postman collection and `MIGRATION.md`'s smoke test):
+Recommended validation order (matches the Postman collection's smoke test):
 
 1. **Create a recruiter** (role: RECRUITER)
 
