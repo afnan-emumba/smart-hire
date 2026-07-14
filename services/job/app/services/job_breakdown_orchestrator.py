@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
-from app.core.enums import JobStatus
+from app.core.enums import (
+    JobDescriptionParsingStatus,
+    JobDescriptionSourceType,
+    JobStatus,
+)
 from app.repositories.job_repo import JobRepository
 from app.schemas.job import JobBreakdownFields
 from app.services.job_breakdown_service import JobBreakdownService
@@ -21,7 +25,7 @@ class JobBreakdownOrchestrator:
         self.job_repo = job_repo
 
     async def finalize_for_publish(self, job: Any) -> Any:
-        if job.jd_source_type == "pdf_upload":
+        if job.jd_source_type == JobDescriptionSourceType.PDF_UPLOAD.value:
             return await self._finalize_pdf_breakdown(job)
 
         if job.description_breakdown is not None:
@@ -43,7 +47,7 @@ class JobBreakdownOrchestrator:
                 job.required_skills,
                 [skill.name for skill in breakdown.skills],
             ),
-            parsing_status="parsed",
+            parsing_status=JobDescriptionParsingStatus.PARSED.value,
             parsing_error=None,
             structured_updates=self.build_structured_updates(extracted_profile),
         )
@@ -62,12 +66,13 @@ class JobBreakdownOrchestrator:
             return self._empty_breakdown_fields(
                 override_values=override_values,
                 normalized_required_skills=normalized_required_skills,
-                jd_parsing_status="pending",
+                jd_parsing_status=JobDescriptionParsingStatus.PENDING.value,
                 jd_parsing_error=None,
             )
 
         try:
-            extracted_profile = await JobBreakdownService.extract_job_profile(
+            extracted_profile = await asyncio.to_thread(
+                JobBreakdownService.extract_job_profile,
                 title=title,
                 description=description,
             )
@@ -76,7 +81,7 @@ class JobBreakdownOrchestrator:
             return self._empty_breakdown_fields(
                 override_values=override_values,
                 normalized_required_skills=normalized_required_skills,
-                jd_parsing_status="failed",
+                jd_parsing_status=JobDescriptionParsingStatus.FAILED.value,
                 jd_parsing_error=str(exc),
             )
 
@@ -89,7 +94,7 @@ class JobBreakdownOrchestrator:
                 "required_skills": self.merge_required_skills(
                     required_skills, extracted_skills
                 ),
-                "jd_parsing_status": "parsed",
+                "jd_parsing_status": JobDescriptionParsingStatus.PARSED.value,
                 "jd_parsing_error": None,
                 "status": JobStatus.DRAFT.value,
             }
@@ -191,7 +196,8 @@ class JobBreakdownOrchestrator:
                 JobDescriptionPdfConverter.convert_pdf_to_markdown,
                 file_bytes,
             )
-            extracted_profile = await JobBreakdownService.extract_job_profile(
+            extracted_profile = await asyncio.to_thread(
+                JobBreakdownService.extract_job_profile,
                 title=job.title,
                 description=description,
             )
@@ -211,7 +217,7 @@ class JobBreakdownOrchestrator:
                 job.required_skills,
                 [skill.name for skill in breakdown.skills],
             ),
-            parsing_status="parsed",
+            parsing_status=JobDescriptionParsingStatus.PARSED.value,
             parsing_error=None,
             structured_updates=self.build_structured_updates(extracted_profile),
         )
@@ -222,15 +228,21 @@ class JobBreakdownOrchestrator:
             description=None,
             description_breakdown=None,
             required_skills=job.required_skills,
-            parsing_status="failed",
+            parsing_status=JobDescriptionParsingStatus.FAILED.value,
             parsing_error=parsing_error,
             structured_updates=self.empty_structured_updates(),
         )
         await self.job_repo.update(
-            job.id,
+            failed_job.id,
             {
                 "publishing_failed_at": datetime.now(timezone.utc),
                 "publishing_error": parsing_error,
             },
         )
-        return failed_job
+        return await self.job_repo.update_status(
+            failed_job,
+            status=JobStatus.DRAFT,
+            changed_by_role="SYSTEM",
+            reason="PDF parsing failed",
+            notes=parsing_error,
+        )

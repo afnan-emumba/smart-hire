@@ -25,7 +25,8 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(BadRequestError)
     async def handle_bad_request(_: object, exc: BadRequestError) -> JSONResponse:
-        return _json_error(400, str(exc))
+        content = {"detail": str(exc), **exc.detail}
+        return JSONResponse(status_code=400, content=content)
 
     @app.exception_handler(ForbiddenError)
     async def handle_forbidden(_: object, exc: ForbiddenError) -> JSONResponse:

@@ -9,7 +9,12 @@ from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import Settings
 from app.core.constants import STRUCTURED_JOB_METADATA_FIELDS
-from app.core.enums import JobStatus, is_valid_transition
+from app.core.enums import (
+    JobDescriptionParsingStatus,
+    JobDescriptionSourceType,
+    JobStatus,
+    is_valid_transition,
+)
 from app.repositories.job_repo import JobRepository
 from app.schemas.job import (
     JobBreakdownValidationResponse,
@@ -76,7 +81,11 @@ class JobService:
             {
                 **job_create.model_dump(mode="json"),
                 **breakdown_fields.model_dump(mode="json"),
-                "jd_source_type": "manual_text" if job_create.description else None,
+                "jd_source_type": (
+                    JobDescriptionSourceType.MANUAL_TEXT.value
+                    if job_create.description
+                    else None
+                ),
             }
         )
         job = await self.job_repo.create(
@@ -86,36 +95,58 @@ class JobService:
         )
         return JobResponse.model_validate(job)
 
-    async def get_job(self, job_id: uuid.UUID) -> JobResponse:
+    async def get_job(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> JobResponse:
         job = await self.job_repo.get_by_id(job_id)
         if job is None:
+            raise NotFoundError("Job not found")
+
+        if not self._is_visible_to(job, current_user):
             raise NotFoundError("Job not found")
 
         return JobResponse.model_validate(job)
 
     async def list_jobs(
         self,
+        current_user: CurrentUser,
         recruiter_id: uuid.UUID | None = None,
         status_filter: JobStatus | None = None,
         *,
         limit: int,
         offset: int,
     ) -> list[JobResponse]:
+        is_own_pipeline = (
+            current_user.role == "RECRUITER"
+            and recruiter_id is not None
+            and str(recruiter_id) == current_user.id
+        )
+        effective_status_filter = status_filter if is_own_pipeline else JobStatus.READY
+
         if recruiter_id is not None:
             jobs = await self.job_repo.list_by_recruiter(
                 recruiter_id,
-                status_filter=status_filter,
+                status_filter=effective_status_filter,
                 limit=limit,
                 offset=offset,
             )
         else:
             jobs = await self.job_repo.list_all(
-                status_filter=status_filter,
+                status_filter=effective_status_filter,
                 limit=limit,
                 offset=offset,
             )
 
         return [JobResponse.model_validate(job) for job in jobs]
+
+    @staticmethod
+    def _is_visible_to(job: Any, current_user: CurrentUser) -> bool:
+        if job.status == JobStatus.READY.value:
+            return True
+        return (
+            current_user.role == "RECRUITER"
+            and str(job.recruiter_id) == current_user.id
+        )
 
     async def update_job(
         self,
@@ -134,9 +165,16 @@ class JobService:
         needs_rebuild = "description" in updates or (
             "title" in updates and existing_job.description is not None
         )
-        if needs_rebuild and existing_job.status != JobStatus.DRAFT.value:
+        touches_structured_metadata = bool(
+            STRUCTURED_JOB_METADATA_FIELDS.intersection(updates)
+            or "required_skills" in updates
+        )
+        if (
+            needs_rebuild or touches_structured_metadata
+        ) and existing_job.status != JobStatus.DRAFT.value:
             raise BadRequestError(
-                "Job description can only be edited while the job is in draft status"
+                "Job description and structured metadata can only be edited "
+                "while the job is in draft status"
             )
         if needs_rebuild:
             effective_title = updates.get("title", existing_job.title)
@@ -159,7 +197,7 @@ class JobService:
                 },
             )
             if "description" in updates and updates["description"] is not None:
-                updates["jd_source_type"] = "manual_text"
+                updates["jd_source_type"] = JobDescriptionSourceType.MANUAL_TEXT.value
             updates["jd_parsing_status"] = breakdown_fields.jd_parsing_status
             updates["jd_parsing_error"] = breakdown_fields.jd_parsing_error
             updates["description_breakdown"] = (
@@ -310,10 +348,12 @@ class JobService:
         if job.status == JobStatus.DRAFT.value:
             processing_updates: dict[str, Any] = {}
             if (
-                job.jd_source_type == "pdf_upload"
-                and job.jd_parsing_status == "pending"
+                job.jd_source_type == JobDescriptionSourceType.PDF_UPLOAD.value
+                and job.jd_parsing_status == JobDescriptionParsingStatus.PENDING.value
             ):
-                processing_updates["jd_parsing_status"] = "processing"
+                processing_updates["jd_parsing_status"] = (
+                    JobDescriptionParsingStatus.PROCESSING.value
+                )
                 processing_updates["jd_parsing_error"] = None
             updated_job = await self.job_repo.update_status(
                 job,
@@ -331,10 +371,8 @@ class JobService:
             workflow_id=workflow_id,
         )
 
-        client = await TemporalClient.get_client()
-
         await start_workflow_with_retryable_error_mapping(
-            client=client,
+            client_factory=TemporalClient.get_client,
             workflow=JobPublishingWorkflow.run,
             workflow_input=JobPublishingInput(job_id=str(job_id)),
             workflow_id=workflow_id,
@@ -365,7 +403,7 @@ class JobService:
         if (
             job.description_breakdown is None
             and not job.description
-            and job.jd_source_type != "pdf_upload"
+            and job.jd_source_type != JobDescriptionSourceType.PDF_UPLOAD.value
         ):
             raise BadRequestError("Job has no description content to publish")
 
@@ -422,7 +460,7 @@ class JobService:
             raise BadRequestError("Archived jobs cannot be published")
         if job.status not in {JobStatus.DRAFT.value, JobStatus.PROCESSING.value}:
             raise BadRequestError("Job is not in a publishable state")
-        if job.jd_source_type == "pdf_upload":
+        if job.jd_source_type == JobDescriptionSourceType.PDF_UPLOAD.value:
             if not job.jd_storage_path:
                 raise BadRequestError("Uploaded job description file is missing")
             return

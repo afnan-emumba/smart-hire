@@ -7,7 +7,11 @@ from typing import Any, Mapping
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import JobStatus
+from app.core.enums import (
+    JobDescriptionParsingStatus,
+    JobDescriptionSourceType,
+    JobStatus,
+)
 from app.db.models import Job, JobStatusHistory
 
 
@@ -96,8 +100,8 @@ class JobRepository:
         storage_path: str,
         uploaded_at: datetime,
     ) -> Job:
-        job.jd_source_type = "pdf_upload"
-        job.jd_parsing_status = "pending"
+        job.jd_source_type = JobDescriptionSourceType.PDF_UPLOAD.value
+        job.jd_parsing_status = JobDescriptionParsingStatus.PENDING.value
         job.jd_parsing_error = None
         job.jd_file_name = file_name
         job.jd_content_type = content_type

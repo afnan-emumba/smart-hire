@@ -6,7 +6,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.enums import JobStatus
+from app.core.enums import (
+    JobDescriptionParsingStatus,
+    JobDescriptionSourceType,
+    JobStatus,
+)
 from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
 
 EmploymentType = Literal[
@@ -22,13 +26,6 @@ SeniorityLevel = Literal[
     "principal",
     "manager",
     "director",
-]
-JobDescriptionSourceType = Literal["manual_text", "pdf_upload"]
-JobDescriptionParsingStatus = Literal[
-    "pending",
-    "processing",
-    "parsed",
-    "failed",
 ]
 
 
@@ -59,7 +56,7 @@ class JobBreakdownFields(BaseModel):
     application_deadline: datetime | None = None
     description_breakdown: JobBreakdown | None = None
     required_skills: list[str] = Field(default_factory=list)
-    jd_parsing_status: JobDescriptionParsingStatus = "pending"
+    jd_parsing_status: JobDescriptionParsingStatus = JobDescriptionParsingStatus.PENDING
     jd_parsing_error: str | None = None
     status: JobStatus = JobStatus.DRAFT
 
@@ -79,7 +76,7 @@ class JobCreatePayload(BaseModel):
     application_deadline: datetime | None = None
     required_skills: list[str] = Field(default_factory=list)
     jd_source_type: JobDescriptionSourceType | None = None
-    jd_parsing_status: JobDescriptionParsingStatus = "pending"
+    jd_parsing_status: JobDescriptionParsingStatus = JobDescriptionParsingStatus.PENDING
     jd_parsing_error: str | None = None
     description_breakdown: JobBreakdown | None = None
     status: JobStatus = JobStatus.DRAFT
@@ -108,6 +105,12 @@ class JobResponse(BaseModel):
     jd_file_name: str | None = None
     jd_content_type: str | None = None
     jd_uploaded_at: datetime | None = None
+    processing_started_at: datetime | None = None
+    ready_at: datetime | None = None
+    archived_at: datetime | None = None
+    publishing_workflow_id: str | None = None
+    publishing_failed_at: datetime | None = None
+    publishing_error: str | None = None
     status: JobStatus
     created_at: datetime
     updated_at: datetime

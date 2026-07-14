@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from pypdf.errors import PyPdfError
+
 from app.clients.candidate_client import CandidateClient
 from app.core.config import Settings
 from app.repositories.resume_repo import ResumeRepository
@@ -24,7 +26,7 @@ from app.utils.resume_pdf import ResumePdfConverter
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from contracts.enums import ResumeParsingStatus
-from exceptions.http_exceptions import BadRequestError, ForbiddenError, NotFoundError
+from exceptions.http_exceptions import ForbiddenError, NotFoundError
 from storage.constants import MIME_TYPE_APPLICATION_PDF
 from temporal.schemas import ResumeParsingActivityResult
 from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
@@ -90,6 +92,7 @@ class ResumeService:
                 schema_version=self._RESUME_SCHEMA_VERSION,
                 extraction_metadata=ResumeExtractionMetadata(source="resume_upload"),
             )
+            await self._start_resume_parsing_workflow(resume.id, uploaded_at)
         except Exception:
             try:
                 await self.file_service.remove_if_exists(storage_path)
@@ -100,21 +103,19 @@ class ResumeService:
                 )
             raise
 
-        await self._start_resume_parsing_workflow(resume.id, uploaded_at)
-
         return ResumeResponse.model_validate(resume)
 
     async def get_resume(
         self, resume_id: uuid.UUID, current_user: CurrentUser
     ) -> ResumeResponse:
+        candidate_id = require_candidate_user_id(current_user)
+
         resume = await self.resume_repo.get_by_id(resume_id)
         if resume is None:
             raise NotFoundError("Resume not found")
 
-        if current_user.role == "CANDIDATE":
-            candidate_id = require_candidate_user_id(current_user)
-            if resume.candidate_id != candidate_id:
-                raise ForbiddenError("Not authorized to view this resume")
+        if resume.candidate_id != candidate_id:
+            raise ForbiddenError("Not authorized to view this resume")
 
         return ResumeResponse.model_validate(resume)
 
@@ -127,15 +128,10 @@ class ResumeService:
         limit: int,
         offset: int,
     ) -> list[ResumeResponse]:
-        if current_user.role == "CANDIDATE":
-            own_candidate_id = require_candidate_user_id(current_user)
-            if candidate_id is not None and candidate_id != own_candidate_id:
-                raise ForbiddenError(
-                    "Not authorized to view another candidate's resumes"
-                )
-            candidate_id = own_candidate_id
-        elif candidate_id is None:
-            raise BadRequestError("candidate_id is required")
+        own_candidate_id = require_candidate_user_id(current_user)
+        if candidate_id is not None and candidate_id != own_candidate_id:
+            raise ForbiddenError("Not authorized to view another candidate's resumes")
+        candidate_id = own_candidate_id
 
         resumes = await self.resume_repo.list_by_candidate(
             candidate_id,
@@ -195,8 +191,10 @@ class ResumeService:
             markdown = await asyncio.to_thread(
                 ResumePdfConverter.convert_pdf_to_markdown, file_bytes
             )
-            parsed_resume = await ResumeParsingService.extract_resume_profile(markdown)
-        except ValueError as exc:
+            parsed_resume = await asyncio.to_thread(
+                ResumeParsingService.extract_resume_profile, markdown
+            )
+        except (ValueError, PyPdfError) as exc:
             updated = await self._update_resume_record(
                 resume,
                 parsing_status=ResumeParsingStatus.FAILED.value,
@@ -278,10 +276,9 @@ class ResumeService:
         self, resume_id: uuid.UUID, uploaded_at: datetime
     ) -> None:
         workflow_id = self._build_resume_workflow_id(resume_id, uploaded_at)
-        client = await TemporalClient.get_client()
 
         await start_workflow_with_retryable_error_mapping(
-            client=client,
+            client_factory=TemporalClient.get_client,
             workflow=ResumeParsingWorkflow.run,
             workflow_input=ResumeParsingWorkflowInput(resume_id=str(resume_id)),
             workflow_id=workflow_id,

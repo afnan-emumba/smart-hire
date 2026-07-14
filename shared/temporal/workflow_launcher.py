@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any
 
@@ -12,7 +13,7 @@ from exceptions.http_exceptions import ServiceUnavailableError
 
 async def start_workflow_with_retryable_error_mapping(
     *,
-    client: Client,
+    client_factory: Callable[[], Awaitable[Client]],
     workflow: Any,
     workflow_input: Any,
     workflow_id: str,
@@ -25,6 +26,7 @@ async def start_workflow_with_retryable_error_mapping(
     unavailable_message: str,
 ) -> None:
     try:
+        client = await client_factory()
         await client.start_workflow(
             workflow,
             workflow_input,

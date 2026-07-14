@@ -184,13 +184,11 @@ class JobBreakdownService:
     )
 
     @classmethod
-    async def breakdown_job_description(cls, description: str) -> JobBreakdown:
-        return (await cls.extract_job_profile(title=None, description=description))[
-            "breakdown"
-        ]
+    def breakdown_job_description(cls, description: str) -> JobBreakdown:
+        return cls.extract_job_profile(title=None, description=description)["breakdown"]
 
     @classmethod
-    async def extract_job_profile(
+    def extract_job_profile(
         cls, *, title: str | None, description: str
     ) -> dict[str, Any]:
         normalized_description = description.strip()

@@ -37,7 +37,7 @@ async def get_job(
     current_user: CurrentUser = Depends(get_current_user),
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
-    return await service.get_job(job_id)
+    return await service.get_job(job_id, current_user)
 
 
 @router.get("", response_model=list[JobResponse])
@@ -49,6 +49,7 @@ async def list_jobs(
     service: JobService = Depends(get_job_service),
 ) -> list[JobResponse]:
     return await service.list_jobs(
+        current_user,
         recruiter_id=recruiter_id,
         status_filter=status_filter,
         limit=pagination.limit,

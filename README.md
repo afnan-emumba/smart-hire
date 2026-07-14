@@ -12,7 +12,7 @@ SmartHire is a **recruitment automation and workflow orchestration platform** de
 - **Application Workflow:** Track candidate applications from submission to hiring decisions
 - **Async Processing:** Reliable background task execution for notifications, scoring, and analytics
 - **Scalable Architecture:** Event-driven design to handle high-volume hiring campaigns
-- **Foundation for AI:** Built to integrate intelligent candidate matching and recommendations (Phase B)
+- **Foundation for AI:** Built to integrate intelligent candidate matching and recommendations as a future layer
 
 ---
 
@@ -89,7 +89,7 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 
 - Recruiters can upload JD PDFs through `POST /jobs/{id}/description-file`
 - Job description parsing state is tracked separately from recruiter-facing publication status
-- `jobs.description` now represents canonical markdown content, whether provided manually for Week 1 fallback or produced later by the parser
+- `jobs.description` represents canonical markdown content, whether provided manually as a fallback or produced later by the parser
 - JD files are stored on job-service's local filesystem under `JD_UPLOAD_DIR`; internal storage paths stay out of API responses
 
 ### Structured Candidate Profiles
@@ -135,7 +135,7 @@ smart-hire/
     ├── job/                           # Job CRUD + JobPublishingWorkflow (port 8003, job_db)
     ├── resume/                        # Resume upload + ResumeParsingWorkflow (port 8004, resume_db)
     ├── application/                   # Application workflow, HTTP calls to other services (port 8005, application_db)
-    └── notification/                  # Week 3 stub — health endpoint only (port 8006)
+    └── notification/                  # Reserved for future event-driven work — health endpoint only (port 8006)
 ```
 
 Each service under `services/<name>/` follows the same internal layout: `app/api/routers/` → `app/services/` → `app/repositories/` → `app/db/models.py`, plus its own `alembic.ini`, `migrations/`, `requirements.txt`, and `Dockerfile`. `job/` and `resume/` additionally have `app/temporal/` (workflows, activities, worker entrypoint).
@@ -259,7 +259,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 
 - Use the Postman collection at `postman/SmartHire.postman_collection.json` for the full validation flow through the gateway.
 - Each service also exposes its own Swagger UI directly on its host port for interactive schema inspection: recruiter `:8001/docs`, candidate `:8002/docs`, job `:8003/docs`, resume `:8004/docs`, application `:8005/docs`, notification `:8006/docs`. It's a local-dev convenience — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway.
-- Resume and JD uploads are stored on each owning service's local filesystem (not shared with `docker compose down`/recreate) and should remain untracked in git.
+- Resume and JD uploads are stored on each owning service's local filesystem, backed by named Docker volumes (`resume_uploads`, `job_uploads`) so they persist across `docker compose down`/recreate, and should remain untracked in git.
 
 **Authentication:**
 
@@ -300,7 +300,7 @@ One PostgreSQL container hosts **six independent logical databases**, one per se
 | `job_db`           | job-service            | `jobs`, `job_status_history`                 | id (UUID), recruiter_id, title, description, description_breakdown (JSONB), required_skills (JSONB), status, jd_parsing_status |
 | `resume_db`        | resume-service         | `candidate_resumes`                          | id (UUID), candidate_id, file_name, storage_path, parsing_status, structured_data (JSONB), timestamps                          |
 | `application_db`   | application-service    | `applications`, `application_status_history` | id (UUID), job_id, candidate_id, resume_id, status, eligibility_result (JSONB), metadata (JSONB)                               |
-| `notification_db`  | notification-service   | *(none yet — Week 3 stub)*                   | —                                                                                                                                |
+| `notification_db`  | notification-service   | *(none yet — reserved for future event-driven work)*                   | —                                                                                                                                |
 
 **Key Design Features:**
 

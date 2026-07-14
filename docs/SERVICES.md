@@ -60,7 +60,7 @@ No service has a local view of another service's tables. Cross-service reads/wri
 ### ResumeService (resume-service)
 
 - Accept a resume upload (`POST /resumes`) independent of any application, bound to the authenticated candidate
-- Validate file size (`MAX_RESUME_SIZE_BYTES`) and content type (PDF/DOC/DOCX)
+- Validate file size (`MAX_RESUME_SIZE_BYTES`), content type, and PDF signature (PDF only)
 - Persist the file to local disk and create a `candidate_resumes` row with `parsing_status="pending"`
 - Start `ResumeParsingWorkflow` on resume-service-worker after persisting (fire-and-forget from the caller's perspective — upload returns immediately)
 - `process_resume_parsing()` (invoked by the Temporal activity, not the API) converts the PDF to markdown and extracts a structured profile, updating `parsing_status` to `parsed`/`failed`/`unsupported`
@@ -184,7 +184,7 @@ sequenceDiagram
     Candidate->>Router: POST /resumes (multipart/form-data)
     Router->>Router: Stream & check file size vs MAX_RESUME_SIZE_BYTES
     Router->>Service: upload_resume(file_bytes, current_user)
-    Service->>Service: Validate content-type (PDF/DOC/DOCX)
+    Service->>Service: Validate content-type and PDF signature (PDF only)
     Service->>Disk: write file to RESUME_UPLOAD_DIR/{resume_id}{ext}
     Service->>Repo: create(candidate_resumes row, parsing_status='pending')
     Repo->>DB: INSERT candidate_resumes

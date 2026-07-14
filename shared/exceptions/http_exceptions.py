@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 
 class ServiceError(Exception):
-    pass
+    def __init__(self, message: str, *, detail: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.detail: dict[str, Any] = detail or {}
 
 
 class BadRequestError(ServiceError):
@@ -29,7 +33,6 @@ class InvalidStateTransitionError(ServiceError):
     pass
 
 
-# Alias kept for backward compatibility within migrated services
 InvalidStateTransition = InvalidStateTransitionError
 
 

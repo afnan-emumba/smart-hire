@@ -4,6 +4,12 @@ import asyncio
 import os
 from pathlib import Path
 
+_PDF_MAGIC_BYTES = b"%PDF-"
+
+
+def has_pdf_signature(file_bytes: bytes) -> bool:
+    return file_bytes.startswith(_PDF_MAGIC_BYTES)
+
 
 async def write_file(*, directory: str, file_name: str, file_bytes: bytes) -> str:
     upload_dir = Path(directory)

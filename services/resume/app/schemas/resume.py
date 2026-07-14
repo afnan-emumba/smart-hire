@@ -8,11 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from contracts.enums import ResumeParsingStatus
 from contracts.profile import ProfileLinks
 
-# These models describe the output of a best-effort heuristic markdown parser
-# (ResumeParsingService) whose shape evolves across schema_version bumps, so
-# they tolerate unknown keys instead of hard-failing on drift when re-read
-# from previously-stored JSONB.
-
 
 class ResumeContact(BaseModel):
     model_config = ConfigDict(extra="ignore")

@@ -6,7 +6,7 @@ from pathlib import Path
 from app.core.config import Settings
 from exceptions.http_exceptions import BadRequestError, PayloadTooLargeError
 from storage.constants import MIME_TYPE_APPLICATION_PDF
-from storage.local_file_store import remove_if_exists, write_file
+from storage.local_file_store import has_pdf_signature, remove_if_exists, write_file
 
 _SUPPORTED_CONTENT_TYPES = {
     MIME_TYPE_APPLICATION_PDF,
@@ -28,6 +28,9 @@ class ResumeFileService:
 
         if content_type not in _SUPPORTED_CONTENT_TYPES:
             raise BadRequestError("Unsupported resume file type")
+
+        if not has_pdf_signature(file_bytes):
+            raise BadRequestError("Resume file does not appear to be a valid PDF")
 
         sanitized_name = Path(file_name).name
         suffix = Path(sanitized_name).suffix.lower()

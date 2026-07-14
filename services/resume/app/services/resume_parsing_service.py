@@ -38,7 +38,7 @@ class ResumeParsingService:
     _URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
 
     @classmethod
-    async def extract_resume_profile(cls, markdown: str) -> ResumeStructuredData:
+    def extract_resume_profile(cls, markdown: str) -> ResumeStructuredData:
         normalized_markdown = markdown.strip()
         sections = cls._collect_sections(normalized_markdown)
         return ResumeStructuredData(

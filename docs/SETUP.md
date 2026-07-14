@@ -85,7 +85,7 @@ Key root `.env` variables (see `.env.example` for the full list):
 | `MAX_APPLICATIONS_PER_CANDIDATE` | `5`          | Active application cap per candidate        |
 | `HTTP_CLIENT_TIMEOUT_SECONDS`  | `5.0`          | Timeout for application-service's HTTP calls to job/candidate/resume services |
 
-Uploaded files are written to each service container's local filesystem — no volume is mounted for `uploads/`, so they don't survive a container recreate. That's acceptable for local validation; a real deployment would back this with object storage.
+Uploaded files are written to each service container's local filesystem, backed by named Docker volumes (`job_uploads`, `resume_uploads`) shared with each service's Temporal worker, so uploads persist across container recreates. That's acceptable for local validation; a real deployment would back this with object storage instead of a local volume.
 
 ## Docker Compose Run
 

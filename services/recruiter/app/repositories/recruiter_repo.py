@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Recruiter
@@ -28,7 +28,7 @@ class RecruiterRepository:
 
     async def get_by_email(self, email: str) -> Recruiter | None:
         result = await self.session.execute(
-            select(Recruiter).where(Recruiter.email == email)
+            select(Recruiter).where(func.lower(Recruiter.email) == email.lower())
         )
         return result.scalar_one_or_none()
 

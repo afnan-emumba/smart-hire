@@ -144,6 +144,15 @@ class CandidateUpdate(BaseModel):
     name: ProfileText | None = None
     master_profile_data: MasterProfileData | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null_for_required_fields(cls, data: object) -> object:
+        if isinstance(data, dict):
+            for field_name in ("email", "name", "master_profile_data"):
+                if field_name in data and data[field_name] is None:
+                    raise ValueError(f"{field_name} cannot be set to null")
+        return data
+
 
 class CandidateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")

@@ -2,8 +2,6 @@
 .env
 .env.*
 !.env.example
-!backend/.env.example
-!backend/.env.docker.example
 
 # Python / Backend (FastAPI, Celery, Temporal)
 __pycache__/
@@ -27,26 +25,12 @@ htmlcov/
 celerybeat-schedule
 celerybeat.pid
 
-# Node.js / Frontend (Next.js)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# Next.js Build Output
-.next/
-out/
-build/
-dist/
-
 # Miscellaneous
 .DS_Store
 Thumbs.db
 .github/
 .claude/
 uploads/
-backend/uploads/
 *.md
 samples/
 !README.md

@@ -36,23 +36,6 @@ class EligibilityService:
         job_id: uuid.UUID,
         current_user: CurrentUser,
     ) -> EligibilityResult:
-        job, candidate = await asyncio.gather(
-            self.job_client.get_job(job_id, current_user),
-            self.candidate_client.get_candidate(candidate_id, current_user),
-        )
-        if job is None:
-            raise NotFoundError("Job not found")
-        if candidate is None:
-            raise NotFoundError("Candidate not found")
-
-        if job.status != JobStatus.READY:
-            return EligibilityResult(
-                is_eligible=False,
-                reason_code=EligibilityReasonCode.JOB_NOT_READY,
-                reason="Job is not yet published",
-                match_score=0.0,
-            )
-
         existing_application = await self.application_repo.get_by_job_and_candidate(
             job_id,
             candidate_id,
@@ -76,6 +59,23 @@ class EligibilityService:
                     "You have reached the maximum of "
                     f"{self.settings.max_applications_per_candidate} active applications"
                 ),
+                match_score=0.0,
+            )
+
+        job, candidate = await asyncio.gather(
+            self.job_client.get_job(job_id, current_user),
+            self.candidate_client.get_candidate(candidate_id, current_user),
+        )
+        if job is None:
+            raise NotFoundError("Job not found")
+        if candidate is None:
+            raise NotFoundError("Candidate not found")
+
+        if job.status != JobStatus.READY:
+            return EligibilityResult(
+                is_eligible=False,
+                reason_code=EligibilityReasonCode.JOB_NOT_READY,
+                reason="Job is not yet published",
                 match_score=0.0,
             )
 

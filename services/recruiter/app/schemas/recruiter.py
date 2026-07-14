@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
+
+RecruiterName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
 
 
 class RecruiterCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     email: EmailStr
-    name: str = Field(min_length=1, max_length=255)
+    name: RecruiterName
 
 
 class RecruiterResponse(BaseModel):

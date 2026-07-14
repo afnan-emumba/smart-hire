@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.schemas.resume import ResumeResponse
 from app.services.resume_service import ResumeService
 from auth.header_auth import CurrentUser, get_current_user, require_role
+from contracts.enums import ResumeParsingStatus
 from storage.constants import MIME_TYPE_APPLICATION_OCTET_STREAM
 
 router = APIRouter()
@@ -58,7 +59,7 @@ async def delete_resumes(
 @router.get("", response_model=list[ResumeResponse])
 async def list_resumes(
     candidate_id: uuid.UUID | None = None,
-    parsing_status: str | None = None,
+    parsing_status: ResumeParsingStatus | None = None,
     pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
     service: ResumeService = Depends(get_resume_service),
@@ -66,7 +67,7 @@ async def list_resumes(
     return await service.list_resumes(
         candidate_id=candidate_id,
         current_user=current_user,
-        parsing_status=parsing_status,
+        parsing_status=parsing_status.value if parsing_status else None,
         limit=pagination.limit,
         offset=pagination.offset,
     )

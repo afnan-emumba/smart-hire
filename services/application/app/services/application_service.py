@@ -55,7 +55,14 @@ class ApplicationService:
         if not eligibility.is_eligible:
             if eligibility.reason_code == EligibilityReasonCode.DUPLICATE_APPLICATION:
                 raise ConflictError(eligibility.reason)
-            raise BadRequestError(f"Not eligible: {eligibility.reason}")
+            raise BadRequestError(
+                f"Not eligible: {eligibility.reason}",
+                detail={
+                    "reason_code": eligibility.reason_code.value,
+                    "match_score": eligibility.match_score,
+                    "missing_skills": eligibility.missing_skills,
+                },
+            )
 
         try:
             application = await self.application_repo.create(

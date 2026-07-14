@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -16,6 +16,7 @@ def make_health_router(
 
     @router.get("/health", status_code=status.HTTP_200_OK)
     async def health_check(
+        response: Response,
         session: AsyncSession = Depends(get_db_session),
     ) -> dict[str, str]:
         try:
@@ -23,6 +24,9 @@ def make_health_router(
         except Exception:
             logger.exception("Database health check failed")
             database_ok = False
+
+        if not database_ok:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
         return {
             "status": "ok" if database_ok else "degraded",
