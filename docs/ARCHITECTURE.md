@@ -2,7 +2,7 @@
 
 ## System Overview
 
-SmartHire is a microservices platform: six independent async-first FastAPI services, each with its own PostgreSQL database, sitting behind a single nginx API gateway. Clear layer boundaries (HTTP handling → business logic → persistence) are enforced *within* each service; boundaries *between* services are enforced over HTTP, never by sharing a database or ORM session.
+SmartHire is a microservices platform: six independent async-first FastAPI services, each with its own PostgreSQL database, sitting behind a single nginx API gateway. Clear layer boundaries (HTTP handling → business logic → persistence) are enforced _within_ each service; boundaries _between_ services are enforced over HTTP, never by sharing a database or ORM session.
 
 ## System Context
 
@@ -243,7 +243,6 @@ sequenceDiagram
 **Key points:**
 
 - `candidate_id` is bound to `X-User-ID`; clients cannot override it
-- No Temporal workflow — this is a single synchronous request fanning out to three other services over HTTP. The monolith's `CandidateApplicationWorkflow` was intentionally dropped during the Week 2 migration.
 - Job must be in `ready` status; applications to draft/processing/archived jobs are rejected
 - Unique constraint `(job_id, candidate_id)` prevents duplicates at DB level
 - Duplicate applications return `409 Conflict`
@@ -302,8 +301,8 @@ flowchart LR
 ## Design Principles
 
 1. Async first across API, database access, and workflow integration.
-2. Separation of concerns between routers, services, repositories, and infrastructure clients — enforced *within* each service.
-3. Separation of concerns *between* services via HTTP only — no shared database, no cross-service ORM joins, no shared session.
+2. Separation of concerns between routers, services, repositories, and infrastructure clients — enforced _within_ each service.
+3. Separation of concerns _between_ services via HTTP only — no shared database, no cross-service ORM joins, no shared session.
 4. Separate JD content-ingestion state from recruiter-visible publication state so future workflows can evolve independently.
 5. Strong relational integrity within a service's own database, with JSONB only where schema flexibility is useful; cross-service references are validated at write-time via HTTP, not DB constraints.
 6. Event-driven side effects (Week 3) so slow or bursty work stays off the request path.

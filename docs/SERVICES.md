@@ -73,7 +73,6 @@ No service has a local view of another service's tables. Cross-service reads/wri
 - Create application records with server-set `candidate_id` and the `eligibility_result` returned by `EligibilityService`
 - Resolve recruiter access by calling job-service for the job's `recruiter_id` (no local job data to join against)
 - Authorize access: candidates see only their own applications, recruiters see applications for jobs they own
-- **No Temporal workflow.** The monolith's `CandidateApplicationWorkflow` was intentionally dropped during the Week 2 migration — application-service only makes synchronous HTTP calls to job-service, candidate-service, and resume-service; there is no application-service worker container.
 
 ### EligibilityService (application-service)
 
@@ -278,15 +277,15 @@ stateDiagram-v2
 
 Services raise domain exceptions from the shared `exceptions.http_exceptions` module:
 
-| Exception               | HTTP Code | Scenario                                              |
-| ------------------------ | ----------- | -------------------------------------------------------- |
-| `BadRequestError`       | 400       | Invalid input, missing required fields, wrong status  |
-| `ForbiddenError`        | 403       | Authorization denied (wrong role, not resource owner) |
-| `NotFoundError`         | 404       | Resource doesn't exist                                |
-| `ConflictError`         | 409       | Duplicate application, duplicate email                |
-| `InvalidStateTransitionError` | 400  | Illegal job/application status transition             |
-| `PayloadTooLargeError`  | 413       | Resume or JD file exceeds max size                    |
-| `ServiceUnavailableError` | 503     | A downstream Temporal or HTTP dependency is unreachable |
+| Exception                     | HTTP Code | Scenario                                                |
+| ----------------------------- | --------- | ------------------------------------------------------- |
+| `BadRequestError`             | 400       | Invalid input, missing required fields, wrong status    |
+| `ForbiddenError`              | 403       | Authorization denied (wrong role, not resource owner)   |
+| `NotFoundError`               | 404       | Resource doesn't exist                                  |
+| `ConflictError`               | 409       | Duplicate application, duplicate email                  |
+| `InvalidStateTransitionError` | 400       | Illegal job/application status transition               |
+| `PayloadTooLargeError`        | 413       | Resume or JD file exceeds max size                      |
+| `ServiceUnavailableError`     | 503       | A downstream Temporal or HTTP dependency is unreachable |
 
 **Conversion pattern** (identical in every service's `app/main.py`):
 
