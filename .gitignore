@@ -43,3 +43,12 @@ docker-compose.override.yml
 pgdata/
 redisdata/
 kafkadata/
+
+# Local package build artifacts (shared/, contracts/)
+shared/dist/
+shared/build/
+shared/*.egg-info/
+contracts/dist/
+contracts/build/
+contracts/src/*.egg-info/
+services/*/vendor/

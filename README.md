@@ -120,7 +120,10 @@ smart-hire/
 │   ├── nginx/                         # API gateway: nginx.conf routes /api/v1/<resource> per service
 │   └── postgres/                      # init.sql — creates the six logical databases
 │
-├── shared/                            # Code shared across services (mounted read-only at /shared)
+├── contracts/                         # Cross-service wire-format contracts (packaged as the smarthire-contracts wheel)
+│   └── src/contracts/                 # enums.py, profile.py, service_responses.py — vendored only into services that use them
+│
+├── shared/                            # Infra toolkit shared across services (packaged as the smarthire-shared wheel, vendored into every service image)
 │   ├── api/                           # Generic FastAPI health-router factory
 │   ├── auth/                          # Header-based mock auth (X-User-ID, X-User-Role)
 │   ├── config/                        # Base Pydantic Settings class
@@ -165,6 +168,10 @@ cp .env.example .env
 ### Docker Setup (Recommended)
 
 ```bash
+# Build the contracts and shared package wheels and vendor them into the services that need them
+# (required before the first build, and again any time contracts/ or shared/ changes)
+python scripts/build_packages.py
+
 # Start the full stack (postgres, temporal, nginx gateway, and all 6 services + their workers)
 docker compose up -d --build
 
@@ -197,6 +204,8 @@ Each service also publishes its own host port purely so its Swagger UI is reacha
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r services/<name>/requirements.txt
+pip install -e ./shared
+pip install -e ./contracts   # only needed for candidate/job/resume/application, not recruiter/notification
 
 cd services/<name>
 alembic upgrade head

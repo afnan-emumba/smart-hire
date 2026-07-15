@@ -14,6 +14,9 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+COPY vendor/*.whl ./vendor/
+RUN pip install --no-cache-dir ./vendor/*.whl
+
 COPY . .
 
 EXPOSE 8005

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smarthire-shared"
+version = "0.1.0"
+description = "Shared contracts and infrastructure utilities imported by every SmartHire service"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["build*", "dist*", "*.egg-info*"]

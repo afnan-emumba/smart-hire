@@ -25,8 +25,16 @@ flowchart TD
 
 ```bash
 cp .env.example .env
+python scripts/build_packages.py
 docker compose up -d --build
 ```
+
+`scripts/build_packages.py` builds two local wheels and vendors each into the `services/<name>/vendor/` directories that need it, where each service's `Dockerfile` installs whatever is in its own `vendor/` at build time:
+
+- `smarthire-shared` (from `shared/`) — infra toolkit (`auth`, `db`, `exceptions`, `http_client`, `temporal`, etc.) — vendored into all 6 services.
+- `smarthire-contracts` (from `contracts/`) — cross-service wire-format enums and response shapes — vendored only into `candidate`, `job`, `resume`, and `application`, since `recruiter` and `notification` don't import it.
+
+Re-run the script (then rebuild the affected service images) any time `shared/` or `contracts/` changes.
 
 Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicorn`, so no manual migration step is needed for a fresh stack.
 
@@ -55,11 +63,15 @@ The shared venv lives at the repo root (`.venv/`) so it can be used across every
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r services/<name>/requirements.txt
+pip install -e ./shared
+pip install -e ./contracts     # only needed for candidate, job, resume, application — not recruiter or notification
 cd services/<name>
 cp .env.example .env           # if the service has one; otherwise set env vars directly
 alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port <service-port>
 ```
+
+`pip install -e ./shared` and `pip install -e ./contracts` install `smarthire-shared` and `smarthire-contracts` in editable mode into the shared venv, so `auth`, `db`, `exceptions`, `contracts`, and the rest of their top-level packages are importable exactly as they are inside the containers, and local edits take effect immediately without reinstalling.
 
 When running outside Docker, point `DATABASE_URL` at `localhost` instead of the `postgres` hostname used inside the compose network.
 
@@ -96,7 +108,7 @@ docker compose logs -f job-service-worker
 docker compose logs -f resume-service-worker
 ```
 
-`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Every service container mounts `./shared:/shared` with `PYTHONPATH=/shared` so they can all import the shared `auth`, `db`, `exceptions`, and `temporal` modules.
+`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Each service's `Dockerfile` installs whatever wheels are present in its own `vendor/` directory at build time, so a change to `shared/` or `contracts/` requires re-running `python scripts/build_packages.py` and rebuilding the affected service images (`docker compose build <service>`) — it no longer takes effect on a plain container restart.
 
 ## Migration Workflow
 
@@ -277,7 +289,7 @@ curl -X POST http://localhost/api/v1/applications \
 
 - Activate the root `.venv`.
 - Install dependencies from the specific service's `requirements.txt` (`services/<name>/requirements.txt`), not a shared one.
-- Ensure `PYTHONPATH` includes the repo's `shared/` directory when running a service outside Docker.
+- Ensure `smarthire-shared` and (for candidate/job/resume/application) `smarthire-contracts` are installed into the venv (`pip install -e ./shared` / `pip install -e ./contracts`) when running a service outside Docker.
 
 ### Resume upload fails
 

@@ -95,9 +95,6 @@ services:
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${RECRUITER_DATABASE_URL}
-      PYTHONPATH: /shared
-    volumes:
-      - ./shared:/shared
     ports:
       - "8001:8001"
     healthcheck:
@@ -121,9 +118,6 @@ services:
       RESUME_SERVICE_URL: http://resume-service:8004
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
-    volumes:
-      - ./shared:/shared
     ports:
       - "8002:8002"
     healthcheck:
@@ -153,9 +147,7 @@ services:
       RECRUITER_SERVICE_URL: http://recruiter-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
     volumes:
-      - ./shared:/shared
       - job_uploads:/data/job_descriptions
     ports:
       - "8003:8003"
@@ -187,9 +179,7 @@ services:
       RECRUITER_SERVICE_URL: http://recruiter-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
     volumes:
-      - ./shared:/shared
       - job_uploads:/data/job_descriptions
     restart: unless-stopped
 
@@ -212,9 +202,7 @@ services:
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
       CANDIDATE_SERVICE_URL: http://candidate-service:8002
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
     volumes:
-      - ./shared:/shared
       - resume_uploads:/data/resumes
     ports:
       - "8004:8004"
@@ -245,9 +233,7 @@ services:
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
       CANDIDATE_SERVICE_URL: http://candidate-service:8002
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
     volumes:
-      - ./shared:/shared
       - resume_uploads:/data/resumes
     restart: unless-stopped
 
@@ -273,9 +259,6 @@ services:
       RESUME_SERVICE_URL: http://resume-service:8004
       MAX_APPLICATIONS_PER_CANDIDATE: ${MAX_APPLICATIONS_PER_CANDIDATE}
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-      PYTHONPATH: /shared
-    volumes:
-      - ./shared:/shared
     ports:
       - "8005:8005"
     healthcheck:
@@ -292,9 +275,6 @@ services:
     container_name: smarthire-notification-service
     environment:
       APP_ENV: ${APP_ENV}
-      PYTHONPATH: /shared
-    volumes:
-      - ./shared:/shared
     ports:
       - "8006:8006"
     healthcheck:
