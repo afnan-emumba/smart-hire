@@ -26,20 +26,22 @@ flowchart LR
 
 No service has a local view of another service's tables. Cross-service reads/writes go over HTTP via each service's own `app/clients/`, forwarding the caller's `X-User-ID`/`X-User-Role` headers, instead of joining across databases:
 
-- **application-service** calls job-service, candidate-service, and resume-service — it has no local view of jobs, candidates, or resumes at all.
-- **job-service** calls recruiter-service (to validate the recruiter on job creation) and application-service (to cascade-delete applications when a job is deleted).
-- **candidate-service** calls resume-service and application-service (to cascade-delete a candidate's resumes/applications on candidate deletion).
-- **resume-service** calls candidate-service (to validate the candidate on resume upload).
-- **recruiter-service** and **notification-service** make no outbound service calls.
+- **application-service** calls job-service, user-service, and resume-service — it has no local view of jobs, candidates, or resumes at all.
+- **job-service** calls user-service (to validate the recruiter on job creation) and application-service (to cascade-delete applications when a job is deleted).
+- **user-service** calls resume-service and application-service (to cascade-delete a candidate's resumes/applications on candidate deletion).
+- **resume-service** calls user-service (to validate the candidate on resume upload).
+- **notification-service** makes no outbound service calls.
 
 ## Core Service Responsibilities
 
-### RecruiterService (recruiter-service)
+RecruiterService and CandidateService both live inside the consolidated **user-service**, each owning its own table (`recruiters`, `candidates`), router, and service class. New user types (e.g. Admin, Employer) are added the same way — a new table + router + service inside user-service — never as a new microservice.
+
+### RecruiterService (user-service)
 
 - Create and fetch recruiter profiles.
 - Enforce unique recruiter identity rules before persistence.
 
-### CandidateService (candidate-service)
+### CandidateService (user-service)
 
 - Create and fetch candidate records.
 - Update and delete the authenticated candidate's own profile.
@@ -78,7 +80,7 @@ No service has a local view of another service's tables. Cross-service reads/wri
 
 - Calls job-service (`JobClient.get_job`) to confirm the target job exists and is in `ready` status
 - Calls application-service's own repository to check for a duplicate application and the candidate's active-application count against `MAX_APPLICATIONS_PER_CANDIDATE`
-- Calls candidate-service (`CandidateClient.get_candidate`) to read `master_profile_data.skills`
+- Calls user-service (`CandidateClient.get_candidate`) to read `master_profile_data.skills`
 - **Resume fallback:** if the candidate's `master_profile_data.skills` is empty, calls resume-service (`ResumeClient.get_latest_parsed_resume`) and extracts skills from the most recently parsed resume instead
 - Compares the resolved candidate skills against `jobs.required_skills` and requires at least 50% overlap to be eligible
 - Returns a structured `EligibilityResult` (reason code, match score, missing skills, and the `resume_id` used if the resume fallback fired) that is persisted on the created application
@@ -210,7 +212,7 @@ sequenceDiagram
     participant Service as ApplicationService
     participant Eligibility as EligibilityService
     participant JobSvc as job-service (HTTP)
-    participant CandidateSvc as candidate-service (HTTP)
+    participant CandidateSvc as user-service (HTTP)
     participant ResumeSvc as resume-service (HTTP)
     participant AppRepo as ApplicationRepository
     participant DB as application_db
@@ -267,7 +269,7 @@ stateDiagram-v2
 
 4. **Keep JD parsing lifecycle separate from publication lifecycle.** `jd_parsing_status` tracks content-ingestion progress, while `status` tracks recruiter-facing publication state. Services should not overload one field to represent both concerns.
 
-5. **Validate eligibility before creating an application**, and do it entirely through HTTP calls to the owning services — application-service never queries `job_db`, `candidate_db`, or `resume_db` directly.
+5. **Validate eligibility before creating an application**, and do it entirely through HTTP calls to the owning services — application-service never queries `job_db`, `user_db`, or `resume_db` directly.
 
 6. **Keep SQL construction in repositories, pagination in the database.** Repositories should compose `.limit()` and `.offset()` into queries, not return all records for Python-level slicing.
 

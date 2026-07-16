@@ -8,22 +8,15 @@ from config.base import ServiceSettings
 
 
 class Settings(ServiceSettings):
-    app_name: str = "Application Service"
-    app_port: int = Field(default=8005, alias="APP_PORT")
-    max_applications_per_candidate: int = Field(
-        default=5,
-        alias="MAX_APPLICATIONS_PER_CANDIDATE",
-    )
-    job_service_url: str = Field(
-        default="http://job-service:8003", alias="JOB_SERVICE_URL"
-    )
-    candidate_service_url: str = Field(
-        default="http://user-service:8001",
-        alias="CANDIDATE_SERVICE_URL",
-    )
+    app_name: str = "User Service"
+    app_port: int = Field(default=8001, alias="APP_PORT")
     resume_service_url: str = Field(
         default="http://resume-service:8004",
         alias="RESUME_SERVICE_URL",
+    )
+    application_service_url: str = Field(
+        default="http://application-service:8005",
+        alias="APPLICATION_SERVICE_URL",
     )
     http_client_timeout_seconds: float = Field(
         default=5.0,

@@ -118,7 +118,7 @@ smart-hire/
 │
 ├── infra/
 │   ├── nginx/                         # API gateway: nginx.conf routes /api/v1/<resource> per service
-│   └── postgres/                      # init.sql — creates the six logical databases
+│   └── postgres/                      # init.sql — creates the five logical databases
 │
 ├── contracts/                         # Cross-service wire-format contracts (packaged as the smarthire-contracts wheel)
 │   └── src/contracts/                 # enums.py, profile.py, service_responses.py — vendored only into services that use them
@@ -133,8 +133,7 @@ smart-hire/
 │   └── temporal/                      # Shared Temporal client singleton
 │
 └── services/
-    ├── recruiter/                     # Recruiter CRUD (port 8001, recruiter_db)
-    ├── candidate/                     # Candidate CRUD (port 8002, candidate_db)
+    ├── user/                          # Recruiter + Candidate CRUD (port 8001, user_db)
     ├── job/                           # Job CRUD + JobPublishingWorkflow (port 8003, job_db)
     ├── resume/                        # Resume upload + ResumeParsingWorkflow (port 8004, resume_db)
     ├── application/                   # Application workflow, HTTP calls to other services (port 8005, application_db)
@@ -172,7 +171,7 @@ cp .env.example .env
 # (required before the first build, and again any time contracts/ or shared/ changes)
 python scripts/build_packages.py
 
-# Start the full stack (postgres, temporal, nginx gateway, and all 6 services + their workers)
+# Start the full stack (postgres, temporal, nginx gateway, and all 5 services + their workers)
 docker compose up -d --build
 
 # View logs for a specific service
@@ -181,7 +180,7 @@ docker compose logs -f job-service-worker
 
 # Verify the gateway and a service are healthy
 curl http://localhost/health
-curl http://localhost/api/v1/health/recruiter
+curl http://localhost/api/v1/health/user
 
 # Stop the stack
 docker compose down
@@ -192,10 +191,10 @@ Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicor
 **Services:**
 
 - **Gateway:** http://localhost/api/v1 (nginx — use this for real API requests)
-- **Database:** localhost:5432 (PostgreSQL, six logical databases)
+- **Database:** localhost:5432 (PostgreSQL, five logical databases)
 - **Temporal UI:** http://localhost:8080
 
-Each service also publishes its own host port purely so its Swagger UI is reachable directly for local dev (recruiter 8001, candidate 8002, job 8003, resume 8004, application 8005, notification 8006) — actual API traffic should still go through the gateway so routing and auth-header forwarding match production shape.
+Each service also publishes its own host port purely so its Swagger UI is reachable directly for local dev (user 8001, job 8003, resume 8004, application 8005, notification 8006) — actual API traffic should still go through the gateway so routing and auth-header forwarding match production shape.
 
 ### Local Development (Without Docker)
 
@@ -205,7 +204,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r services/<name>/requirements.txt
 pip install -e ./shared
-pip install -e ./contracts   # only needed for candidate/job/resume/application, not recruiter/notification
+pip install -e ./contracts   # only needed for user/job/resume/application, not notification
 
 cd services/<name>
 alembic upgrade head
@@ -218,20 +217,20 @@ For detailed setup, port mappings, and the full manual validation walkthrough, s
 
 ## 📡 API & Endpoints
 
-All endpoints are served behind the nginx gateway under `http://localhost/api/v1`, which routes each `/api/v1/<resource>/*` prefix to the owning service — use this for real requests. Each service also publishes its own host port (8001-8006) directly, but that's a local-dev convenience for Swagger UI access, not the intended API surface.
+All endpoints are served behind the nginx gateway under `http://localhost/api/v1`, which routes each `/api/v1/<resource>/*` prefix to the owning service — use this for real requests. Each service also publishes its own host port (8001, 8003-8006) directly, but that's a local-dev convenience for Swagger UI access, not the intended API surface.
 
 **Health:**
 
 - `GET /health` — gateway liveness check (nginx only, no backend dependency)
-- `GET /api/v1/health/{recruiter,candidate,job,resume,application,notification}` — per-service deep health check (DB connectivity)
+- `GET /api/v1/health/{user,job,resume,application,notification}` — per-service deep health check (DB connectivity)
 
-**Recruiters** (recruiter-service):
+**Recruiters** (user-service):
 
 - `POST /api/v1/recruiters` — Create recruiter
 - `GET /api/v1/recruiters/{id}` — Retrieve recruiter
 - `GET /api/v1/recruiters` — List recruiters with pagination
 
-**Candidates** (candidate-service):
+**Candidates** (user-service):
 
 - `POST /api/v1/candidates` — Register candidate
 - `GET /api/v1/candidates/{id}` — Retrieve candidate profile
@@ -267,7 +266,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 **Manual API Testing:**
 
 - Use the Postman collection at `postman/SmartHire.postman_collection.json` for the full validation flow through the gateway.
-- Each service also exposes its own Swagger UI directly on its host port for interactive schema inspection: recruiter `:8001/docs`, candidate `:8002/docs`, job `:8003/docs`, resume `:8004/docs`, application `:8005/docs`, notification `:8006/docs`. It's a local-dev convenience — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway.
+- Each service also exposes its own Swagger UI directly on its host port for interactive schema inspection: user `:8001/docs`, job `:8003/docs`, resume `:8004/docs`, application `:8005/docs`, notification `:8006/docs`. It's a local-dev convenience — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway.
 - Resume and JD uploads are stored on each owning service's local filesystem, backed by named Docker volumes (`resume_uploads`, `job_uploads`) so they persist across `docker compose down`/recreate, and should remain untracked in git.
 
 **Authentication:**
@@ -300,12 +299,11 @@ curl -X POST http://localhost/api/v1/resumes \
 
 ## 💾 Database Schema
 
-One PostgreSQL container hosts **six independent logical databases**, one per service (`infra/postgres/init.sql`). Each service only ever connects to its own database — there are no cross-database foreign keys; cross-service references (e.g. an application's `job_id`) are indexed UUID columns validated at write-time via HTTP calls, not DB-level constraints.
+One PostgreSQL container hosts **five independent logical databases**, one per service (`infra/postgres/init.sql`). Each service only ever connects to its own database — there are no cross-database foreign keys; cross-service references (e.g. an application's `job_id`) are indexed UUID columns validated at write-time via HTTP calls, not DB-level constraints.
 
 | Database          | Owning Service        | Tables                                       | Key Fields                                                                                                                     |
 | ------------------ | ---------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `recruiter_db`     | recruiter-service      | `recruiters`                                 | id (UUID), email, name, timestamps                                                                                             |
-| `candidate_db`     | candidate-service      | `candidates`                                 | id (UUID), email, name, master_profile_data (JSONB), timestamps                                                                |
+| `user_db`          | user-service           | `recruiters`, `candidates`                   | recruiters: id (UUID), email, name, timestamps; candidates: + master_profile_data (JSONB)                                       |
 | `job_db`           | job-service            | `jobs`, `job_status_history`                 | id (UUID), recruiter_id, title, description, description_breakdown (JSONB), required_skills (JSONB), status, jd_parsing_status |
 | `resume_db`        | resume-service         | `candidate_resumes`                          | id (UUID), candidate_id, file_name, storage_path, parsing_status, structured_data (JSONB), timestamps                          |
 | `application_db`   | application-service    | `applications`, `application_status_history` | id (UUID), job_id, candidate_id, resume_id, status, eligibility_result (JSONB), metadata (JSONB)                               |
@@ -333,8 +331,8 @@ For schema diagrams and migration instructions, see [docs/DATABASE.md](docs/DATA
 See [Docker Setup](#docker-setup-recommended) section for startup instructions. Additional utilities:
 
 ```bash
-# Access a specific logical database (recruiter_db, candidate_db, job_db, resume_db, application_db, notification_db)
-docker exec -it smarthire-postgres psql -U smarthire -d recruiter_db
+# Access a specific logical database (user_db, job_db, resume_db, application_db, notification_db)
+docker exec -it smarthire-postgres psql -U smarthire -d user_db
 ```
 
 **Database Migrations** (run inside a specific service):

@@ -2,8 +2,7 @@
 -- Runs once on first Postgres container start.
 -- The default DB (POSTGRES_DB) is created by Docker; only additional service DBs are listed here.
 
-CREATE DATABASE recruiter_db;
-CREATE DATABASE candidate_db;
+CREATE DATABASE user_db;
 CREATE DATABASE job_db;
 CREATE DATABASE resume_db;
 CREATE DATABASE application_db;

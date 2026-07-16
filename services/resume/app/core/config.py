@@ -20,7 +20,7 @@ class Settings(ServiceSettings):
         default=10 * 1024 * 1024, alias="MAX_RESUME_SIZE_BYTES"
     )
     candidate_service_url: str = Field(
-        default="http://candidate-service:8002",
+        default="http://user-service:8001",
         alias="CANDIDATE_SERVICE_URL",
     )
     http_client_timeout_seconds: float = Field(

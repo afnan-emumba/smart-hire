@@ -4,13 +4,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SERVICES = ["recruiter", "candidate", "job", "resume", "application", "notification"]
+SERVICES = ["user", "job", "resume", "application", "notification"]
 
 PACKAGES = {
-    "smarthire_contracts": (
-        REPO_ROOT / "contracts",
-        ["candidate", "job", "resume", "application"],
-    ),
+    "smarthire_contracts": (REPO_ROOT / "contracts", SERVICES),
     "smarthire_shared": (REPO_ROOT / "shared", SERVICES),
 }
 

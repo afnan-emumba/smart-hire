@@ -20,7 +20,7 @@ class Settings(ServiceSettings):
     )
     max_jd_size_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_JD_SIZE_BYTES")
     recruiter_service_url: str = Field(
-        default="http://recruiter-service:8001",
+        default="http://user-service:8001",
         alias="RECRUITER_SERVICE_URL",
     )
     application_service_url: str = Field(

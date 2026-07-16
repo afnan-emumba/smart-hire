@@ -3,6 +3,11 @@ from __future__ import annotations
 from enum import Enum
 
 
+class UserRole(str, Enum):
+    RECRUITER = "RECRUITER"
+    CANDIDATE = "CANDIDATE"
+
+
 class JobStatus(str, Enum):
     DRAFT = "draft"
     PROCESSING = "processing"
