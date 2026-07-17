@@ -25,16 +25,15 @@ flowchart TD
 
 ```bash
 cp .env.example .env
-python scripts/build_packages.py
 docker compose up -d --build
 ```
 
-`scripts/build_packages.py` builds two local wheels and vendors each into the `services/<name>/vendor/` directories that need it, where each service's `Dockerfile` installs whatever is in its own `vendor/` at build time:
+Each service's `Dockerfile` builds with the repo root as its context and installs `shared`/`contracts` directly from their source directories (no separate build step, no vendored wheel):
 
-- `smarthire-shared` (from `shared/`) — infra toolkit (`auth`, `db`, `exceptions`, `http_client`, `temporal`, etc.) — vendored into all 5 services.
-- `smarthire-contracts` (from `contracts/`) — cross-service wire-format enums and response shapes — vendored only into `user`, `job`, `resume`, and `application`, since `notification` doesn't import it.
+- `shared` (infra toolkit: `auth`, `db`, `exceptions`, `http_client`, `temporal`, etc.) — installed into all 5 services.
+- `contracts` (cross-service wire-format enums and response shapes) — installed only into `user`, `job`, `resume`, and `application`, since `notification` doesn't import it.
 
-Re-run the script (then rebuild the affected service images) any time `shared/` or `contracts/` changes.
+Because the install happens straight from source at build time, `docker compose build <service>` always picks up the latest `shared`/`contracts` code — there's no separate step to remember or forget.
 
 Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicorn`, so no manual migration step is needed for a fresh stack.
 
@@ -106,7 +105,7 @@ docker compose logs -f job-service-worker
 docker compose logs -f resume-service-worker
 ```
 
-`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Each service's `Dockerfile` installs whatever wheels are present in its own `vendor/` directory at build time, so a change to `shared/` or `contracts/` requires re-running `python scripts/build_packages.py` and rebuilding the affected service images (`docker compose build <service>`) — it no longer takes effect on a plain container restart.
+`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Each service's `Dockerfile` installs `shared`/`contracts` directly from source at build time, so a change to `shared/` or `contracts/` takes effect on the next `docker compose build <service>` — it does not take effect on a plain container restart, since the code is baked into the image rather than bind-mounted.
 
 ## Migration Workflow
 

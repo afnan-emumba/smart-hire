@@ -25,4 +25,8 @@ async def get_candidate_service(
         resume_client=request.app.state.resume_client,
         application_client=request.app.state.application_client,
     )
-    return CandidateService(CandidateRepository(session), lifecycle=lifecycle)
+    return CandidateService(
+        CandidateRepository(session),
+        lifecycle=lifecycle,
+        resume_client=request.app.state.resume_client,
+    )

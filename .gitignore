@@ -51,4 +51,3 @@ shared/*.egg-info/
 contracts/dist/
 contracts/build/
 contracts/src/*.egg-info/
-services/*/vendor/

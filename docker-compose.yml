@@ -84,8 +84,8 @@ services:
 
   user-service:
     build:
-      context: ./services/user
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user/Dockerfile
     container_name: smarthire-user-service
     depends_on:
       postgres:
@@ -107,8 +107,8 @@ services:
 
   job-service:
     build:
-      context: ./services/job
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/job/Dockerfile
     container_name: smarthire-job-service
     depends_on:
       postgres:
@@ -138,8 +138,8 @@ services:
 
   job-service-worker:
     build:
-      context: ./services/job
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/job/Dockerfile
     container_name: smarthire-job-service-worker
     command: ["python", "-m", "app.temporal.worker"]
     depends_on:
@@ -163,8 +163,8 @@ services:
 
   resume-service:
     build:
-      context: ./services/resume
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/resume/Dockerfile
     container_name: smarthire-resume-service
     depends_on:
       postgres:
@@ -193,8 +193,8 @@ services:
 
   resume-service-worker:
     build:
-      context: ./services/resume
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/resume/Dockerfile
     container_name: smarthire-resume-service-worker
     command: ["python", "-m", "app.temporal.worker"]
     depends_on:
@@ -217,8 +217,8 @@ services:
 
   application-service:
     build:
-      context: ./services/application
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/application/Dockerfile
     container_name: smarthire-application-service
     depends_on:
       postgres:
@@ -248,8 +248,8 @@ services:
 
   notification-service:
     build:
-      context: ./services/notification
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/notification/Dockerfile
     container_name: smarthire-notification-service
     environment:
       APP_ENV: ${APP_ENV}

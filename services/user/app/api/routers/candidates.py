@@ -53,6 +53,15 @@ async def update_candidate(
     return await service.update_candidate(candidate_id, candidate_update, current_user)
 
 
+@router.post("/{candidate_id}/profile/sync-resume", response_model=CandidateResponse)
+async def sync_candidate_profile_from_resume(
+    candidate_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role(UserRole.CANDIDATE)),
+    service: CandidateService = Depends(get_candidate_service),
+) -> CandidateResponse:
+    return await service.sync_profile_from_resume(candidate_id, current_user)
+
+
 @router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_candidate(
     candidate_id: uuid.UUID,

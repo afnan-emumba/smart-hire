@@ -267,6 +267,21 @@
               "path": ["candidates", "{{candidateId}}"]
             }
           }
+        },
+        {
+          "name": "Sync Candidate Profile From Resume",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
+              { "key": "X-User-Role", "value": "CANDIDATE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/candidates/{{candidateId}}/profile/sync-resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates", "{{candidateId}}", "profile", "sync-resume"]
+            }
+          }
         }
       ]
     },

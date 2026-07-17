@@ -177,6 +177,7 @@ Each service's `Dockerfile` runs `alembic upgrade head` automatically before sta
 - CRUD behavior: candidates can update and delete only their own profiles through the API.
 - Flexible fields: `master_profile_data` JSONB stores the candidate's canonical aggregate profile with curated keys for `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
 - Canonical profile rule: this field is the candidate-level source of truth used for matching; it is not the raw output of a single parser run. application-service's `EligibilityService` reads it via an HTTP call to user-service (`CandidateClient`), never via a direct DB join.
+- Populating the profile: nothing writes to this field automatically. Candidates set it directly via `PATCH /candidates/{id}`, or call `POST /candidates/{id}/profile/sync-resume` to fill it from their latest parsed resume — that action only fills currently-empty fields (`summary`, `skills`, `contact.phone`/`location`, `links`) and never overwrites values the candidate already entered; `education`/`work_experience` are not synced since resume-service's parser only extracts unstructured text for those, not the structured fields this schema requires.
 
 ### jobs / job_status_history (`job_db`)
 

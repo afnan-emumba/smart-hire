@@ -97,6 +97,7 @@ The backend uses **domain exceptions** (not HTTP exceptions) in services, with c
 - Candidate-level `master_profile_data` is stored as structured JSONB
 - Canonical profile sections are `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`
 - Uploaded resume files and parser output live in candidate-owned resume snapshots; applications only reference the specific resume used for that submission
+- `POST /candidates/{id}/profile/sync-resume` lets a candidate fill still-empty profile fields (`summary`, `skills`, `contact`, `links`) from their latest parsed resume, without overwriting anything already entered manually; `education`/`work_experience` stay manual-only
 
 ---
 
@@ -167,11 +168,9 @@ cp .env.example .env
 ### Docker Setup (Recommended)
 
 ```bash
-# Build the contracts and shared package wheels and vendor them into the services that need them
-# (required before the first build, and again any time contracts/ or shared/ changes)
-python scripts/build_packages.py
-
 # Start the full stack (postgres, temporal, nginx gateway, and all 5 services + their workers)
+# Each service's Dockerfile installs contracts/shared straight from source at build time,
+# so a plain build always picks up the latest contracts/shared code.
 docker compose up -d --build
 
 # View logs for a specific service

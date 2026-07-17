@@ -48,6 +48,7 @@ RecruiterService and CandidateService both live inside the consolidated **user-s
 - Prevent duplicate candidate emails during create and update flows.
 - Persist `master_profile_data` as the candidate-level aggregate profile with a strict schema: `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
 - Keep candidate profiles independent from any resume file — resumes are a separate resource owned by resume-service.
+- `sync_profile_from_resume` (`POST /candidates/{id}/profile/sync-resume`) is the only bridge from a parsed resume into the profile: it calls resume-service (`ResumeClient.get_latest_parsed_resume`) and fills only currently-empty `summary`/`skills`/`contact`/`links` fields, never overwriting values the candidate already set. `education`/`work_experience` are excluded — the resume parser only extracts unstructured text for those, not the structured fields `master_profile_data` requires.
 
 ### JobService (job-service)
 

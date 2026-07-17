@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from contracts.enums import UserRole
 from fastapi import Depends, Header, HTTPException, status
 from pydantic import BaseModel
+
+from contracts.enums import UserRole
 
 
 class CurrentUser(BaseModel):
