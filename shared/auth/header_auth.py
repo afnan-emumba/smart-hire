@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Literal
 
 from fastapi import Depends, Header, HTTPException, status
 from pydantic import BaseModel
 
-UserRole = Literal["RECRUITER", "CANDIDATE"]
-ALLOWED_ROLES = {"RECRUITER", "CANDIDATE"}
+from contracts.enums import UserRole
 
 
 class CurrentUser(BaseModel):
@@ -19,13 +17,14 @@ async def get_current_user(
     x_user_id: str = Header(..., alias="X-User-ID", min_length=1),
     x_user_role: str = Header(..., alias="X-User-Role", min_length=1),
 ) -> CurrentUser:
-    normalized_role = x_user_role.strip().upper()
-    if normalized_role not in ALLOWED_ROLES:
+    try:
+        role = UserRole(x_user_role.strip().upper())
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid user role",
-        )
-    return CurrentUser(id=x_user_id.strip(), role=normalized_role)
+        ) from exc
+    return CurrentUser(id=x_user_id.strip(), role=role)
 
 
 def require_role(*roles: UserRole) -> Callable[..., CurrentUser]:

@@ -3,11 +3,12 @@ from __future__ import annotations
 import uuid
 
 from auth.header_auth import CurrentUser
+from contracts.enums import UserRole
 from exceptions.http_exceptions import BadRequestError, ForbiddenError
 
 
 def require_candidate_user_id(current_user: CurrentUser) -> uuid.UUID:
-    if current_user.role != "CANDIDATE":
+    if current_user.role != UserRole.CANDIDATE:
         raise ForbiddenError("Only candidates can perform this action")
 
     try:
@@ -17,7 +18,7 @@ def require_candidate_user_id(current_user: CurrentUser) -> uuid.UUID:
 
 
 def require_recruiter_user_id(current_user: CurrentUser) -> uuid.UUID:
-    if current_user.role != "RECRUITER":
+    if current_user.role != UserRole.RECRUITER:
         raise ForbiddenError("Only recruiters can perform this action")
 
     try:

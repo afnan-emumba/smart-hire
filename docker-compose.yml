@@ -69,9 +69,7 @@ services:
       dockerfile: Dockerfile
     container_name: smarthire-nginx
     depends_on:
-      recruiter-service:
-        condition: service_healthy
-      candidate-service:
+      user-service:
         condition: service_healthy
       job-service:
         condition: service_healthy
@@ -84,17 +82,20 @@ services:
     ports:
       - "${NGINX_PORT}:80"
 
-  recruiter-service:
+  user-service:
     build:
-      context: ./services/recruiter
-      dockerfile: Dockerfile
-    container_name: smarthire-recruiter-service
+      context: .
+      dockerfile: services/user/Dockerfile
+    container_name: smarthire-user-service
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV}
-      DATABASE_URL: ${RECRUITER_DATABASE_URL}
+      DATABASE_URL: ${USER_DATABASE_URL}
+      RESUME_SERVICE_URL: http://resume-service:8004
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     ports:
       - "8001:8001"
     healthcheck:
@@ -104,33 +105,10 @@ services:
       retries: 5
       start_period: 30s
 
-  candidate-service:
-    build:
-      context: ./services/candidate
-      dockerfile: Dockerfile
-    container_name: smarthire-candidate-service
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      APP_ENV: ${APP_ENV}
-      DATABASE_URL: ${CANDIDATE_DATABASE_URL}
-      RESUME_SERVICE_URL: http://resume-service:8004
-      APPLICATION_SERVICE_URL: http://application-service:8005
-      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
-    ports:
-      - "8002:8002"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8002/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
   job-service:
     build:
-      context: ./services/job
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/job/Dockerfile
     container_name: smarthire-job-service
     depends_on:
       postgres:
@@ -144,7 +122,7 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       JD_UPLOAD_DIR: /data/job_descriptions
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
-      RECRUITER_SERVICE_URL: http://recruiter-service:8001
+      RECRUITER_SERVICE_URL: http://user-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
@@ -160,8 +138,8 @@ services:
 
   job-service-worker:
     build:
-      context: ./services/job
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/job/Dockerfile
     container_name: smarthire-job-service-worker
     command: ["python", "-m", "app.temporal.worker"]
     depends_on:
@@ -176,7 +154,7 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       JD_UPLOAD_DIR: /data/job_descriptions
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
-      RECRUITER_SERVICE_URL: http://recruiter-service:8001
+      RECRUITER_SERVICE_URL: http://user-service:8001
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
@@ -185,8 +163,8 @@ services:
 
   resume-service:
     build:
-      context: ./services/resume
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/resume/Dockerfile
     container_name: smarthire-resume-service
     depends_on:
       postgres:
@@ -200,7 +178,7 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       RESUME_UPLOAD_DIR: /data/resumes
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
-      CANDIDATE_SERVICE_URL: http://candidate-service:8002
+      CANDIDATE_SERVICE_URL: http://user-service:8001
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
       - resume_uploads:/data/resumes
@@ -215,8 +193,8 @@ services:
 
   resume-service-worker:
     build:
-      context: ./services/resume
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/resume/Dockerfile
     container_name: smarthire-resume-service-worker
     command: ["python", "-m", "app.temporal.worker"]
     depends_on:
@@ -231,7 +209,7 @@ services:
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       RESUME_UPLOAD_DIR: /data/resumes
       MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
-      CANDIDATE_SERVICE_URL: http://candidate-service:8002
+      CANDIDATE_SERVICE_URL: http://user-service:8001
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
       - resume_uploads:/data/resumes
@@ -239,15 +217,15 @@ services:
 
   application-service:
     build:
-      context: ./services/application
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/application/Dockerfile
     container_name: smarthire-application-service
     depends_on:
       postgres:
         condition: service_healthy
       job-service:
         condition: service_healthy
-      candidate-service:
+      user-service:
         condition: service_healthy
       resume-service:
         condition: service_healthy
@@ -255,7 +233,7 @@ services:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${APPLICATION_DATABASE_URL}
       JOB_SERVICE_URL: http://job-service:8003
-      CANDIDATE_SERVICE_URL: http://candidate-service:8002
+      CANDIDATE_SERVICE_URL: http://user-service:8001
       RESUME_SERVICE_URL: http://resume-service:8004
       MAX_APPLICATIONS_PER_CANDIDATE: ${MAX_APPLICATIONS_PER_CANDIDATE}
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
@@ -270,8 +248,8 @@ services:
 
   notification-service:
     build:
-      context: ./services/notification
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/notification/Dockerfile
     container_name: smarthire-notification-service
     environment:
       APP_ENV: ${APP_ENV}

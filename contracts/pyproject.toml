@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smarthire-contracts"
-version = "0.1.0"
+version = "0.5.0"
 description = "Cross-service wire-format contracts (enums, response shapes) shared by SmartHire services"
 requires-python = ">=3.11"
 dependencies = []

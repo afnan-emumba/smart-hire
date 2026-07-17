@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts.enums import JobStatus, ResumeParsingStatus
+from contracts.profile import ProfileLinks
 
 
 class CandidateMasterProfileContract(BaseModel):
@@ -42,10 +43,20 @@ class RecruiterResponseContract(BaseModel):
     updated_at: datetime
 
 
+class ResumeContactContract(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    phone: str | None = None
+    location: str | None = None
+
+
 class ResumeStructuredDataContract(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    summary: str | None = None
     skills: list[str] = Field(default_factory=list)
+    contact: ResumeContactContract = Field(default_factory=ResumeContactContract)
+    links: ProfileLinks = Field(default_factory=ProfileLinks)
 
 
 class ResumeResponseContract(BaseModel):

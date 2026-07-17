@@ -25,16 +25,15 @@ flowchart TD
 
 ```bash
 cp .env.example .env
-python scripts/build_packages.py
 docker compose up -d --build
 ```
 
-`scripts/build_packages.py` builds two local wheels and vendors each into the `services/<name>/vendor/` directories that need it, where each service's `Dockerfile` installs whatever is in its own `vendor/` at build time:
+Each service's `Dockerfile` builds with the repo root as its context and installs `shared`/`contracts` directly from their source directories (no separate build step, no vendored wheel):
 
-- `smarthire-shared` (from `shared/`) — infra toolkit (`auth`, `db`, `exceptions`, `http_client`, `temporal`, etc.) — vendored into all 6 services.
-- `smarthire-contracts` (from `contracts/`) — cross-service wire-format enums and response shapes — vendored only into `candidate`, `job`, `resume`, and `application`, since `recruiter` and `notification` don't import it.
+- `shared` (infra toolkit: `auth`, `db`, `exceptions`, `http_client`, `temporal`, etc.) — installed into all 5 services.
+- `contracts` (cross-service wire-format enums and response shapes) — installed only into `user`, `job`, `resume`, and `application`, since `notification` doesn't import it.
 
-Re-run the script (then rebuild the affected service images) any time `shared/` or `contracts/` changes.
+Because the install happens straight from source at build time, `docker compose build <service>` always picks up the latest `shared`/`contracts` code — there's no separate step to remember or forget.
 
 Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicorn`, so no manual migration step is needed for a fresh stack.
 
@@ -43,13 +42,12 @@ Every service's `Dockerfile` runs `alembic upgrade head` before starting `uvicor
 | Service                              | Host Port         | Purpose                                          |
 | ------------------------------------- | ------------------ | ------------------------------------------------- |
 | `nginx` (gateway)                    | `${NGINX_PORT}` (80) | Primary entrypoint, routes `/api/v1/<resource>/*` to the owning service |
-| `recruiter-service`                  | `8001`             | Recruiter CRUD                                     |
-| `candidate-service`                  | `8002`             | Candidate CRUD                                    |
+| `user-service`                       | `8001`             | Recruiter + Candidate CRUD                         |
 | `job-service` + `job-service-worker` | `8003`             | Job CRUD + `JobPublishingWorkflow` (Temporal)      |
 | `resume-service` + `resume-service-worker` | `8004`       | Resume upload + `ResumeParsingWorkflow` (Temporal) |
 | `application-service`                | `8005`             | Application workflow, calls job/candidate/resume services over HTTP |
 | `notification-service`               | `8006`             | Week 3 stub — health endpoint only                |
-| `postgres`                           | `5432`             | One container, six logical databases (see below) |
+| `postgres`                           | `5432`             | One container, five logical databases (see below) |
 | `temporal`                           | `7233` (gRPC), `8233` | Temporal server                               |
 | `temporal-ui`                        | `${TEMPORAL_UI_PORT}` (8080) | Workflow inspection UI                  |
 
@@ -64,7 +62,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r services/<name>/requirements.txt
 pip install -e ./shared
-pip install -e ./contracts     # only needed for candidate, job, resume, application — not recruiter or notification
+pip install -e ./contracts     # only needed for user, job, resume, application — not notification
 cd services/<name>
 cp .env.example .env           # if the service has one; otherwise set env vars directly
 alembic upgrade head
@@ -85,8 +83,7 @@ Key root `.env` variables (see `.env.example` for the full list):
 | `POSTGRES_HOST_PORT`           | `5432`         | Host-side Postgres port                    |
 | `NGINX_PORT`                   | `80`           | Gateway host port                          |
 | `TEMPORAL_UI_PORT`             | `8080`         | Temporal UI host port                      |
-| `RECRUITER_DATABASE_URL`       | —              | asyncpg URL for `recruiter_db`             |
-| `CANDIDATE_DATABASE_URL`       | —              | asyncpg URL for `candidate_db`             |
+| `USER_DATABASE_URL`            | —              | asyncpg URL for `user_db`                  |
 | `JOB_DATABASE_URL`             | —              | asyncpg URL for `job_db`                   |
 | `RESUME_DATABASE_URL`          | —              | asyncpg URL for `resume_db`                |
 | `APPLICATION_DATABASE_URL`     | —              | asyncpg URL for `application_db`           |
@@ -108,7 +105,7 @@ docker compose logs -f job-service-worker
 docker compose logs -f resume-service-worker
 ```
 
-`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Each service's `Dockerfile` installs whatever wheels are present in its own `vendor/` directory at build time, so a change to `shared/` or `contracts/` requires re-running `python scripts/build_packages.py` and rebuilding the affected service images (`docker compose build <service>`) — it no longer takes effect on a plain container restart.
+`docker-compose.yml` at the repo root is the only compose entrypoint — there's no separate per-service compose file. Each service's `Dockerfile` installs `shared`/`contracts` directly from source at build time, so a change to `shared/` or `contracts/` takes effect on the next `docker compose build <service>` — it does not take effect on a plain container restart, since the code is baked into the image rather than bind-mounted.
 
 ## Migration Workflow
 
@@ -129,8 +126,7 @@ Migrations run automatically inside each service's container on startup (`Docker
 curl http://localhost/health
 
 # Per-service deep health (DB connectivity check)
-curl http://localhost/api/v1/health/recruiter
-curl http://localhost/api/v1/health/candidate
+curl http://localhost/api/v1/health/user
 curl http://localhost/api/v1/health/job
 curl http://localhost/api/v1/health/resume
 curl http://localhost/api/v1/health/application
@@ -143,7 +139,7 @@ Expected gateway response:
 { "status": "ok", "service": "gateway" }
 ```
 
-Expected per-service response (recruiter/candidate/job/resume/application):
+Expected per-service response (user/job/resume/application):
 
 ```json
 { "status": "ok", "database": "up" }
@@ -215,7 +211,7 @@ Recommended validation order (matches the Postman collection's smoke test):
    {"job_id": "{{jobId}}"}
    ```
 
-   `candidate_id` is bound to `X-User-ID`. application-service calls job-service, candidate-service, and resume-service over HTTP to check eligibility (job must be `ready`, skills must match) before persisting.
+   `candidate_id` is bound to `X-User-ID`. application-service calls job-service, user-service, and resume-service over HTTP to check eligibility (job must be `ready`, skills must match) before persisting.
 
 7. **Verify duplicate rejection** (as candidate)
 
@@ -279,7 +275,7 @@ curl -X POST http://localhost/api/v1/applications \
 
 - Confirm `smarthire-postgres` is running and healthy: `docker compose ps postgres`.
 - Confirm each service's `*_DATABASE_URL` in `.env` uses the `postgres` hostname (compose network) — use `localhost` only for a service run outside Docker.
-- `infra/postgres/init.sql` creates the six logical databases (`recruiter_db`, `candidate_db`, `job_db`, `resume_db`, `application_db`, `notification_db`) on first container start only; if you need to recreate them, remove the `postgres_data` volume and restart (destructive — confirm before doing this).
+- `infra/postgres/init.sql` creates the five logical databases (`user_db`, `job_db`, `resume_db`, `application_db`, `notification_db`) on first container start only; if you need to recreate them, remove the `postgres_data` volume and restart (destructive — confirm before doing this).
 
 ### A service returns 404 through the gateway but works when hit directly
 
@@ -289,7 +285,7 @@ curl -X POST http://localhost/api/v1/applications \
 
 - Activate the root `.venv`.
 - Install dependencies from the specific service's `requirements.txt` (`services/<name>/requirements.txt`), not a shared one.
-- Ensure `smarthire-shared` and (for candidate/job/resume/application) `smarthire-contracts` are installed into the venv (`pip install -e ./shared` / `pip install -e ./contracts`) when running a service outside Docker.
+- Ensure `smarthire-shared` and (for user/job/resume/application) `smarthire-contracts` are installed into the venv (`pip install -e ./shared` / `pip install -e ./contracts`) when running a service outside Docker.
 
 ### Resume upload fails
 

@@ -2,12 +2,11 @@
 
 ## Overview
 
-SmartHire runs one PostgreSQL container hosting **six independent logical databases** — one per service (`infra/postgres/init.sql`). Each service uses SQLAlchemy 2.0 async models and its own Alembic migration history under `services/<name>/migrations/`. There are **no cross-database foreign keys**: a table can only reference another table in the *same* database. Cross-service references (an application's `job_id`, `candidate_id`, `resume_id`) are plain indexed UUID columns, validated at write-time by the owning service calling the other service over HTTP — not by a DB constraint.
+SmartHire runs one PostgreSQL container hosting **five independent logical databases** — one per service (`infra/postgres/init.sql`). Each service uses SQLAlchemy 2.0 async models and its own Alembic migration history under `services/<name>/migrations/`. There are **no cross-database foreign keys**: a table can only reference another table in the *same* database. Cross-service references (an application's `job_id`, `candidate_id`, `resume_id`) are plain indexed UUID columns, validated at write-time by the owning service calling the other service over HTTP — not by a DB constraint.
 
 | Database           | Owning Service        |
 | -------------------- | ------------------------ |
-| `recruiter_db`      | recruiter-service       |
-| `candidate_db`      | candidate-service       |
+| `user_db`           | user-service (owns `recruiters` and `candidates`) |
 | `job_db`            | job-service             |
 | `resume_db`         | resume-service          |
 | `application_db`    | application-service     |
@@ -17,7 +16,7 @@ SmartHire runs one PostgreSQL container hosting **six independent logical databa
 
 Each diagram below is scoped to a single logical database. Relationships that cross database boundaries (e.g. `applications.job_id` → `jobs.id`) are called out separately since they are not real foreign keys.
 
-### `recruiter_db`
+### `user_db`
 
 ```mermaid
 erDiagram
@@ -28,12 +27,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-```
 
-### `candidate_db`
-
-```mermaid
-erDiagram
     CANDIDATES {
         uuid id PK
         string email UK
@@ -52,7 +46,7 @@ erDiagram
 
     JOBS {
         uuid id PK
-        uuid recruiter_id "not a DB FK - candidate_db is a separate database"
+        uuid recruiter_id "not a DB FK - user_db is a separate database"
         string title
         text description
         string employment_type
@@ -102,7 +96,7 @@ erDiagram
 erDiagram
     CANDIDATE_RESUMES {
         uuid id PK
-        uuid candidate_id "not a DB FK - candidate_db is a separate database"
+        uuid candidate_id "not a DB FK - user_db is a separate database"
         string file_name
         string content_type
         string storage_path
@@ -131,7 +125,7 @@ erDiagram
     APPLICATIONS {
         uuid id PK
         uuid job_id "not a DB FK - job_db is a separate database"
-        uuid candidate_id "not a DB FK - candidate_db is a separate database"
+        uuid candidate_id "not a DB FK - user_db is a separate database"
         uuid resume_id "not a DB FK - resume_db is a separate database"
         string status
         jsonb eligibility_result
@@ -170,24 +164,25 @@ Each service's `Dockerfile` runs `alembic upgrade head` automatically before sta
 
 ## Tables
 
-### recruiters (`recruiter_db`)
+### recruiters (`user_db`)
 
 - Purpose: recruiters who create jobs and review applications.
 - Key constraints: unique email, UUID primary key.
-- Ownership: recruiter-service is the sole owner and writer of this table.
+- Ownership: user-service is the sole owner and writer of this table.
 
-### candidates (`candidate_db`)
+### candidates (`user_db`)
 
 - Purpose: job seekers and their identity/profile data.
 - Key constraints: unique email, UUID primary key.
 - CRUD behavior: candidates can update and delete only their own profiles through the API.
 - Flexible fields: `master_profile_data` JSONB stores the candidate's canonical aggregate profile with curated keys for `summary`, `skills`, `contact`, `education`, `work_experience`, and `links`.
-- Canonical profile rule: this field is the candidate-level source of truth used for matching; it is not the raw output of a single parser run. application-service's `EligibilityService` reads it via an HTTP call to candidate-service (`CandidateClient`), never via a direct DB join.
+- Canonical profile rule: this field is the candidate-level source of truth used for matching; it is not the raw output of a single parser run. application-service's `EligibilityService` reads it via an HTTP call to user-service (`CandidateClient`), never via a direct DB join.
+- Populating the profile: nothing writes to this field automatically. Candidates set it directly via `PATCH /candidates/{id}`, or call `POST /candidates/{id}/profile/sync-resume` to fill it from their latest parsed resume — that action only fills currently-empty fields (`summary`, `skills`, `contact.phone`/`location`, `links`) and never overwrites values the candidate already entered; `education`/`work_experience` are not synced since resume-service's parser only extracts unstructured text for those, not the structured fields this schema requires.
 
 ### jobs / job_status_history (`job_db`)
 
 - Purpose: job postings and publishing state, owned entirely by job-service.
-- Key constraints: `recruiter_id` is an indexed UUID (not a DB foreign key — recruiters live in `recruiter_db`).
+- Key constraints: `recruiter_id` is an indexed UUID (not a DB foreign key — recruiters live in `user_db`).
 - Structured metadata: `employment_type`, `seniority_level`, `department`, `job_category`, `location`, `compensation`, `years_of_experience_required`, and `application_deadline` support filtering, analytics, and future AI matching.
 - Flexible fields: `description_breakdown` JSONB and `required_skills` JSONB.
 - Canonical content: `description` stores the canonical markdown job description and may be null until manual content is supplied or PDF parsing finishes.
@@ -218,7 +213,7 @@ Each service's `Dockerfile` runs `alembic upgrade head` automatically before sta
 ### candidate_resumes (`resume_db`)
 
 - Purpose: resume artifacts and extraction results, owned entirely by resume-service and independent of any application.
-- Key constraints: `candidate_id` is an indexed UUID (not a DB foreign key — candidates live in `candidate_db`).
+- Key constraints: `candidate_id` is an indexed UUID (not a DB foreign key — candidates live in `user_db`).
 - Stored metadata: original filename, MIME type, internal storage path, upload timestamp, parsing state, parser/schema version, and extraction metadata.
 - Flexible fields: `structured_data` JSONB stores parsed resume content; `raw_markdown` preserves normalized extracted text for reprocessing.
 - Authority rule: this table owns all resume file-level and parsing data. Applications only reference a resume by `resume_id`; they never store resume content themselves.
@@ -226,7 +221,7 @@ Each service's `Dockerfile` runs `alembic upgrade head` automatically before sta
 ### applications / application_status_history (`application_db`)
 
 - Purpose: a candidate's application to a job, owned entirely by application-service.
-- Key constraints: `job_id`, `candidate_id`, and `resume_id` are indexed UUIDs (not DB foreign keys — those tables live in `job_db`, `candidate_db`, and `resume_db` respectively). Existence and ownership are validated by application-service calling job-service/candidate-service/resume-service over HTTP (`app/clients/`) before a row is written.
+- Key constraints: `job_id`, `candidate_id`, and `resume_id` are indexed UUIDs (not DB foreign keys — those tables live in `job_db`, `user_db`, and `resume_db` respectively). Existence and ownership are validated by application-service calling job-service/user-service/resume-service over HTTP (`app/clients/`) before a row is written.
 - Duplicate protection: unique constraint on `(job_id, candidate_id)`, enforced at the database level within `application_db`.
 - Eligibility: `eligibility_result` JSONB stores the outcome of `EligibilityService`'s skills-match check (reason code, match score, missing skills, and the `resume_id` used if the check fell back to a parsed resume).
 - Flexible fields: `metadata` JSONB stores workflow state, scores, and notes.
@@ -236,12 +231,12 @@ Each service's `Dockerfile` runs `alembic upgrade head` automatically before sta
 
 | Table                      | Constraint                          | Reason                                | Scope                    |
 | --------------------------- | ------------------------------------ | --------------------------------------- | --------------------------- |
-| recruiters                 | unique(email)                       | Prevent duplicate recruiter accounts  | `recruiter_db`            |
-| candidates                 | unique(email)                       | Prevent duplicate candidate accounts  | `candidate_db`             |
+| recruiters                 | unique(email)                       | Prevent duplicate recruiter accounts  | `user_db`                 |
+| candidates                 | unique(email)                       | Prevent duplicate candidate accounts  | `user_db`                  |
 | job_status_history         | FK to jobs                          | Real DB constraint — same database    | `job_db`                   |
 | application_status_history | FK to applications                  | Real DB constraint — same database    | `application_db`           |
 | applications               | unique(job_id, candidate_id)        | Prevent duplicate submissions         | `application_db`           |
-| applications               | job_id / candidate_id / resume_id validity | HTTP validation against job-service / candidate-service / resume-service, **not** a DB constraint | application-service logic |
+| applications               | job_id / candidate_id / resume_id validity | HTTP validation against job-service / user-service / resume-service, **not** a DB constraint | application-service logic |
 
 ## Cascade Behavior
 

@@ -5,15 +5,15 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-COPY requirements.txt ./requirements.txt
+COPY services/notification/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY vendor/*.whl ./vendor/
-RUN pip install --no-cache-dir ./vendor/*.whl
+COPY shared ./vendor/shared
+RUN pip install --no-cache-dir ./vendor/shared
 
-COPY . .
+COPY services/notification/. .
 
 EXPOSE 8006
 

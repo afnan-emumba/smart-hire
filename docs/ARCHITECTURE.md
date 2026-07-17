@@ -2,7 +2,7 @@
 
 ## System Overview
 
-SmartHire is a microservices platform: six independent async-first FastAPI services, each with its own PostgreSQL database, sitting behind a single nginx API gateway. Clear layer boundaries (HTTP handling → business logic → persistence) are enforced _within_ each service; boundaries _between_ services are enforced over HTTP, never by sharing a database or ORM session.
+SmartHire is a microservices platform: five independent async-first FastAPI services, each with its own PostgreSQL database, sitting behind a single nginx API gateway. Clear layer boundaries (HTTP handling → business logic → persistence) are enforced _within_ each service; boundaries _between_ services are enforced over HTTP, never by sharing a database or ORM session. New human-identity types (recruiters, candidates, and future types such as Admin or Employer) are added inside the consolidated **user-service** as additional tables/routers/services — not as new microservices.
 
 ## System Context
 
@@ -12,8 +12,7 @@ flowchart TD
     gateway[nginx Gateway<br/>/api/v1/*]
 
     subgraph Services
-        recruiterSvc[recruiter-service]
-        candidateSvc[candidate-service]
+        userSvc[user-service]
         jobSvc[job-service]
         resumeSvc[resume-service]
         applicationSvc[application-service]
@@ -26,22 +25,20 @@ flowchart TD
     end
 
     temporal[Temporal Server]
-    postgres[(PostgreSQL<br/>6 logical databases)]
+    postgres[(PostgreSQL<br/>5 logical databases)]
 
     user --> gateway
-    gateway --> recruiterSvc
-    gateway --> candidateSvc
+    gateway --> userSvc
     gateway --> jobSvc
     gateway --> resumeSvc
     gateway --> applicationSvc
     gateway --> notificationSvc
 
     applicationSvc -.HTTP.-> jobSvc
-    applicationSvc -.HTTP.-> candidateSvc
+    applicationSvc -.HTTP.-> userSvc
     applicationSvc -.HTTP.-> resumeSvc
 
-    recruiterSvc --> postgres
-    candidateSvc --> postgres
+    userSvc --> postgres
     jobSvc --> postgres
     resumeSvc --> postgres
     applicationSvc --> postgres
@@ -71,7 +68,7 @@ flowchart TB
 
     subgraph Domain["services/&lt;name&gt;/app/services/"]
         svc[Service<br/>business rules + orchestration]
-        clients[HTTP Clients<br/>all but recruiter/notification]
+        clients[HTTP Clients<br/>all but notification]
     end
 
     subgraph DataAccess["services/&lt;name&gt;/app/repositories/"]
@@ -105,7 +102,7 @@ Every service repeats this same internal shape. The only structural difference b
 - Style: fully async FastAPI handlers
 - Error handling: catches domain exceptions from services and converts to HTTP responses via centralized exception handlers
 - **Auth scoping:** Guards endpoints with `require_role()` dependency; only authenticated users of the correct role can proceed
-- **Gateway:** nginx (`infra/nginx/nginx.conf`) is the intended API entrypoint for real traffic, routing `/api/v1/<resource>/*` to the owning service's internal port. Each service additionally publishes its own host port (8001-8006) as a local-dev convenience for direct Swagger access — not something a real client should call.
+- **Gateway:** nginx (`infra/nginx/nginx.conf`) is the intended API entrypoint for real traffic, routing `/api/v1/<resource>/*` to the owning service's internal port. Each service additionally publishes its own host port (8001, 8003-8006) as a local-dev convenience for direct Swagger access — not something a real client should call.
 
 ### Services Layer
 
@@ -114,7 +111,7 @@ Every service repeats this same internal shape. The only structural difference b
 - Principle: services own behavior, repositories own queries
 - **Exception pattern:** Services raise domain exceptions (`NotFoundError`, `ForbiddenError`, `BadRequestError`, `ConflictError`, `PayloadTooLargeError`, `ServiceUnavailableError`) from the shared `exceptions.http_exceptions` module, **not** `HTTPException`. This decouples services from HTTP and allows them to be called from workflows, background tasks, or other contexts.
 - **Auth binding:** Services extract ownership IDs from `current_user` context (X-User-ID header), not from request bodies. Prevents authorization bypasses.
-- **Cross-service calls:** no service has direct DB access to another service's tables — cross-service reads/writes go over HTTP via each service's own `app/clients/`, never a join across databases. application-service calls job-service, candidate-service, and resume-service (to validate jobs/candidates and cascade-delete on job/candidate removal); job-service calls recruiter-service and application-service; candidate-service calls resume-service and application-service; resume-service calls candidate-service. Only `recruiter-service` and `notification-service` make no outbound service calls.
+- **Cross-service calls:** no service has direct DB access to another service's tables — cross-service reads/writes go over HTTP via each service's own `app/clients/`, never a join across databases. application-service calls job-service, user-service, and resume-service (to validate jobs/candidates and cascade-delete on job/candidate removal); job-service calls user-service and application-service; user-service calls resume-service and application-service (to cascade-delete a candidate's resumes/applications on candidate deletion); resume-service calls user-service. Only `notification-service` makes no outbound service calls.
 
 ### Repository Layer
 
@@ -126,7 +123,7 @@ Every service repeats this same internal shape. The only structural difference b
 
 ### Persistence Layer
 
-- Primary store: one shared PostgreSQL container, six logical databases — `recruiter_db`, `candidate_db`, `job_db`, `resume_db`, `application_db`, `notification_db` (`infra/postgres/init.sql`)
+- Primary store: one shared PostgreSQL container, five logical databases — `user_db`, `job_db`, `resume_db`, `application_db`, `notification_db` (`infra/postgres/init.sql`)
 - **Flexible fields:** JSONB for candidate master profiles, candidate resume parsing output, parsed job content, and application eligibility results
 - **Schema control:** each service has its own Alembic migration history under `services/<name>/migrations/`
 - **Transaction management:** Session commit/rollback is handled by each service's `get_db_session()` dependency. Repositories use `flush()` to get IDs without committing; the session commits only after the route handler completes successfully.
@@ -136,7 +133,7 @@ Every service repeats this same internal shape. The only structural difference b
 ### Manual Validation Surface
 
 - The Postman collection (`postman/SmartHire.postman_collection.json`), driven entirely through the nginx gateway, is the primary validation surface.
-- Each service exposes its own Swagger UI/ReDoc (`docs_url="/docs"`), reachable directly on its host port (recruiter 8001, candidate 8002, job 8003, resume 8004, application 8005, notification 8006) for interactive schema inspection — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway itself.
+- Each service exposes its own Swagger UI/ReDoc (`docs_url="/docs"`), reachable directly on its host port (user 8001, job 8003, resume 8004, application 8005, notification 8006) for interactive schema inspection — nginx doesn't proxy `/docs`, so it isn't reachable through the gateway itself.
 - Resume files are uploaded independently of any application (`POST /resumes`) and stored on resume-service's local disk in development.
 - Job description PDFs are uploaded per job and processed through the Temporal `JobPublishingWorkflow` when the job is published.
 
@@ -217,7 +214,7 @@ sequenceDiagram
     participant Service as ApplicationService
     participant Eligibility as EligibilityService
     participant JobSvc as job-service (HTTP)
-    participant CandidateSvc as candidate-service (HTTP)
+    participant CandidateSvc as user-service (HTTP)
     participant ResumeSvc as resume-service (HTTP)
     participant AppRepo as ApplicationRepository
     participant DB as application_db
@@ -268,8 +265,8 @@ flowchart LR
     subgraph Local Development
         compose[Docker Compose]
         nginxLocal[nginx Gateway Container]
-        serviceContainers[6 Service Containers<br/>+ 2 Temporal Workers]
-        localDb[(PostgreSQL Container<br/>6 logical DBs)]
+        serviceContainers[5 Service Containers<br/>+ 2 Temporal Workers]
+        localDb[(PostgreSQL Container<br/>5 logical DBs)]
         localTemporal[Temporal + Temporal UI Containers]
     end
 
