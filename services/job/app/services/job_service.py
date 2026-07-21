@@ -21,6 +21,7 @@ from app.schemas.job import (
     JobCreate,
     JobCreatePayload,
     JobResponse,
+    JobStatusHistoryEntry,
     JobUpdate,
     PublishJobResponse,
 )
@@ -305,6 +306,19 @@ class JobService:
             await self.file_service.remove_if_exists(previous_storage_path)
 
         return JobResponse.model_validate(updated_job)
+
+    async def get_job_status_history(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> list[JobStatusHistoryEntry]:
+        owner_id = require_recruiter_user_id(current_user)
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundError("Job not found")
+        if job.recruiter_id != owner_id:
+            raise ForbiddenError("Not authorized to view this job's status history")
+
+        history = await self.job_repo.list_status_history(job_id)
+        return [JobStatusHistoryEntry.model_validate(entry) for entry in history]
 
     async def delete_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> None:
         owner_id = require_recruiter_user_id(current_user)

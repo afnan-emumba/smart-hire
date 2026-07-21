@@ -44,6 +44,14 @@ class JobRepository:
         result = await self.session.execute(select(Job).where(Job.id == job_id))
         return result.scalar_one_or_none()
 
+    async def list_status_history(self, job_id: uuid.UUID) -> list[JobStatusHistory]:
+        result = await self.session.execute(
+            select(JobStatusHistory)
+            .where(JobStatusHistory.job_id == job_id)
+            .order_by(JobStatusHistory.changed_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def list_by_recruiter(
         self,
         recruiter_id: uuid.UUID,

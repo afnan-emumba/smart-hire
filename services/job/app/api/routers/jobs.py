@@ -12,6 +12,7 @@ from app.core.enums import JobStatus
 from app.schemas.job import (
     JobCreate,
     JobResponse,
+    JobStatusHistoryEntry,
     JobUpdate,
     PublishJobResponse,
 )
@@ -105,6 +106,15 @@ async def publish_job(
     service: JobService = Depends(get_job_service),
 ) -> PublishJobResponse:
     return await service.publish_job(job_id, current_user)
+
+
+@router.get("/{job_id}/status-history", response_model=list[JobStatusHistoryEntry])
+async def get_job_status_history(
+    job_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role("RECRUITER")),
+    service: JobService = Depends(get_job_service),
+) -> list[JobStatusHistoryEntry]:
+    return await service.get_job_status_history(job_id, current_user)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

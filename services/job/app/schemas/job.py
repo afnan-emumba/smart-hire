@@ -116,6 +116,20 @@ class JobResponse(BaseModel):
     updated_at: datetime
 
 
+class JobStatusHistoryEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    job_id: uuid.UUID
+    from_status: str | None
+    to_status: str
+    changed_by_user_id: uuid.UUID | None
+    changed_by_role: str | None
+    reason: str | None
+    notes: str | None
+    changed_at: datetime
+
+
 class PublishJobResponse(BaseModel):
     job_id: uuid.UUID
     workflow_id: str

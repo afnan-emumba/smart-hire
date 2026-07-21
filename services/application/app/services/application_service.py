@@ -226,16 +226,19 @@ class ApplicationService:
         if current_user.role == "CANDIDATE":
             candidate_id = require_candidate_user_id(current_user)
             if application.candidate_id != candidate_id:
-                raise ForbiddenError("Not authorized to view this application")
+                raise NotFoundError("Application not found")
             return
 
         recruiter_id = require_recruiter_user_id(current_user)
-        await self._get_job_owned_by_recruiter(
-            application.job_id,
-            recruiter_id,
-            current_user,
-            forbidden_message="Not authorized to view this application",
-        )
+        try:
+            await self._get_job_owned_by_recruiter(
+                application.job_id,
+                recruiter_id,
+                current_user,
+                forbidden_message="Not authorized to view this application",
+            )
+        except ForbiddenError as exc:
+            raise NotFoundError("Application not found") from exc
 
     async def _get_job_owned_by_recruiter(
         self,
