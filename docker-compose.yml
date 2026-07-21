@@ -96,10 +96,18 @@ services:
       RESUME_SERVICE_URL: http://resume-service:8004
       APPLICATION_SERVICE_URL: http://application-service:8005
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - ./services/user/migrations/versions:/app/migrations/versions
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8001/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8001/health', timeout=3)",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,10 +135,17 @@ services:
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
       - job_uploads:/data/job_descriptions
+      - ./services/job/migrations/versions:/app/migrations/versions
     ports:
       - "8003:8003"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8003/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8003/health', timeout=3)",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -182,10 +197,17 @@ services:
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
       - resume_uploads:/data/resumes
+      - ./services/resume/migrations/versions:/app/migrations/versions
     ports:
       - "8004:8004"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8004/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8004/health', timeout=3)",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -237,10 +259,18 @@ services:
       RESUME_SERVICE_URL: http://resume-service:8004
       MAX_APPLICATIONS_PER_CANDIDATE: ${MAX_APPLICATIONS_PER_CANDIDATE}
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - ./services/application/migrations/versions:/app/migrations/versions
     ports:
       - "8005:8005"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8005/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8005/health', timeout=3)",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -256,7 +286,13 @@ services:
     ports:
       - "8006:8006"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8006/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8006/health', timeout=3)",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
