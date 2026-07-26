@@ -1,10 +1,23 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, status
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Notification Service", docs_url="/docs", redoc_url="/redoc")
+from fastapi import FastAPI
+
+from api.app_factory import make_app
+from app.api.router import api_router
+from app.core.config import get_settings
+from app.temporal.client import TemporalClient
+
+settings = get_settings()
 
 
-@app.get("/health", status_code=status.HTTP_200_OK)
-async def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await TemporalClient.close()
+
+
+app = make_app(app_name=settings.app_name, lifespan=lifespan)
+
+app.include_router(api_router)
