@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
 
 from app.clients.job_client import JobClient
 from app.core.application_states import ApplicationStatus, is_valid_app_transition
 from app.core.config import Settings
+from app.db.models import Application, ApplicationStatusHistory
 from app.repositories.application_repo import ApplicationRepository
 from app.schemas.application import (
     ApplicationCreate,
@@ -14,10 +17,19 @@ from app.schemas.application import (
     EligibilityReasonCode,
 )
 from app.services.eligibility_service import EligibilityService
+from app.temporal.client import TemporalClient
+from app.temporal.constants import NOTIFICATION_DELIVERY_WORKFLOW_ID_PREFIX
+from app.temporal.dto import NotificationDeliveryInput
 from auth.actors import require_candidate_user_id, require_recruiter_user_id
 from auth.header_auth import CurrentUser
+from contracts.enums import NotificationType, UserRole
 from contracts.service_responses import JobResponseContract
+from contracts.temporal import (
+    NOTIFICATION_DELIVERY_TASK_QUEUE,
+    NOTIFICATION_DELIVERY_WORKFLOW_NAME,
+)
 from db.base import is_unique_violation
+from db.deletion import ensure_not_deleting
 from exceptions.http_exceptions import (
     BadRequestError,
     ConflictError,
@@ -25,6 +37,9 @@ from exceptions.http_exceptions import (
     InvalidStateTransitionError,
     NotFoundError,
 )
+from temporal.workflow_launcher import start_workflow_best_effort
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationService:
@@ -167,12 +182,13 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found")
 
-        await self._get_job_owned_by_recruiter(
+        job = await self._get_job_owned_by_recruiter(
             application.job_id,
             recruiter_id,
             current_user,
             forbidden_message="Not authorized to update this application",
         )
+        ensure_not_deleting(job, "Job is being deleted")
 
         current_status = ApplicationStatus(application.status)
         if current_status == new_status:
@@ -182,13 +198,54 @@ class ApplicationService:
                 f"Cannot transition application from '{current_status.value}' to '{new_status.value}'"
             )
 
-        updated_application = await self.application_repo.update_status(
+        updated_application, history_entry = await self.application_repo.update_status(
             application,
             status=new_status,
             changed_by_user_id=recruiter_id,
             changed_by_role=current_user.role,
         )
+        await self.application_repo.session.commit()
+        await self._notify_status_change(updated_application, history_entry)
         return ApplicationResponse.model_validate(updated_application)
+
+    async def _notify_status_change(
+        self,
+        application: Application,
+        history_entry: ApplicationStatusHistory,
+    ) -> None:
+        """Hand notification delivery to Temporal after the status write commits.
+
+        Best-effort on purpose: the status change is already durable, so a
+        Temporal outage must not fail the request. The window between the commit
+        and this call is a dual-write gap that a transactional outbox would
+        close.
+        """
+        await start_workflow_best_effort(
+            client_factory=TemporalClient.get_client,
+            workflow=NOTIFICATION_DELIVERY_WORKFLOW_NAME,
+            workflow_input=NotificationDeliveryInput(
+                recipient_user_id=str(application.candidate_id),
+                recipient_role=UserRole.CANDIDATE.value,
+                notification_type=NotificationType.APPLICATION_STATUS_CHANGED.value,
+                dedupe_key=str(history_entry.id),
+                payload={
+                    "application_id": str(application.id),
+                    "job_id": str(application.job_id),
+                    "previous_status": history_entry.from_status,
+                    "new_status": history_entry.to_status,
+                },
+            ),
+            workflow_id=f"{NOTIFICATION_DELIVERY_WORKFLOW_ID_PREFIX}-{history_entry.id}",
+            task_queue=NOTIFICATION_DELIVERY_TASK_QUEUE,
+            execution_timeout=timedelta(hours=24),
+            logger=logger,
+            context={"application_id": str(application.id)},
+            conflict_log_message="Notification delivery workflow already running",
+            failure_log_message=(
+                "Failed to start notification delivery workflow; the application "
+                "status change is still committed"
+            ),
+        )
 
     async def delete_applications(
         self,

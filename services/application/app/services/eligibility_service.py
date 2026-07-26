@@ -12,6 +12,7 @@ from app.schemas.application import EligibilityReasonCode, EligibilityResult
 from auth.header_auth import CurrentUser
 from contracts.enums import JobStatus
 from contracts.service_responses import CandidateMasterProfileContract
+from db.deletion import ensure_not_deleting
 from exceptions.http_exceptions import NotFoundError
 
 
@@ -70,6 +71,8 @@ class EligibilityService:
             raise NotFoundError("Job not found")
         if candidate is None:
             raise NotFoundError("Candidate not found")
+        ensure_not_deleting(job, "Job is being deleted")
+        ensure_not_deleting(candidate, "Candidate is being deleted")
 
         if job.status != JobStatus.READY:
             return EligibilityResult(

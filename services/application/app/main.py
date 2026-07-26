@@ -10,6 +10,7 @@ from app.clients.candidate_client import CandidateClient
 from app.clients.job_client import JobClient
 from app.clients.resume_client import ResumeClient
 from app.core.config import get_settings
+from app.temporal.client import TemporalClient
 
 settings = get_settings()
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     await app.state.job_client.aclose()
     await app.state.candidate_client.aclose()
     await app.state.resume_client.aclose()
+    await TemporalClient.close()
 
 
 app = make_app(app_name=settings.app_name, lifespan=lifespan)

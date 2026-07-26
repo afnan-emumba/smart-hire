@@ -145,11 +145,11 @@ class ApplicationRepository:
         changed_by_role: str | None = None,
         reason: str | None = None,
         notes: str | None = None,
-    ) -> Application:
+    ) -> tuple[Application, ApplicationStatusHistory]:
         previous_status = application.status
         application.status = status.value
         self._apply_status_timestamps(application, status)
-        self._add_status_history_entry(
+        history_entry = self._add_status_history_entry(
             application,
             from_status=previous_status,
             to_status=status.value,
@@ -159,7 +159,8 @@ class ApplicationRepository:
             notes=notes,
         )
         await self.session.flush()
-        return await self.get_by_id(application.id)
+        await self.session.refresh(history_entry)
+        return await self.get_by_id(application.id), history_entry
 
     async def delete_by_job(self, job_id: uuid.UUID) -> int:
         result = await self.session.execute(
@@ -218,15 +219,15 @@ class ApplicationRepository:
         changed_by_role: str | None,
         reason: str | None = None,
         notes: str | None = None,
-    ) -> None:
-        self.session.add(
-            ApplicationStatusHistory(
-                application_id=application.id,
-                from_status=from_status,
-                to_status=to_status,
-                changed_by_user_id=changed_by_user_id,
-                changed_by_role=changed_by_role,
-                reason=reason,
-                notes=notes,
-            )
+    ) -> ApplicationStatusHistory:
+        history_entry = ApplicationStatusHistory(
+            application_id=application.id,
+            from_status=from_status,
+            to_status=to_status,
+            changed_by_user_id=changed_by_user_id,
+            changed_by_role=changed_by_role,
+            reason=reason,
+            notes=notes,
         )
+        self.session.add(history_entry)
+        return history_entry
