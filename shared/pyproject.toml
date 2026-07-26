@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smarthire-shared"
-version = "0.6.0"
+version = "0.6.1"
 description = "Shared contracts and infrastructure utilities imported by every SmartHire service"
 requires-python = ">=3.11"
 dependencies = []
