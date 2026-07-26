@@ -5,17 +5,54 @@
     "description": "API validation flow for SmartHire."
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost/api/v1" },
-    { "key": "gatewayUrl", "value": "http://localhost" },
-    { "key": "temporalUiUrl", "value": "http://localhost:8080" },
-    { "key": "recruiterUserId", "value": "{{$randomUUID}}" },
-    { "key": "candidateUserId", "value": "{{$randomUUID}}" },
-    { "key": "recruiterId", "value": "" },
-    { "key": "candidateId", "value": "" },
-    { "key": "jobId", "value": "" },
-    { "key": "workflowId", "value": "" },
-    { "key": "applicationId", "value": "" },
-    { "key": "resumeId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost/api/v1"
+    },
+    {
+      "key": "gatewayUrl",
+      "value": "http://localhost"
+    },
+    {
+      "key": "temporalUiUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "recruiterUserId",
+      "value": "{{$randomUUID}}"
+    },
+    {
+      "key": "candidateUserId",
+      "value": "{{$randomUUID}}"
+    },
+    {
+      "key": "recruiterId",
+      "value": ""
+    },
+    {
+      "key": "candidateId",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "workflowId",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "resumeId",
+      "value": ""
+    },
+    {
+      "key": "deletionWorkflowId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -43,8 +80,12 @@
             "header": [],
             "url": {
               "raw": "{{gatewayUrl}}/health",
-              "host": ["{{gatewayUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             }
           }
         },
@@ -55,8 +96,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/user",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "user"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "user"
+              ]
             }
           }
         },
@@ -67,8 +113,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/job",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "job"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "job"
+              ]
             }
           }
         },
@@ -79,8 +130,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/resume",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "resume"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "resume"
+              ]
             }
           }
         },
@@ -91,8 +147,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/application",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "application"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "application"
+              ]
             }
           }
         },
@@ -103,8 +164,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/notification",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "notification"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "notification"
+              ]
             }
           }
         }
@@ -134,9 +200,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -144,8 +219,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/recruiters",
-              "host": ["{{baseUrl}}"],
-              "path": ["recruiters"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recruiters"
+              ]
             }
           }
         },
@@ -170,9 +249,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -180,8 +268,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/candidates",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "candidates"
+              ]
             }
           }
         },
@@ -190,13 +282,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/recruiters/{{recruiterId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["recruiters", "{{recruiterId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recruiters",
+                "{{recruiterId}}"
+              ]
             }
           }
         },
@@ -205,13 +308,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "candidates",
+                "{{candidateId}}"
+              ]
             }
           }
         },
@@ -220,16 +334,32 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/recruiters?limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["recruiters"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recruiters"
+              ],
               "query": [
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -253,9 +383,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -263,8 +402,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "candidates",
+                "{{candidateId}}"
+              ]
             }
           }
         },
@@ -273,13 +417,26 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}/profile/sync-resume",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}", "profile", "sync-resume"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "candidates",
+                "{{candidateId}}",
+                "profile",
+                "sync-resume"
+              ]
             }
           }
         }
@@ -312,9 +469,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -322,14 +488,18 @@
             },
             "url": {
               "raw": "{{baseUrl}}/jobs",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs"
+              ]
             }
           }
         },
         {
           "name": "Update Job",
-          "description": "Edits a draft job's title/description/requirements. Only allowed while the job is in draft status — editing after publish returns 400.",
+          "description": "Edits a draft job's title/description/requirements. Only allowed while the job is in draft status \u2014 editing after publish returns 400.",
           "event": [
             {
               "listen": "test",
@@ -347,9 +517,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -357,8 +536,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}"
+              ]
             }
           }
         },
@@ -368,19 +552,35 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "description_file", "type": "file", "src": [] }
+                {
+                  "key": "description_file",
+                  "type": "file",
+                  "src": []
+                }
               ]
             },
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}/description-file",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}", "description-file"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}",
+                "description-file"
+              ]
             }
           }
         },
@@ -408,13 +608,25 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}/publish",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}", "publish"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}",
+                "publish"
+              ]
             }
           }
         },
@@ -443,13 +655,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}"
+              ]
             }
           }
         },
@@ -478,13 +701,25 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}/status-history",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}", "status-history"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}",
+                "status-history"
+              ]
             }
           }
         },
@@ -493,16 +728,32 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/jobs?limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs"
+              ],
               "query": [
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -537,17 +788,33 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "body": {
               "mode": "formdata",
-              "formdata": [{ "key": "resume", "type": "file", "src": [] }]
+              "formdata": [
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": {
               "raw": "{{baseUrl}}/resumes",
-              "host": ["{{baseUrl}}"],
-              "path": ["resumes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "resumes"
+              ]
             }
           }
         },
@@ -556,13 +823,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/resumes/{{resumeId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["resumes", "{{resumeId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "resumes",
+                "{{resumeId}}"
+              ]
             }
           }
         },
@@ -571,17 +849,36 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/resumes?candidate_id={{candidateId}}&limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["resumes"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "resumes"
+              ],
               "query": [
-                { "key": "candidate_id", "value": "{{candidateId}}" },
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "candidate_id",
+                  "value": "{{candidateId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -612,9 +909,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -622,8 +928,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/applications",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ]
             }
           }
         },
@@ -646,9 +956,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -656,8 +975,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/applications",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ]
             }
           }
         },
@@ -666,17 +989,36 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/applications?status=pending&limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ],
               "query": [
-                { "key": "status", "value": "pending" },
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "status",
+                  "value": "pending"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -703,13 +1045,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/applications/{{applicationId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "{{applicationId}}"
+              ]
             }
           }
         },
@@ -733,9 +1086,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -743,8 +1105,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/applications/{{applicationId}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications", "{{applicationId}}", "status"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "{{applicationId}}",
+                "status"
+              ]
             }
           }
         },
@@ -753,19 +1121,117 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/applications?status=screening&limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ],
               "query": [
-                { "key": "status", "value": "screening" },
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "status",
+                  "value": "screening"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications For Candidate",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?recipient_user_id={{candidateUserId}}&limit=20&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "recipient_user_id",
+                  "value": "{{candidateUserId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Notifications are written by NotificationDeliveryWorkflow, which application-service starts (best-effort) whenever an application status changes. Set NOTIFICATION_FAILURE_RATE=0.5 to watch the delivery activity retry in the Temporal UI."
+          }
+        },
+        {
+          "name": "Create Notification (direct, for manual testing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_user_id\": \"{{candidateUserId}}\",\n  \"recipient_role\": \"CANDIDATE\",\n  \"notification_type\": \"application_status_changed\",\n  \"dedupe_key\": \"manual-test-{{$randomUUID}}\",\n  \"payload\": {\n    \"note\": \"manual smoke test\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            },
+            "description": "Bypasses Temporal. Re-sending the same dedupe_key returns the existing row rather than creating a duplicate."
           }
         }
       ]
@@ -782,7 +1248,9 @@
             "header": [],
             "url": {
               "raw": "{{temporalUiUrl}}",
-              "host": ["{{temporalUiUrl}}"]
+              "host": [
+                "{{temporalUiUrl}}"
+              ]
             }
           }
         }
@@ -798,30 +1266,75 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/applications?job_id={{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"],
-              "query": [{ "key": "job_id", "value": "{{jobId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ],
+              "query": [
+                {
+                  "key": "job_id",
+                  "value": "{{jobId}}"
+                }
+              ]
             }
           }
         },
         {
-          "name": "Delete Job",
+          "name": "Delete Job (202 -> JobDeletionWorkflow)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cascade accepted (202)', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('deletionWorkflowId', body.workflow_id);",
+                  "pm.test('resource is marked deleting', function () {",
+                  "    pm.expect(body.deletion_state).to.eql('deleting');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "X-User-ID", "value": "{{recruiterUserId}}" },
-              { "key": "X-User-Role", "value": "RECRUITER" }
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}"]
-            }
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "{{jobId}}"
+              ]
+            },
+            "description": "Marks the job deleting and starts JobDeletionWorkflow on the job-deletion task queue. Poll GET /jobs/{id}: it reports deletion_state=deleting until the workflow removes the row, then 404s."
           }
         },
         {
@@ -830,14 +1343,29 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/resumes?candidate_id={{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["resumes"],
-              "query": [{ "key": "candidate_id", "value": "{{candidateId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "resumes"
+              ],
+              "query": [
+                {
+                  "key": "candidate_id",
+                  "value": "{{candidateId}}"
+                }
+              ]
             }
           }
         },
@@ -847,30 +1375,120 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/applications?candidate_id={{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["applications"],
-              "query": [{ "key": "candidate_id", "value": "{{candidateId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ],
+              "query": [
+                {
+                  "key": "candidate_id",
+                  "value": "{{candidateId}}"
+                }
+              ]
             }
           }
         },
         {
-          "name": "Delete Candidate",
+          "name": "Delete Candidate (202 -> CandidateDeletionWorkflow)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cascade accepted (202)', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('deletionWorkflowId', body.workflow_id);",
+                  "pm.test('resource is marked deleting', function () {",
+                  "    pm.expect(body.deletion_state).to.eql('deleting');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "X-User-ID", "value": "{{candidateUserId}}" },
-              { "key": "X-User-Role", "value": "CANDIDATE" }
+              {
+                "key": "X-User-ID",
+                "value": "{{candidateUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CANDIDATE"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/candidates/{{candidateId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["candidates", "{{candidateId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "candidates",
+                "{{candidateId}}"
+              ]
+            },
+            "description": "Marks the candidate deleting and starts CandidateDeletionWorkflow. Resumes and applications are deleted by parallel activities, then the candidate row. Poll GET /candidates/{id} until it 404s."
+          }
+        },
+        {
+          "name": "Delete Recruiter (202 -> RecruiterDeletionWorkflow)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cascade accepted (202)', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('deletionWorkflowId', body.workflow_id);",
+                  "pm.test('resource is marked deleting', function () {",
+                  "    pm.expect(body.deletion_state).to.eql('deleting');",
+                  "});"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "{{recruiterUserId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "RECRUITER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recruiters/{{recruiterId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recruiters",
+                "{{recruiterId}}"
+              ]
+            },
+            "description": "Starts RecruiterDeletionWorkflow, which lists the recruiter's jobs and fans out one child JobDeletionWorkflow per job onto job-service's task queue before deleting the recruiter row. Watch the parent and its children in the Temporal UI."
           }
         }
       ]

@@ -90,11 +90,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      temporal:
+        condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${USER_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       RESUME_SERVICE_URL: http://resume-service:8004
       APPLICATION_SERVICE_URL: http://application-service:8005
+      JOB_SERVICE_URL: http://job-service:8003
       HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
       - ./services/user/migrations/versions:/app/migrations/versions
@@ -112,6 +117,28 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  user-service-worker:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    container_name: smarthire-user-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${USER_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      RESUME_SERVICE_URL: http://resume-service:8004
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      JOB_SERVICE_URL: http://job-service:8003
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    restart: unless-stopped
 
   job-service:
     build:
@@ -245,6 +272,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      temporal:
+        condition: service_healthy
       job-service:
         condition: service_healthy
       user-service:
@@ -254,6 +283,8 @@ services:
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${APPLICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
       JOB_SERVICE_URL: http://job-service:8003
       CANDIDATE_SERVICE_URL: http://user-service:8001
       RESUME_SERVICE_URL: http://resume-service:8004
@@ -281,8 +312,19 @@ services:
       context: .
       dockerfile: services/notification/Dockerfile
     container_name: smarthire-notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      NOTIFICATION_FAILURE_RATE: ${NOTIFICATION_FAILURE_RATE:-0.0}
+    volumes:
+      - ./services/notification/migrations/versions:/app/migrations/versions
     ports:
       - "8006:8006"
     healthcheck:
@@ -296,7 +338,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
+
+  notification-service-worker:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    container_name: smarthire-notification-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      notification-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      NOTIFICATION_FAILURE_RATE: ${NOTIFICATION_FAILURE_RATE:-0.0}
+    restart: unless-stopped
 
 volumes:
   postgres_data:
