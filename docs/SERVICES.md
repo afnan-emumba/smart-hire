@@ -243,7 +243,8 @@ sequenceDiagram
 **Key points:**
 
 - `candidate_id` comes from auth context (`X-User-ID`), not request body
-- No Temporal workflow is involved — this is a single synchronous request that fans out over HTTP
+- No Temporal workflow is involved — this is a read fan-out plus a single write, so there is nothing durable to protect. Deletes are the opposite case and *do* use Temporal (see "Cross-service delete cascades" below)
+- Applying to a job whose `deletion_state` is `deleting`, or as a candidate who is `deleting`, returns 409
 - Job must be `ready`; database unique constraint `(job_id, candidate_id)` is the final backstop against duplicates
 - Resume linkage is best-effort: `resume_id` is only set when the candidate's profile lacked `skills` and the eligibility check fell back to a parsed resume
 
@@ -259,6 +260,28 @@ stateDiagram-v2
     offer --> accepted
     offer --> rejected
 ```
+
+An application status change also best-effort-starts `NotificationDeliveryWorkflow` on notification-service's task queue, keyed on the new `application_status_history` row id. A Temporal outage logs a warning; the status change still returns 200.
+
+## Cross-service Delete Cascades
+
+Deleting a candidate, recruiter, or job touches multiple services. These run as Temporal workflows so a partial cascade completes rather than leaving the system permanently inconsistent.
+
+| Endpoint | Workflow (task queue) | Steps |
+|---|---|---|
+| `DELETE /candidates/{id}` | `CandidateDeletionWorkflow` (`user-deletion`) | resumes ∥ applications (parallel activities), then the candidate row |
+| `DELETE /jobs/{id}` | `JobDeletionWorkflow` (`job-deletion`) | applications → JD file → job row |
+| `DELETE /recruiters/{id}` | `RecruiterDeletionWorkflow` (`user-deletion`) | list the recruiter's jobs → one child `JobDeletionWorkflow` per job on job-service's queue → recruiter row |
+
+**This is not a Saga.** Deletes are idempotent and one-directional, so there is nothing to compensate. What Temporal provides is guaranteed forward completion: activities retry with backoff and no attempt cap (bounded only by a 1-hour execution timeout), surviving downstream outages and worker restarts.
+
+**Contract.** Each endpoint returns **202** with `{resource_id, workflow_id, deletion_state}`. Workflow ids are deterministic (`candidate-deletion-{id}`), so re-issuing the `DELETE` re-drives the same workflow instead of starting a second one.
+
+**`deletion_state` rules.** Reads still return a `deleting` row — application-service verifies job ownership by fetching the job, so hiding it would deadlock the job cascade, and consumers special-case exactly `404`, so `410 Gone` fails the same way. List endpoints exclude `deleting` rows, and all mutations return 409. The cascade's own activities are the only permitted writers.
+
+**Actor identity.** Downstream calls authorize on `X-User-ID`/`X-User-Role`, which no longer exist once the request returns, so every workflow input carries `actor_user_id`/`actor_role` and activities rebuild a `CurrentUser` from them. Under real auth this would need a service identity rather than impersonation.
+
+**Ordering matters in the job cascade.** The JD file is removed *before* the row: a storage failure then leaves a retryable row rather than an orphaned blob nothing points at.
 
 ## Service Design Rules
 

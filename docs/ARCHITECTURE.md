@@ -20,8 +20,10 @@ flowchart TD
     end
 
     subgraph Workers
-        jobWorker[job-service-worker]
+        jobWorker[job-service-worker<br/>job-publishing + job-deletion]
         resumeWorker[resume-service-worker]
+        userWorker[user-service-worker<br/>user-deletion]
+        notificationWorker[notification-service-worker<br/>notification-delivery]
     end
 
     temporal[Temporal Server]
@@ -42,16 +44,32 @@ flowchart TD
     jobSvc --> postgres
     resumeSvc --> postgres
     applicationSvc --> postgres
+    notificationSvc --> postgres
 
+    userSvc --> temporal
     jobSvc --> temporal
     resumeSvc --> temporal
+    applicationSvc --> temporal
     temporal --> jobWorker
     temporal --> resumeWorker
+    temporal --> userWorker
+    temporal --> notificationWorker
     jobWorker --> postgres
     resumeWorker --> postgres
+    userWorker --> postgres
+    notificationWorker --> postgres
+
+    userWorker -.HTTP.-> resumeSvc
+    userWorker -.HTTP.-> applicationSvc
+    userWorker -.HTTP.-> jobSvc
+    jobWorker -.HTTP.-> applicationSvc
 ```
 
-Kafka, Celery/RabbitMQ, Redis, and the Prometheus/Grafana/Jaeger/OpenTelemetry observability stack are Part A's Week 3 scope (event-driven processing + observability) and are **not yet implemented** — `notification-service` is a health-check-only stub reserved for that work. See [PRD](PRD.md) for the full timeline.
+`application-service` connects to Temporal as a **client only** — it starts `NotificationDeliveryWorkflow` by name on notification-service's task queue and hosts no workflows itself.
+
+`user-service-worker` reaches job-service two ways: an activity lists a recruiter's jobs over HTTP, then the workflow spawns child `JobDeletionWorkflow` executions directly onto job-service's `job-deletion` task queue. The task queue is a deliberate second integration surface alongside HTTP — the workflow name and queue live in `contracts/temporal.py` so the dependency is declared rather than re-typed as string literals.
+
+Kafka, Celery/RabbitMQ, Redis, and the Prometheus/Grafana/Jaeger/OpenTelemetry observability stack are Part A's Week 3 scope (event-driven processing + observability) and are **not yet implemented**. See [PRD](PRD.md) for the full timeline.
 
 ## Layered Application Design (per service)
 
@@ -77,7 +95,7 @@ flowchart TB
 
     subgraph Infrastructure
         db[(This service's own<br/>logical PostgreSQL database)]
-        workflow[Temporal<br/>job-service and resume-service only]
+        workflow[Temporal<br/>every service has a client;<br/>job, resume, user, notification also run workers]
         other[Other services'<br/>gateway-routed endpoints]
     end
 
@@ -91,7 +109,7 @@ flowchart TB
     clients -.HTTP.-> other
 ```
 
-Every service repeats this same internal shape. The only structural difference between services is which of the optional pieces they use: `job/` and `resume/` add `app/temporal/` (workflows, activities, worker entrypoint); `application/` adds `app/clients/` (HTTP clients) instead of any cross-service repository access; `notification/` (Week 3 stub) currently has none of the domain/data-access layers, just a health endpoint.
+Every service repeats this same internal shape. The only structural difference between services is which of the optional pieces they use: `job/`, `resume/`, `user/`, and `notification/` add a full `app/temporal/` package (workflows, activities, worker entrypoint); `application/` has an `app/temporal/` with a client and DTOs but no worker, since it only *starts* workflows others own; `user/`, `job/`, and `application/` all use `app/clients/` for cross-service HTTP instead of any shared repository access.
 
 ## Core Components
 
@@ -139,8 +157,20 @@ Every service repeats this same internal shape. The only structural difference b
 
 ### Async Processing
 
-- **Temporal** (implemented): `JobPublishingWorkflow` (job-service-worker) finalizes the description breakdown and marks a job `ready`; `ResumeParsingWorkflow` (resume-service-worker) converts an uploaded resume to markdown and extracts structured data. Both run on their own task queue with retry policies.
-- **Kafka, Celery** (Week 3, not yet implemented): planned for domain events (`JobPublished`, `ApplicationReceived`) and isolated background work (notifications, analytics, scoring).
+- **Temporal** (implemented). Six workflows across four task queues:
+
+| Workflow | Worker (task queue) | Purpose |
+|---|---|---|
+| `JobPublishingWorkflow` | job-service-worker (`job-publishing`) | Finalize the description breakdown, mark the job `ready` |
+| `JobDeletionWorkflow` | job-service-worker (`job-deletion`) | Applications → JD file → job row |
+| `ResumeParsingWorkflow` | resume-service-worker (`resume-parsing`) | Convert an uploaded resume to markdown, extract structured data |
+| `CandidateDeletionWorkflow` | user-service-worker (`user-deletion`) | Resumes ∥ applications, then the candidate row |
+| `RecruiterDeletionWorkflow` | user-service-worker (`user-deletion`) | Fan out child `JobDeletionWorkflow` per job, then the recruiter row |
+| `NotificationDeliveryWorkflow` | notification-service-worker (`notification-delivery`) | Record the notification, then retry delivery for up to 24h |
+
+  The publishing and parsing workflows use bounded retries (3 and 5 attempts). The delete cascades and notification delivery use **unbounded** retries capped only by the workflow execution timeout — a downstream service being down is an expected condition, not a failure. job-service-worker serves two task queues from one process via `asyncio.gather` over two `Worker` instances.
+
+- **Kafka, Celery** (Week 3, not yet implemented): planned for domain events (`JobPublished`, `ApplicationReceived`) and isolated background work (analytics, scoring). A transactional outbox belongs with that work — today the delete endpoints and the notification trigger both commit and *then* start a workflow, a dual-write gap where a crash in between strands the record.
 
 ## Job Publishing Flow
 
@@ -265,7 +295,7 @@ flowchart LR
     subgraph Local Development
         compose[Docker Compose]
         nginxLocal[nginx Gateway Container]
-        serviceContainers[5 Service Containers<br/>+ 2 Temporal Workers]
+        serviceContainers[5 Service Containers<br/>+ 4 Temporal Workers]
         localDb[(PostgreSQL Container<br/>5 logical DBs)]
         localTemporal[Temporal + Temporal UI Containers]
     end

@@ -87,6 +87,8 @@ Key root `.env` variables (see `.env.example` for the full list):
 | `JOB_DATABASE_URL`             | —              | asyncpg URL for `job_db`                   |
 | `RESUME_DATABASE_URL`          | —              | asyncpg URL for `resume_db`                |
 | `APPLICATION_DATABASE_URL`     | —              | asyncpg URL for `application_db`           |
+| `NOTIFICATION_DATABASE_URL`    | —              | asyncpg URL for `notification_db`          |
+| `NOTIFICATION_FAILURE_RATE`    | `0.0`          | **Dev only.** Fraction of notification deliveries the worker deliberately fails, so `NotificationDeliveryWorkflow`'s retry loop is visible in the Temporal UI. Must stay `0.0` outside local dev |
 | `RESUME_UPLOAD_DIR`            | `uploads/resumes` | Resume storage path inside resume-service |
 | `MAX_RESUME_SIZE_BYTES`        | `10485760` (10 MB) | Max resume file size                   |
 | `JD_UPLOAD_DIR`                | `uploads/job_descriptions` | JD storage path inside job-service |

@@ -141,7 +141,7 @@ smart-hire/
     └── notification/                  # Reserved for future event-driven work — health endpoint only (port 8006)
 ```
 
-Each service under `services/<name>/` follows the same internal layout: `app/api/routers/` → `app/services/` → `app/repositories/` → `app/db/models.py`, plus its own `alembic.ini`, `migrations/`, `requirements.txt`, and `Dockerfile`. `job/` and `resume/` additionally have `app/temporal/` (workflows, activities, worker entrypoint).
+Each service under `services/<name>/` follows the same internal layout: `app/api/routers/` → `app/services/` → `app/repositories/` → `app/db/models.py`, plus its own `alembic.ini`, `migrations/`, `requirements.txt`, and `Dockerfile`. `job/`, `resume/`, `user/`, and `notification/` additionally have a full `app/temporal/` (workflows, activities, worker entrypoint); `application/` has an `app/temporal/` with a client only, since it starts a workflow that notification-service owns.
 
 ---
 
@@ -175,7 +175,7 @@ docker compose up -d --build
 
 # View logs for a specific service
 docker compose logs -f job-service
-docker compose logs -f job-service-worker
+docker compose logs -f job-service-worker      # workers: job, resume, user, notification
 
 # Verify the gateway and a service are healthy
 curl http://localhost/health
@@ -203,7 +203,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r services/<name>/requirements.txt
 pip install -e ./shared
-pip install -e ./contracts   # only needed for user/job/resume/application, not notification
+pip install -e ./contracts   # needed by every service
 
 cd services/<name>
 alembic upgrade head
@@ -228,6 +228,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `POST /api/v1/recruiters` — Create recruiter
 - `GET /api/v1/recruiters/{id}` — Retrieve recruiter
 - `GET /api/v1/recruiters` — List recruiters with pagination
+- `DELETE /api/v1/recruiters/{id}` — Delete recruiter; returns **202** and starts `RecruiterDeletionWorkflow`, which fans out a child `JobDeletionWorkflow` per owned job
 
 **Candidates** (user-service):
 
@@ -235,7 +236,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `GET /api/v1/candidates/{id}` — Retrieve candidate profile
 - `GET /api/v1/candidates` — List candidates with pagination
 - `PATCH /api/v1/candidates/{id}` — Update candidate profile
-- `DELETE /api/v1/candidates/{id}` — Delete candidate profile
+- `DELETE /api/v1/candidates/{id}` — Delete candidate; returns **202** and starts `CandidateDeletionWorkflow` (resumes + applications in parallel, then the row)
 
 **Jobs** (job-service):
 
@@ -245,7 +246,7 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `PATCH /api/v1/jobs/{id}` — Update job details
 - `POST /api/v1/jobs/{id}/description-file` — Upload a PDF job description for parsing
 - `POST /api/v1/jobs/{id}/publish` — Publish the job (starts `JobPublishingWorkflow` in Temporal)
-- `DELETE /api/v1/jobs/{id}` — Delete job
+- `DELETE /api/v1/jobs/{id}` — Delete job; returns **202** and starts `JobDeletionWorkflow` (applications → JD file → row)
 
 **Resumes** (resume-service):
 
@@ -261,6 +262,11 @@ All endpoints are served behind the nginx gateway under `http://localhost/api/v1
 - `GET /api/v1/applications` — List applications with filters
 - `PATCH /api/v1/applications/{id}/status` — Recruiter transitions application status
 - `DELETE /api/v1/applications?job_id={id}|candidate_id={id}` — Bulk delete applications for a job or candidate
+
+**Notifications** (notification-service):
+
+- `POST /api/v1/notifications` — Record a notification (idempotent on `dedupe_key`); normally called by `NotificationDeliveryWorkflow`
+- `GET /api/v1/notifications?recipient_user_id={id}` — List a user's notifications
 
 **Manual API Testing:**
 
@@ -306,7 +312,7 @@ One PostgreSQL container hosts **five independent logical databases**, one per s
 | `job_db`           | job-service            | `jobs`, `job_status_history`                 | id (UUID), recruiter_id, title, description, description_breakdown (JSONB), required_skills (JSONB), status, jd_parsing_status |
 | `resume_db`        | resume-service         | `candidate_resumes`                          | id (UUID), candidate_id, file_name, storage_path, parsing_status, structured_data (JSONB), timestamps                          |
 | `application_db`   | application-service    | `applications`, `application_status_history` | id (UUID), job_id, candidate_id, resume_id, status, eligibility_result (JSONB), metadata (JSONB)                               |
-| `notification_db`  | notification-service   | *(none yet — reserved for future event-driven work)*                   | —                                                                                                                                |
+| `notification_db`  | notification-service   | `notifications`                                                        | Delivery records written by `NotificationDeliveryWorkflow`; unique `dedupe_key` makes retried activities idempotent              |
 
 **Key Design Features:**
 
