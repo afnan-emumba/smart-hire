@@ -12,6 +12,7 @@ from app.core.enums import (
     JobStatus,
 )
 from app.schemas.job_breakdown import Compensation, JobBreakdown, JobLocation
+from contracts.enums import DeletionState
 
 EmploymentType = Literal[
     "full_time", "part_time", "contract", "temporary", "internship", "freelance"
@@ -87,6 +88,7 @@ class JobResponse(BaseModel):
 
     id: uuid.UUID
     recruiter_id: uuid.UUID
+    deletion_state: DeletionState
     title: str
     description: str | None
     employment_type: EmploymentType | None = None

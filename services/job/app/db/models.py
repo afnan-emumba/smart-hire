@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import JobStatus
+from contracts.enums import DeletionState
 from db.base import Base, TimestampMixin
 
 
@@ -87,6 +88,13 @@ class Job(TimestampMixin, Base):
         nullable=False,
         default=JobStatus.DRAFT.value,
         server_default=JobStatus.DRAFT.value,
+    )
+    deletion_state: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+        default=DeletionState.ACTIVE.value,
+        server_default=DeletionState.ACTIVE.value,
     )
 
     status_history: Mapped[list[JobStatusHistory]] = relationship(

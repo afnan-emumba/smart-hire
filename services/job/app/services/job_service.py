@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from api.deletion import DeletionAcceptedResponse
 from app.clients.application_client import ApplicationClient
 from app.clients.recruiter_client import RecruiterClient
 from app.core.config import Settings
@@ -28,16 +29,23 @@ from app.schemas.job import (
 from app.services.job_breakdown_orchestrator import JobBreakdownOrchestrator
 from app.services.job_file_service import JobFileService
 from app.temporal.client import TemporalClient
-from app.temporal.constants import JOB_PUBLISHING_WORKFLOW_ID_PREFIX
+from app.temporal.constants import (
+    JOB_DELETION_WORKFLOW_ID_PREFIX,
+    JOB_PUBLISHING_WORKFLOW_ID_PREFIX,
+)
+from app.temporal.dto import JobDeletionInput
 from app.temporal.workflows import JobPublishingInput, JobPublishingWorkflow
 from auth.actors import require_recruiter_user_id
 from auth.header_auth import CurrentUser
+from contracts.temporal import JOB_DELETION_TASK_QUEUE, JOB_DELETION_WORKFLOW_NAME
+from db.deletion import ensure_not_deleting, is_deleting
 from exceptions.http_exceptions import (
     BadRequestError,
     ForbiddenError,
     InvalidStateTransitionError,
     NotFoundError,
 )
+from temporal.schemas import DeleteCascadeActivityResult
 from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 logger = logging.getLogger(__name__)
@@ -161,6 +169,7 @@ class JobService:
             raise NotFoundError("Job not found")
         if existing_job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to update this job")
+        ensure_not_deleting(existing_job, "Job is being deleted")
 
         updates = job_update.model_dump(exclude_unset=True)
         needs_rebuild = "description" in updates or (
@@ -271,6 +280,7 @@ class JobService:
 
         if job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to modify this job")
+        ensure_not_deleting(job, "Job is being deleted")
 
         if job.status != JobStatus.DRAFT.value:
             raise BadRequestError(
@@ -320,7 +330,9 @@ class JobService:
         history = await self.job_repo.list_status_history(job_id)
         return [JobStatusHistoryEntry.model_validate(entry) for entry in history]
 
-    async def delete_job(self, job_id: uuid.UUID, current_user: CurrentUser) -> None:
+    async def delete_job(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> DeletionAcceptedResponse:
         owner_id = require_recruiter_user_id(current_user)
         existing_job = await self.job_repo.get_by_id(job_id)
         if existing_job is None:
@@ -328,22 +340,50 @@ class JobService:
         if existing_job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to delete this job")
 
+        workflow_id = f"{JOB_DELETION_WORKFLOW_ID_PREFIX}-{job_id}"
+        if not is_deleting(existing_job):
+            await self.job_repo.mark_deleting(job_id)
+            await self.job_repo.session.commit()
+
+        await start_workflow_with_retryable_error_mapping(
+            client_factory=TemporalClient.get_client,
+            workflow=JOB_DELETION_WORKFLOW_NAME,
+            workflow_input=JobDeletionInput(
+                job_id=str(job_id),
+                actor_user_id=current_user.id,
+                actor_role=current_user.role.value,
+            ),
+            workflow_id=workflow_id,
+            task_queue=JOB_DELETION_TASK_QUEUE,
+            execution_timeout=timedelta(hours=1),
+            logger=logger,
+            context={"job_id": str(job_id)},
+            conflict_log_message="Job deletion workflow already running",
+            failure_log_message="Failed to start job deletion workflow",
+            unavailable_message="Unable to start job deletion right now",
+        )
+
+        return DeletionAcceptedResponse(resource_id=job_id, workflow_id=workflow_id)
+
+    async def delete_job_applications(
+        self, job_id: uuid.UUID, current_user: CurrentUser
+    ) -> DeleteCascadeActivityResult:
         await self.application_client.delete_applications_for_job(job_id, current_user)
+        return DeleteCascadeActivityResult(resource_id=job_id, deleted=True)
 
-        was_deleted = await self.job_repo.delete(job_id)
-        if not was_deleted:
-            raise NotFoundError("Job not found")
+    async def delete_job_description_file(
+        self, job_id: uuid.UUID
+    ) -> DeleteCascadeActivityResult:
+        job = await self.job_repo.get_by_id(job_id)
+        if job is None:
+            return DeleteCascadeActivityResult(resource_id=job_id, deleted=False)
 
-        try:
-            await self.file_service.remove_if_exists(existing_job.jd_storage_path)
-        except Exception:
-            logger.exception(
-                "Failed to remove job description file after deleting job",
-                extra={
-                    "job_id": str(job_id),
-                    "storage_path": existing_job.jd_storage_path,
-                },
-            )
+        await self.file_service.remove_if_exists(job.jd_storage_path)
+        return DeleteCascadeActivityResult(resource_id=job_id, deleted=True)
+
+    async def delete_job_record(self, job_id: uuid.UUID) -> DeleteCascadeActivityResult:
+        deleted = await self.job_repo.delete(job_id)
+        return DeleteCascadeActivityResult(resource_id=job_id, deleted=deleted)
 
     async def publish_job(
         self, job_id: uuid.UUID, current_user: CurrentUser
@@ -354,6 +394,7 @@ class JobService:
             raise NotFoundError("Job not found")
         if job.recruiter_id != owner_id:
             raise ForbiddenError("Not authorized to publish this job")
+        ensure_not_deleting(job, "Job is being deleted")
 
         self._ensure_publishable(job)
 

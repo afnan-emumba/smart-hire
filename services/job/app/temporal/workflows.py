@@ -8,13 +8,19 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
 
 from app.temporal.constants import (
+    ACTIVITY_DELETE_JOB_APPLICATIONS,
+    ACTIVITY_DELETE_JOB_DESCRIPTION_FILE,
+    ACTIVITY_DELETE_JOB_RECORD,
     ACTIVITY_FINALIZE_JOB_BREAKDOWN,
     ACTIVITY_MARK_JOB_READY,
     JOB_PUBLISHING_WORKFLOW_NAME,
 )
+from app.temporal.dto import JobDeletionInput
+from contracts.temporal import JOB_DELETION_WORKFLOW_NAME
 from temporal.constants import WORKFLOW_STATUS_SUCCESS
 from temporal.schemas import (
     JobBreakdownActivityResult,
+    JobDeletionWorkflowResult,
     JobPublishingWorkflowResult,
     JobStatusActivityResult,
 )
@@ -63,4 +69,49 @@ class JobPublishingWorkflow:
             status=WORKFLOW_STATUS_SUCCESS,
             job_id=input.job_id,
             job_status=updated_job.status,
+        ).model_dump(mode="json")
+
+
+# Cascade steps retry until they succeed rather than giving up after N attempts;
+# the workflow execution timeout is the real bound.
+CASCADE_RETRY_POLICY = RetryPolicy(
+    initial_interval=timedelta(seconds=1),
+    backoff_coefficient=2.0,
+    maximum_interval=timedelta(minutes=1),
+    maximum_attempts=0,
+)
+
+
+@workflow.defn(name=JOB_DELETION_WORKFLOW_NAME)
+class JobDeletionWorkflow:
+    """Deletes a job's dependents, then the job itself.
+
+    The file is removed before the row so a storage failure leaves a retryable
+    row behind rather than an orphaned blob with nothing pointing at it.
+    """
+
+    @workflow.run
+    async def run(self, input: JobDeletionInput) -> dict[str, str]:
+        await workflow.execute_activity(
+            ACTIVITY_DELETE_JOB_APPLICATIONS,
+            input,
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=CASCADE_RETRY_POLICY,
+        )
+        await workflow.execute_activity(
+            ACTIVITY_DELETE_JOB_DESCRIPTION_FILE,
+            input,
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=CASCADE_RETRY_POLICY,
+        )
+        await workflow.execute_activity(
+            ACTIVITY_DELETE_JOB_RECORD,
+            input,
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=CASCADE_RETRY_POLICY,
+        )
+
+        return JobDeletionWorkflowResult(
+            status=WORKFLOW_STATUS_SUCCESS,
+            job_id=input.job_id,
         ).model_dump(mode="json")

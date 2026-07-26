@@ -24,4 +24,6 @@ class ApplicationClient(BaseServiceClient):
             params={QUERY_PARAM_JOB_ID: str(job_id)},
             headers=self._headers(current_user),
         )
+        if response.status_code == 404:
+            return
         self._raise_for_status(response)

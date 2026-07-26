@@ -13,6 +13,7 @@ from app.core.enums import (
     JobStatus,
 )
 from app.db.models import Job, JobStatusHistory
+from contracts.enums import DeletionState
 
 
 class JobRepository:
@@ -60,7 +61,10 @@ class JobRepository:
         limit: int,
         offset: int,
     ) -> list[Job]:
-        stmt = select(Job).where(Job.recruiter_id == recruiter_id)
+        stmt = select(Job).where(
+            Job.recruiter_id == recruiter_id,
+            Job.deletion_state == DeletionState.ACTIVE.value,
+        )
         if status_filter is not None:
             stmt = stmt.where(Job.status == status_filter.value)
         result = await self.session.execute(
@@ -75,7 +79,7 @@ class JobRepository:
         limit: int,
         offset: int,
     ) -> list[Job]:
-        stmt = select(Job)
+        stmt = select(Job).where(Job.deletion_state == DeletionState.ACTIVE.value)
         if status_filter is not None:
             stmt = stmt.where(Job.status == status_filter.value)
         result = await self.session.execute(
@@ -200,6 +204,15 @@ class JobRepository:
         await self.session.flush()
         await self.session.refresh(job)
         return job
+
+    async def mark_deleting(self, job_id: uuid.UUID) -> bool:
+        job = await self.get_by_id(job_id)
+        if job is None:
+            return False
+
+        job.deletion_state = DeletionState.DELETING.value
+        await self.session.flush()
+        return True
 
     async def delete(self, job_id: uuid.UUID) -> bool:
         job = await self.get_by_id(job_id)

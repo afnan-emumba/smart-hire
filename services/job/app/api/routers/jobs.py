@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
+from api.deletion import DeletionAcceptedResponse
 from api.pagination import PaginationParams
 from api.uploads import read_limited_upload
 from app.api.dependencies import get_job_service
@@ -117,11 +118,14 @@ async def get_job_status_history(
     return await service.get_job_status_history(job_id, current_user)
 
 
-@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{job_id}",
+    response_model=DeletionAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def delete_job(
     job_id: uuid.UUID,
     current_user: CurrentUser = Depends(require_role("RECRUITER")),
     service: JobService = Depends(get_job_service),
-) -> Response:
-    await service.delete_job(job_id, current_user)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+) -> DeletionAcceptedResponse:
+    return await service.delete_job(job_id, current_user)
