@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, status
 
+from api.deletion import DeletionAcceptedResponse
 from api.pagination import PaginationParams
 from app.api.dependencies import get_recruiter_service
 from app.schemas.recruiter import RecruiterCreate, RecruiterResponse
@@ -41,3 +42,16 @@ async def list_recruiters(
     return await service.list_recruiters(
         limit=pagination.limit, offset=pagination.offset
     )
+
+
+@router.delete(
+    "/{recruiter_id}",
+    response_model=DeletionAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def delete_recruiter(
+    recruiter_id: uuid.UUID,
+    current_user: CurrentUser = Depends(require_role(UserRole.RECRUITER)),
+    service: RecruiterService = Depends(get_recruiter_service),
+) -> DeletionAcceptedResponse:
+    return await service.delete_recruiter(recruiter_id, current_user)

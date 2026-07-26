@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Candidate
 from app.schemas.candidate import CandidateCreate
+from contracts.enums import DeletionState
 
 
 class CandidateRepository:
@@ -40,11 +41,21 @@ class CandidateRepository:
     async def list_all(self, *, limit: int, offset: int) -> list[Candidate]:
         result = await self.session.execute(
             select(Candidate)
+            .where(Candidate.deletion_state == DeletionState.ACTIVE.value)
             .order_by(Candidate.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    async def mark_deleting(self, candidate_id: uuid.UUID) -> bool:
+        candidate = await self.get_by_id(candidate_id)
+        if candidate is None:
+            return False
+
+        candidate.deletion_state = DeletionState.DELETING.value
+        await self.session.flush()
+        return True
 
     async def update(
         self, candidate_id: uuid.UUID, updates: Mapping[str, Any]

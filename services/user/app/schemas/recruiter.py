@@ -6,6 +6,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
 
+from contracts.enums import DeletionState
+
 RecruiterName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
@@ -24,5 +26,6 @@ class RecruiterResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
+    deletion_state: DeletionState
     created_at: datetime
     updated_at: datetime

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
 
+from api.deletion import DeletionAcceptedResponse
 from app.clients.resume_client import ResumeClient
+from app.core.config import Settings
 from app.repositories.candidate_repo import CandidateRepository
 from app.schemas.candidate import (
     CandidateCreate,
@@ -13,13 +16,18 @@ from app.schemas.candidate import (
     CandidateUpdate,
     MasterProfileData,
 )
-from app.services.user_lifecycle import UserLifecycleCoordinator
+from app.temporal.client import TemporalClient
+from app.temporal.constants import CANDIDATE_DELETION_WORKFLOW_ID_PREFIX
+from app.temporal.dto import CandidateDeletionInput
+from app.temporal.workflows import CandidateDeletionWorkflow
 from auth.actors import require_candidate_user_id
 from auth.header_auth import CurrentUser
 from contracts.enums import UserRole
 from contracts.service_responses import ResumeStructuredDataContract
 from db.base import is_unique_violation
+from db.deletion import ensure_not_deleting, is_deleting
 from exceptions.http_exceptions import ConflictError, ForbiddenError, NotFoundError
+from temporal.workflow_launcher import start_workflow_with_retryable_error_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +42,12 @@ class CandidateService:
     def __init__(
         self,
         candidate_repo: CandidateRepository,
-        lifecycle: UserLifecycleCoordinator,
         resume_client: ResumeClient,
+        settings: Settings,
     ) -> None:
         self.candidate_repo = candidate_repo
-        self.lifecycle = lifecycle
         self.resume_client = resume_client
+        self.settings = settings
 
     async def create_candidate(
         self, candidate_create: CandidateCreate, current_user: CurrentUser
@@ -104,6 +112,7 @@ class CandidateService:
         candidate = await self.candidate_repo.get_by_id(candidate_id)
         if candidate is None:
             raise NotFoundError("Candidate not found")
+        ensure_not_deleting(candidate, "Candidate is being deleted")
 
         if candidate_update.email is not None:
             existing_candidate = await self.candidate_repo.get_by_email(
@@ -240,7 +249,7 @@ class CandidateService:
 
     async def delete_candidate(
         self, candidate_id: uuid.UUID, current_user: CurrentUser
-    ) -> None:
+    ) -> DeletionAcceptedResponse:
         owner_id = require_candidate_user_id(current_user)
         if owner_id != candidate_id:
             raise ForbiddenError("Not authorized to delete this candidate")
@@ -249,8 +258,29 @@ class CandidateService:
         if candidate is None:
             raise NotFoundError("Candidate not found")
 
-        await self.lifecycle.on_candidate_deleted(candidate_id, current_user)
+        workflow_id = f"{CANDIDATE_DELETION_WORKFLOW_ID_PREFIX}-{candidate_id}"
+        if not is_deleting(candidate):
+            await self.candidate_repo.mark_deleting(candidate_id)
+            await self.candidate_repo.session.commit()
 
-        was_deleted = await self.candidate_repo.delete(candidate_id)
-        if not was_deleted:
-            raise NotFoundError("Candidate not found")
+        await start_workflow_with_retryable_error_mapping(
+            client_factory=TemporalClient.get_client,
+            workflow=CandidateDeletionWorkflow.run,
+            workflow_input=CandidateDeletionInput(
+                candidate_id=str(candidate_id),
+                actor_user_id=current_user.id,
+                actor_role=current_user.role.value,
+            ),
+            workflow_id=workflow_id,
+            task_queue=self.settings.temporal_user_deletion_task_queue,
+            execution_timeout=timedelta(hours=1),
+            logger=logger,
+            context={"candidate_id": str(candidate_id)},
+            conflict_log_message="Candidate deletion workflow already running",
+            failure_log_message="Failed to start candidate deletion workflow",
+            unavailable_message="Unable to start candidate deletion right now",
+        )
+
+        return DeletionAcceptedResponse(
+            resource_id=candidate_id, workflow_id=workflow_id
+        )

@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from contracts.enums import DeletionState
 from contracts.profile import ProfileLinks
 
 ProfileText = Annotated[
@@ -160,6 +161,7 @@ class CandidateResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
+    deletion_state: DeletionState
     master_profile_data: MasterProfileData
     created_at: datetime
     updated_at: datetime

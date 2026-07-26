@@ -35,6 +35,8 @@ class ResumeClient(BaseServiceClient):
             params={QUERY_PARAM_CANDIDATE_ID: str(candidate_id)},
             headers=self._headers(current_user),
         )
+        if response.status_code == 404:
+            return
         self._raise_for_status(response)
 
     async def get_latest_parsed_resume(

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.schemas.candidate import MasterProfileData
+from contracts.enums import DeletionState
 from db.base import Base, TimestampMixin
 
 DEFAULT_MASTER_PROFILE_DATA = MasterProfileData().model_dump(mode="json")
@@ -28,6 +29,13 @@ class Recruiter(TimestampMixin, Base):
         String(320), unique=True, nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    deletion_state: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+        default=DeletionState.ACTIVE.value,
+        server_default=DeletionState.ACTIVE.value,
+    )
 
 
 class Candidate(TimestampMixin, Base):
@@ -40,6 +48,13 @@ class Candidate(TimestampMixin, Base):
         String(320), unique=True, nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    deletion_state: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+        default=DeletionState.ACTIVE.value,
+        server_default=DeletionState.ACTIVE.value,
+    )
     master_profile_data: Mapped[dict[str, object]] = mapped_column(
         JSONB,
         nullable=False,
