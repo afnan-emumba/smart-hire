@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smarthire-contracts"
+version = "0.6.0"
+description = "Cross-service wire-format contracts (enums, response shapes) shared by SmartHire services"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["build*", "dist*", "*.egg-info*"]

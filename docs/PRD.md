@@ -30,7 +30,7 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 - Register and maintain candidate profiles.
 - Browse and retrieve ready jobs.
 - Submit applications to eligible jobs.
-- Upload a job-specific resume for a submitted application.
+- Upload a resume independently of any specific application; it is evaluated against future applications by reference (`resume_id`).
 - Track application status through the hiring lifecycle.
 
 ### Platform Use Cases
@@ -64,7 +64,7 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 - FR-11: The system shall prevent duplicate applications for the same candidate and job.
 - FR-12: The system shall reject applications to ineligible or unavailable jobs.
 - FR-13: The system shall support application retrieval and listing with filters and pagination.
-- FR-14: The system shall allow a candidate to upload a resume file scoped to a specific application.
+- FR-14: The system shall allow a candidate to upload a resume file independently of any application; applications reference the resume evaluated for eligibility by ID.
 - FR-15: The system shall store application metadata required for downstream scoring and review.
 
 ### Workflow and Event Processing
@@ -137,13 +137,13 @@ TalentSphere's existing hiring operations are slowed by manual job publishing, i
 
 ## Deliverables
 
-- FastAPI backend with async layered architecture.
-- PostgreSQL schema and Alembic migrations.
-- Recruiter, candidate, job, and application APIs.
-- Application-scoped resume upload support.
+- Six FastAPI services (recruiter, candidate, job, resume, application, notification) behind a single nginx gateway, each with async layered architecture.
+- Per-service PostgreSQL schemas and Alembic migrations (one logical database per service).
+- Recruiter, candidate, job, resume, and application APIs.
+- Independent resume upload support, decoupled from any specific application.
 - Workflow and event integration points for publishing and applications.
 - Foundational observability and local deployment setup.
-- Supporting technical documentation in `docs/` and API validation assets in `backend/postman/`.
+- Supporting technical documentation in `docs/` and API validation assets in `postman/`.
 
 ## Traceability Matrix
 

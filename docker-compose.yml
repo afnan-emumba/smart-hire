@@ -10,6 +10,7 @@ services:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -20,28 +21,21 @@ services:
   temporal:
     image: temporalio/auto-setup:1.25
     container_name: smarthire-temporal
-
     depends_on:
       postgres:
         condition: service_healthy
-
     environment:
       DB: postgres12
       DB_PORT: 5432
-
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PWD: ${POSTGRES_PASSWORD}
       POSTGRES_SEEDS: postgres
-
       DBNAME: temporal
       VISIBILITY_DBNAME: temporal_visibility
-
     ports:
       - "7233:7233"
       - "8233:8233"
-
     restart: unless-stopped
-
     healthcheck:
       test:
         [
@@ -67,65 +61,305 @@ services:
     environment:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
-      - "8080:8080"
+      - "${TEMPORAL_UI_PORT}:8080"
 
-  temporal-worker:
+  nginx:
     build:
-      context: ./backend
-      dockerfile: infra/docker/Dockerfile.worker
-    container_name: smarthire-temporal-worker
+      context: ./infra/nginx
+      dockerfile: Dockerfile
+    container_name: smarthire-nginx
     depends_on:
+      user-service:
+        condition: service_healthy
+      job-service:
+        condition: service_healthy
+      resume-service:
+        condition: service_healthy
+      application-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT}:80"
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    container_name: smarthire-user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
       temporal:
         condition: service_healthy
-      backend:
-        condition: service_started
     environment:
-      TEMPORAL_ADDRESS: temporal:7233
-      DATABASE_URL: ${DATABASE_URL}
       APP_ENV: ${APP_ENV}
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: ${USER_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      RESUME_SERVICE_URL: http://resume-service:8004
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      JOB_SERVICE_URL: http://job-service:8003
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
-      - ./backend:/app
-    restart: unless-stopped
+      - ./services/user/migrations/versions:/app/migrations/versions
+    ports:
+      - "8001:8001"
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import socket; socket.create_connection(('temporal', 7233), timeout=5)",
+          "import urllib.request as u; u.urlopen('http://localhost:8001/health', timeout=3)",
         ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-  backend:
+  user-service-worker:
     build:
-      context: ./backend
-      dockerfile: infra/docker/Dockerfile.dev
-    container_name: smarthire-backend
+      context: .
+      dockerfile: services/user/Dockerfile
+    container_name: smarthire-user-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${USER_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      RESUME_SERVICE_URL: http://resume-service:8004
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      JOB_SERVICE_URL: http://job-service:8003
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    restart: unless-stopped
+
+  job-service:
+    build:
+      context: .
+      dockerfile: services/job/Dockerfile
+    container_name: smarthire-job-service
     depends_on:
       postgres:
         condition: service_healthy
+      temporal:
+        condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV}
-      APP_HOST: 0.0.0.0
-      APP_PORT: ${BACKEND_PORT}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${JOB_DATABASE_URL}
       TEMPORAL_ADDRESS: temporal:7233
-      RESUME_UPLOAD_DIR: ${RESUME_UPLOAD_DIR}
-      MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
-      JD_UPLOAD_DIR: ${JD_UPLOAD_DIR}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      JD_UPLOAD_DIR: /data/job_descriptions
       MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
-    ports:
-      - "${BACKEND_PORT}:8000"
+      RECRUITER_SERVICE_URL: http://user-service:8001
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
     volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - job_uploads:/data/job_descriptions
+      - ./services/job/migrations/versions:/app/migrations/versions
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8003/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  job-service-worker:
+    build:
+      context: .
+      dockerfile: services/job/Dockerfile
+    container_name: smarthire-job-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      job-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${JOB_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      JD_UPLOAD_DIR: /data/job_descriptions
+      MAX_JD_SIZE_BYTES: ${MAX_JD_SIZE_BYTES}
+      RECRUITER_SERVICE_URL: http://user-service:8001
+      APPLICATION_SERVICE_URL: http://application-service:8005
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - job_uploads:/data/job_descriptions
+    restart: unless-stopped
+
+  resume-service:
+    build:
+      context: .
+      dockerfile: services/resume/Dockerfile
+    container_name: smarthire-resume-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${RESUME_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      RESUME_UPLOAD_DIR: /data/resumes
+      MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
+      CANDIDATE_SERVICE_URL: http://user-service:8001
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - resume_uploads:/data/resumes
+      - ./services/resume/migrations/versions:/app/migrations/versions
+    ports:
+      - "8004:8004"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8004/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  resume-service-worker:
+    build:
+      context: .
+      dockerfile: services/resume/Dockerfile
+    container_name: smarthire-resume-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      resume-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${RESUME_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      RESUME_UPLOAD_DIR: /data/resumes
+      MAX_RESUME_SIZE_BYTES: ${MAX_RESUME_SIZE_BYTES}
+      CANDIDATE_SERVICE_URL: http://user-service:8001
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - resume_uploads:/data/resumes
+    restart: unless-stopped
+
+  application-service:
+    build:
+      context: .
+      dockerfile: services/application/Dockerfile
+    container_name: smarthire-application-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      job-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      resume-service:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${APPLICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      JOB_SERVICE_URL: http://job-service:8003
+      CANDIDATE_SERVICE_URL: http://user-service:8001
+      RESUME_SERVICE_URL: http://resume-service:8004
+      MAX_APPLICATIONS_PER_CANDIDATE: ${MAX_APPLICATIONS_PER_CANDIDATE}
+      HTTP_CLIENT_TIMEOUT_SECONDS: ${HTTP_CLIENT_TIMEOUT_SECONDS}
+    volumes:
+      - ./services/application/migrations/versions:/app/migrations/versions
+    ports:
+      - "8005:8005"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8005/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    container_name: smarthire-notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      NOTIFICATION_FAILURE_RATE: ${NOTIFICATION_FAILURE_RATE:-0.0}
+    volumes:
+      - ./services/notification/migrations/versions:/app/migrations/versions
+    ports:
+      - "8006:8006"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8006/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service-worker:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    container_name: smarthire-notification-service-worker
+    command: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      notification-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      NOTIFICATION_FAILURE_RATE: ${NOTIFICATION_FAILURE_RATE:-0.0}
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  job_uploads:
+  resume_uploads:
